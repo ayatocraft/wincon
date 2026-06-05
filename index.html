@@ -2156,69 +2156,83 @@ return;
 
 function exportFullHTML() {
   try {
-    // 状態取得（安全）
+
+    // ① 完全状態スナップショット
     const state = {
       version: "Wincon Enterprise 2.0",
       timestamp: Date.now(),
+
       menuItems: typeof menuItems !== "undefined" ? menuItems : [],
-      enterprise: window.__WINCON_ENTERPRISE_APPS__ || [],
-      firstBoot: false
+
+      enterprise: Array.isArray(window.__WINCON_ENTERPRISE_APPS__)
+        ? window.__WINCON_ENTERPRISE_APPS__
+        : [],
+
+      ui: {
+        theme: "dark"
+      },
+
+      system: {
+        tutorialDone: localStorage.getItem("tutorialDone") || false
+      }
     };
 
     const datFile = JSON.stringify(state, null, 2);
 
-    // boot.html
+    // ② boot.html（安定版）
     const bootHTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <title>Wincon Boot</title>
 <style>
-body {
-  margin:0;
-  background:#0d0d0d;
-  color:#fff;
-  font-family:sans-serif;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  height:100vh;
+body{
+margin:0;
+background:#0d0d0d;
+color:#fff;
+font-family:sans-serif;
+display:flex;
+align-items:center;
+justify-content:center;
+height:100vh;
+flex-direction:column;
 }
-.box { text-align:center; width:320px; }
-.bar {
-  width:100%;
-  height:6px;
-  background:#333;
-  margin-top:20px;
-  overflow:hidden;
-  border-radius:3px;
+.bar{
+width:260px;
+height:6px;
+background:#333;
+border-radius:3px;
+overflow:hidden;
+margin-top:20px;
 }
-.progress {
-  width:0%;
-  height:100%;
-  background:#4caf50;
-  animation: load 2s forwards;
+.progress{
+width:0%;
+height:100%;
+background:#4caf50;
+animation:load 2s forwards;
 }
-@keyframes load { to { width:100%; } }
+@keyframes load{
+to{width:100%;}
+}
 </style>
 </head>
 <body>
-<div class="box">
-  <h2>Wincon Starting</h2>
-  <p>Checking system...</p>
 
-  <div class="bar"><div class="progress"></div></div>
+<h2>Wincon Starting</h2>
+<p>Loading system...</p>
 
-  <script>
-    setTimeout(() => {
-      location.href = "wincon.html";
-    }, 2000);
-  <\/script>
-</div>
+<div class="bar"><div class="progress"></div></div>
+
+<script>
+setTimeout(() => {
+  location.href = "wincon.html";
+}, 2000);
+<\/script>
+
 </body>
 </html>`;
 
-    // wincon.html
+    // ③ wincon.html（復元対応版）
     const winconHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -2226,24 +2240,44 @@ body {
 <title>Wincon Enterprise</title>
 </head>
 <body>
-<script>
-let state = localStorage.getItem("wincon_state");
 
-if (!state) {
+<script>
+let state = null;
+
+try {
+  state = JSON.parse(localStorage.getItem("wincon_state"));
+} catch(e) {
+  console.warn("state error");
+}
+
+if(!state){
   state = {
-    version: "Wincon fallback",
-    firstBoot: true
+    version: "fresh install",
+    menuItems: [],
+    enterprise: []
   };
+
   localStorage.setItem("wincon_state", JSON.stringify(state));
 }
-console.log("Wincon loaded");
+
+// 復元
+if(state.menuItems){
+  localStorage.setItem("winconMenuItems", JSON.stringify(state.menuItems));
+}
+
+if(state.enterprise){
+  localStorage.setItem("winconEnterpriseApps", JSON.stringify(state.enterprise));
+}
+
+console.log("Wincon restored:", state);
 <\/script>
 
-<h1>このページの内容をhttps://ayatocraft.github.io/wincon のindex.htmlに変更してください。</h1>
+<h1>Wincon Running</h1>
+
 </body>
 </html>`;
 
-    // ダウンロード処理（ブラウザ対応）
+    // ④ ダウンロード関数
     const download = (filename, text) => {
       const blob = new Blob([text], { type: "text/plain" });
       const a = document.createElement("a");
@@ -2252,24 +2286,24 @@ console.log("Wincon loaded");
       a.click();
     };
 
+    // ⑤ 出力
     download("boot.html", bootHTML);
     download("wincon.html", winconHTML);
     download("wincon.dat", datFile);
 
-    alert("エクスポート完了");
+    alert("Export完了（安定版）");
 
     return {
-      "boot.html": bootHTML,
-      "wincon.html": winconHTML,
-      "wincon.dat": datFile
+      boot: bootHTML,
+      wincon: winconHTML,
+      data: state
     };
 
   } catch (e) {
-    console.error("exportFullHTML error:", e);
-    alert("エクスポート失敗: " + e.message);
+    console.error(e);
+    alert("Export失敗: " + e.message);
   }
 }
-
 
 function restoreState(){
   // 復元なし
