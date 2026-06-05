@@ -2157,7 +2157,7 @@ return;
 function exportFullHTML() {
   try {
 
-    // ===== 現在の完全状態 =====
+    // ===== 完全状態を1つに統一 =====
     const state = {
       version: "Wincon Enterprise 2.0",
       timestamp: Date.now(),
@@ -2168,7 +2168,7 @@ function exportFullHTML() {
 
     const datFile = JSON.stringify(state, null, 2);
 
-    // ★重要：boot復元用にlocalStorageへ保存
+    // ★即保存（boot不要化でも復元できるように）
     localStorage.setItem("wincon_state", datFile);
     localStorage.setItem("winconMenuItems", JSON.stringify(menuItems));
     localStorage.setItem(
@@ -2176,7 +2176,7 @@ function exportFullHTML() {
       JSON.stringify(window.__WINCON_ENTERPRISE_APPS__ || [])
     );
 
-    // ===== boot.html（起動ローダー） =====
+    // ===== boot.html（ただのローダー） =====
     const bootHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -2193,14 +2193,14 @@ align-items:center;
 justify-content:center;
 height:100vh;
 }
-.box{text-align:center;width:320px;}
+.box{text-align:center}
 .bar{
-width:100%;
+width:280px;
 height:6px;
 background:#333;
-margin-top:20px;
 border-radius:3px;
 overflow:hidden;
+margin-top:16px;
 }
 .progress{
 width:0%;
@@ -2215,13 +2215,13 @@ animation:load 2s forwards;
 
 <div class="box">
 <h2>Wincon Boot</h2>
-<p>Loading system...</p>
+<p>Loading...</p>
 
 <div class="bar"><div class="progress"></div></div>
 
 <script>
 setTimeout(()=>{
-location.href="wincon.html";
+location.href="index.html";
 },2000);
 <\/script>
 
@@ -2230,8 +2230,38 @@ location.href="wincon.html";
 </body>
 </html>`;
 
-    // ===== wincon.html（本体ランチャー） =====
-    const winconHTML = `<!DOCTYPE html>
+    // ===== index用の復元スクリプト（重要） =====
+    const restoreScript = `
+<script>
+(function(){
+
+const raw = localStorage.getItem("wincon_state");
+
+if(!raw) return;
+
+try{
+  const state = JSON.parse(raw);
+
+  if(state.menuItems){
+    localStorage.setItem("winconMenuItems", JSON.stringify(state.menuItems));
+  }
+
+  if(state.enterpriseApps){
+    localStorage.setItem("winconEnterpriseApps", JSON.stringify(state.enterpriseApps));
+  }
+
+  console.log("Wincon state restored");
+
+}catch(e){
+  console.log("restore failed", e);
+}
+
+})();
+</script>
+`;
+
+    // ===== index.htmlテンプレ =====
+    const indexHTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -2239,36 +2269,9 @@ location.href="wincon.html";
 </head>
 <body>
 
-<script>
-(function(){
+<h1>Wincon Ready</h1>
 
-const state = localStorage.getItem("wincon_state");
-
-if(state){
-  try{
-    const data = JSON.parse(state);
-
-    if(data.menuItems){
-      localStorage.setItem("winconMenuItems", JSON.stringify(data.menuItems));
-    }
-
-    if(data.enterpriseApps){
-      localStorage.setItem("winconEnterpriseApps", JSON.stringify(data.enterpriseApps));
-    }
-
-  }catch(e){
-    console.log("state parse failed");
-  }
-}
-
-console.log("Wincon loaded");
-
-})();
-<\/script>
-
-<h1>Wincon is ready</h1>
-
-<p>Go to your main index.html (GitHub Pages root)</p>
+${restoreScript}
 
 </body>
 </html>`;
@@ -2283,14 +2286,14 @@ console.log("Wincon loaded");
     };
 
     download("boot.html", bootHTML);
-    download("wincon.html", winconHTML);
+    download("index.html", indexHTML);
     download("wincon.dat", datFile);
 
-    alert("export完了（boot復元対応版）");
+    alert("export完了（boot→index安定版）");
 
     return {
       boot: bootHTML,
-      wincon: winconHTML,
+      index: indexHTML,
       dat: datFile
     };
 
