@@ -2157,29 +2157,26 @@ return;
 function exportFullHTML() {
   try {
 
-    // ① 完全状態スナップショット
+    // ===== 現在の完全状態 =====
     const state = {
       version: "Wincon Enterprise 2.0",
       timestamp: Date.now(),
 
-      menuItems: typeof menuItems !== "undefined" ? menuItems : [],
-
-      enterprise: Array.isArray(window.__WINCON_ENTERPRISE_APPS__)
-        ? window.__WINCON_ENTERPRISE_APPS__
-        : [],
-
-      ui: {
-        theme: "dark"
-      },
-
-      system: {
-        tutorialDone: localStorage.getItem("tutorialDone") || false
-      }
+      menuItems: menuItems || [],
+      enterpriseApps: window.__WINCON_ENTERPRISE_APPS__ || []
     };
 
     const datFile = JSON.stringify(state, null, 2);
 
-    // ② boot.html（安定版）
+    // ★重要：boot復元用にlocalStorageへ保存
+    localStorage.setItem("wincon_state", datFile);
+    localStorage.setItem("winconMenuItems", JSON.stringify(menuItems));
+    localStorage.setItem(
+      "winconEnterpriseApps",
+      JSON.stringify(window.__WINCON_ENTERPRISE_APPS__ || [])
+    );
+
+    // ===== boot.html（起動ローダー） =====
     const bootHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -2189,21 +2186,21 @@ function exportFullHTML() {
 body{
 margin:0;
 background:#0d0d0d;
-color:#fff;
+color:white;
 font-family:sans-serif;
 display:flex;
 align-items:center;
 justify-content:center;
 height:100vh;
-flex-direction:column;
 }
+.box{text-align:center;width:320px;}
 .bar{
-width:260px;
+width:100%;
 height:6px;
 background:#333;
+margin-top:20px;
 border-radius:3px;
 overflow:hidden;
-margin-top:20px;
 }
 .progress{
 width:0%;
@@ -2211,28 +2208,29 @@ height:100%;
 background:#4caf50;
 animation:load 2s forwards;
 }
-@keyframes load{
-to{width:100%;}
-}
+@keyframes load{to{width:100%;}}
 </style>
 </head>
 <body>
 
-<h2>Wincon Starting</h2>
+<div class="box">
+<h2>Wincon Boot</h2>
 <p>Loading system...</p>
 
 <div class="bar"><div class="progress"></div></div>
 
 <script>
-setTimeout(() => {
-  location.href = "wincon.html";
-}, 2000);
+setTimeout(()=>{
+location.href="wincon.html";
+},2000);
 <\/script>
+
+</div>
 
 </body>
 </html>`;
 
-    // ③ wincon.html（復元対応版）
+    // ===== wincon.html（本体ランチャー） =====
     const winconHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -2242,66 +2240,63 @@ setTimeout(() => {
 <body>
 
 <script>
-let state = null;
+(function(){
 
-try {
-  state = JSON.parse(localStorage.getItem("wincon_state"));
-} catch(e) {
-  console.warn("state error");
+const state = localStorage.getItem("wincon_state");
+
+if(state){
+  try{
+    const data = JSON.parse(state);
+
+    if(data.menuItems){
+      localStorage.setItem("winconMenuItems", JSON.stringify(data.menuItems));
+    }
+
+    if(data.enterpriseApps){
+      localStorage.setItem("winconEnterpriseApps", JSON.stringify(data.enterpriseApps));
+    }
+
+  }catch(e){
+    console.log("state parse failed");
+  }
 }
 
-if(!state){
-  state = {
-    version: "fresh install",
-    menuItems: [],
-    enterprise: []
-  };
+console.log("Wincon loaded");
 
-  localStorage.setItem("wincon_state", JSON.stringify(state));
-}
-
-// 復元
-if(state.menuItems){
-  localStorage.setItem("winconMenuItems", JSON.stringify(state.menuItems));
-}
-
-if(state.enterprise){
-  localStorage.setItem("winconEnterpriseApps", JSON.stringify(state.enterprise));
-}
-
-console.log("Wincon restored:", state);
+})();
 <\/script>
 
-<h1>Wincon Running</h1>
+<h1>Wincon is ready</h1>
+
+<p>Go to your main index.html (GitHub Pages root)</p>
 
 </body>
 </html>`;
 
-    // ④ ダウンロード関数
-    const download = (filename, text) => {
+    // ===== ダウンロード =====
+    const download = (name, text) => {
       const blob = new Blob([text], { type: "text/plain" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = filename;
+      a.download = name;
       a.click();
     };
 
-    // ⑤ 出力
     download("boot.html", bootHTML);
     download("wincon.html", winconHTML);
     download("wincon.dat", datFile);
 
-    alert("Export完了（安定版）");
+    alert("export完了（boot復元対応版）");
 
     return {
       boot: bootHTML,
       wincon: winconHTML,
-      data: state
+      dat: datFile
     };
 
   } catch (e) {
     console.error(e);
-    alert("Export失敗: " + e.message);
+    alert("export失敗: " + e.message);
   }
 }
 
