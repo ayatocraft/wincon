@@ -2154,155 +2154,223 @@ return;
 
 }
 
-function exportFullHTML() {
-  try {
+function exportFullHTML(){
 
-    // ===== 完全状態を1つに統一 =====
-    const state = {
-      version: "Wincon Enterprise 2.0",
-      timestamp: Date.now(),
+try{
 
-      menuItems: menuItems || [],
-      enterpriseApps: window.__WINCON_ENTERPRISE_APPS__ || []
-    };
+// =====================
+// ① state収集
+// =====================
+const state = {
+version: "Wincon Enterprise 2.0",
+timestamp: Date.now(),
+menuItems: menuItems || [],
+enterpriseApps: window.__WINCON_ENTERPRISE_APPS__ || []
+};
 
-    const datFile = JSON.stringify(state, null, 2);
+// dat生成
+const datFile = JSON.stringify(state, null, 2);
 
-    // ★即保存（boot不要化でも復元できるように）
-    localStorage.setItem("wincon_state", datFile);
-    localStorage.setItem("winconMenuItems", JSON.stringify(menuItems));
-    localStorage.setItem(
-      "winconEnterpriseApps",
-      JSON.stringify(window.__WINCON_ENTERPRISE_APPS__ || [])
-    );
-
-    // ===== boot.html（ただのローダー） =====
-    const bootHTML = `<!DOCTYPE html>
+// =====================
+// ② boot.html（超軽量）
+// =====================
+const bootHTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wincon Boot</title>
+<title>Boot</title>
 <style>
 body{
 margin:0;
-background:#0d0d0d;
+background:#111;
 color:white;
-font-family:sans-serif;
 display:flex;
-align-items:center;
 justify-content:center;
+align-items:center;
 height:100vh;
+flex-direction:column;
+font-family:Segoe UI;
 }
-.box{text-align:center}
 .bar{
-width:280px;
+width:260px;
 height:6px;
 background:#333;
 border-radius:3px;
 overflow:hidden;
-margin-top:16px;
+margin-top:10px;
 }
-.progress{
+.bar div{
 width:0%;
 height:100%;
 background:#4caf50;
-animation:load 2s forwards;
+animation:load 1.5s forwards;
 }
 @keyframes load{to{width:100%;}}
 </style>
 </head>
 <body>
 
-<div class="box">
 <h2>Wincon Boot</h2>
 <p>Loading...</p>
 
-<div class="bar"><div class="progress"></div></div>
+<div class="bar"><div></div></div>
 
 <script>
 setTimeout(()=>{
 location.href="index.html";
-},2000);
-<\/script>
-
-</div>
+},1500);
+</script>
 
 </body>
 </html>`;
 
-    // ===== index用の復元スクリプト（重要） =====
-    const restoreScript = `
-<script>
-(function(){
-
-const raw = localStorage.getItem("wincon_state");
-
-if(!raw) return;
-
-try{
-  const state = JSON.parse(raw);
-
-  if(state.menuItems){
-    localStorage.setItem("winconMenuItems", JSON.stringify(state.menuItems));
-  }
-
-  if(state.enterpriseApps){
-    localStorage.setItem("winconEnterpriseApps", JSON.stringify(state.enterpriseApps));
-  }
-
-  console.log("Wincon state restored");
-
-}catch(e){
-  console.log("restore failed", e);
-}
-
-})();
-</\script>
-`;
-
-    // ===== index.htmlテンプレ =====
-    const indexHTML = `<!DOCTYPE html>
-<html>
+// =====================
+// ③ index.html（復元対応）
+// =====================
+const indexHTML = `<!DOCTYPE html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
 <title>Wincon Enterprise</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<style>
+/* ここにあなたのCSSをそのまま入れる */
+</style>
 </head>
 <body>
 
-<h1>Wincon Ready</h1>
+<div id="desktop"></div>
+<div id="menu"></div>
+<div id="taskbar">
+<button id="menuBtn">Menu</button>
+<div id="taskIcons"></div>
+</div>
 
-${restoreScript}
+<script>
+
+// =====================
+// ★ dat復元
+// =====================
+(function(){
+try{
+
+const raw = localStorage.getItem("wincon_state");
+if(raw){
+
+const state = JSON.parse(raw);
+
+if(state.menuItems){
+localStorage.setItem(
+"winconMenuItems",
+JSON.stringify(state.menuItems)
+);
+}
+
+if(state.enterpriseApps){
+localStorage.setItem(
+"winconEnterpriseApps",
+JSON.stringify(state.enterpriseApps)
+);
+}
+
+console.log("Wincon state loaded");
+
+}
+
+}catch(e){
+console.log("restore error", e);
+}
+
+})();
+
+// =====================
+// Enterprise load
+// =====================
+const ENTERPRISE_STORAGE_KEY="winconEnterpriseApps";
+
+function loadEnterpriseApps(){
+try{
+window.__WINCON_ENTERPRISE_APPS__ =
+JSON.parse(localStorage.getItem(ENTERPRISE_STORAGE_KEY) || "[]");
+}catch(e){
+window.__WINCON_ENTERPRISE_APPS__ = [];
+}
+}
+
+function saveEnterpriseApps(){
+localStorage.setItem(
+ENTERPRISE_STORAGE_KEY,
+JSON.stringify(window.__WINCON_ENTERPRISE_APPS__)
+);
+}
+
+const desktop=document.getElementById("desktop");
+const menu=document.getElementById("menu");
+const taskIcons=document.getElementById("taskIcons");
+
+let menuItems =
+JSON.parse(localStorage.getItem("winconMenuItems") || "null") || [];
+
+function mergeEnterpriseApps(){
+
+menuItems = menuItems.filter(m => !m.enterprise);
+
+(window.__WINCON_ENTERPRISE_APPS__ || []).forEach(app=>{
+menuItems.unshift({...app, enterprise:true});
+});
+
+}
+
+function boot(){
+mergeEnterpriseApps();
+renderMenu();
+}
+
+function renderMenu(){
+menu.innerHTML="";
+
+menuItems.forEach(item=>{
+const btn=document.createElement("button");
+btn.innerHTML=item.icon+" "+item.title;
+btn.onclick=()=>alert(item.title);
+menu.appendChild(btn);
+});
+}
+
+setTimeout(()=>{
+boot();
+},500);
+
+<\/script>
 
 </body>
 </html>`;
 
-    // ===== ダウンロード =====
-    const download = (name, text) => {
-      const blob = new Blob([text], { type: "text/plain" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = name;
-      a.click();
-    };
+// =====================
+// ④ ダウンロード
+// =====================
+const download = (name, text) => {
+const blob = new Blob([text], { type: "text/plain" });
+const a = document.createElement("a");
+a.href = URL.createObjectURL(blob);
+a.download = name;
+a.click();
+};
 
-    download("boot.html", bootHTML);
-    download("index.html", indexHTML);
-    download("wincon.dat", datFile);
+download("boot.html", bootHTML);
+download("index.html", indexHTML);
+download("wincon.dat", datFile);
 
-    alert("export完了（boot→index安定版）");
+alert("export完了");
 
-    return {
-      boot: bootHTML,
-      index: indexHTML,
-      dat: datFile
-    };
-
-  } catch (e) {
-    console.error(e);
-    alert("export失敗: " + e.message);
-  }
+}catch(e){
+console.error(e);
+alert("export失敗: " + e.message);
 }
 
+}
 function restoreState(){
   // 復元なし
 }
