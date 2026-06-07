@@ -1229,37 +1229,27 @@ onclick="startFactoryReset()">
 });
 
 }
-function startFactoryReset(){
+function runFactoryReset(){
 
-const ok=confirm(
-"Winconを完全初期化しますか？"
-);
+  if(!confirm("Winconを完全初期化しますか？")){
+    return;
+  }
 
-if(!ok)return;
+  // メモリ上のデータも消す
+  window.__WINCON_ENTERPRISE_APPS__ = [];
 
-document.body.innerHTML=`
+  menuItems = [];
 
-<div id="bootScreen">
+  // LocalStorage全削除
+  localStorage.clear();
 
-<div class="spinner"></div>
+  // 念のため個別削除
+  localStorage.removeItem("winconEnterpriseApps");
+  localStorage.removeItem("winconMenuItems");
 
-<h1>Factory Reset</h1>
+  alert("完全初期化しました");
 
-<br>
-
-<p>データ削除中...</p>
-
-</div>
-
-`;
-
-setTimeout(()=>{
-
-localStorage.clear();
-
-location.reload();
-
-},2000);
+  location.reload();
 
 }
 function openBrowser(){
