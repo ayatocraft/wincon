@@ -373,6 +373,12 @@ icon:"⚠️",
 type:"popup"
 },
 {
+  title:"Sail Browser Beta",
+  icon:"🌐",
+  type:"browser",
+  system:true
+},
+{
 title:"ファイル",
 icon:"📁",
 type:"file",
@@ -422,6 +428,13 @@ system:true
   type:"coreservice",
   system:true,
   hidden:true
+},
+
+{
+  title:"Wincon Reset Center",
+  icon:"🧹",
+  type:"reset",
+  system:true
 }
 ];
 
@@ -599,6 +612,14 @@ break;
 
 case "terminal":
 openTerminal();
+break;
+
+case "reset":
+openResetCenter();
+break;
+
+case "browser":
+openBrowser();
 break;
 }
 
@@ -1121,6 +1142,262 @@ onclick="startTransferTarget()">
 
 `
 });
+
+}
+function openResetCenter(){
+
+createWindow({
+title:"Wincon Reset Center",
+icon:"🧹",
+width:900,
+height:650,
+content:`
+
+<h1>Wincon Reset Center</h1>
+
+<div class="badge">
+SYSTEM PROCESS
+</div>
+
+<br>
+
+<div class="setting-group">
+
+<h2>System Reset</h2>
+
+この操作は全てのWinconデータを削除します。
+
+<br><br>
+
+<b>対象:</b>
+
+<br>
+
+・企業アプリ
+
+<br>
+
+・ユーザーアプリ
+
+<br>
+
+・設定
+
+<br>
+
+・チュートリアル情報
+
+<br>
+
+・保存データ
+
+<br>
+
+・その他LocalStorage
+
+</div>
+
+<div class="setting-group">
+
+<h2>Storage Information</h2>
+
+現在のLocalStorage使用量
+
+<br><br>
+
+${Math.floor(
+JSON.stringify(localStorage).length/1024
+)} KB
+
+</div>
+
+<div class="setting-group">
+
+<h2>Factory Reset</h2>
+
+<button
+class="action"
+onclick="startFactoryReset()">
+
+完全初期化
+
+</button>
+
+</div>
+
+`
+});
+
+}
+function startFactoryReset(){
+
+const ok=confirm(
+"Winconを完全初期化しますか？"
+);
+
+if(!ok)return;
+
+document.body.innerHTML=`
+
+<div id="bootScreen">
+
+<div class="spinner"></div>
+
+<h1>Factory Reset</h1>
+
+<br>
+
+<p>データ削除中...</p>
+
+</div>
+
+`;
+
+setTimeout(()=>{
+
+localStorage.clear();
+
+location.reload();
+
+},2000);
+
+}
+function openBrowser(){
+
+createWindow({
+title:"Sail Browser Beta",
+icon:"🌐",
+width:1100,
+height:750,
+content:`
+
+<div style="
+height:100%;
+display:flex;
+flex-direction:column;
+">
+
+<div style="
+height:52px;
+display:flex;
+gap:8px;
+padding:8px;
+background:#39414d;
+">
+
+<button
+class="action"
+id="browserBack"
+style="width:70px;"
+>
+←
+</button>
+
+<input
+id="browserUrl"
+placeholder="URLまたは検索"
+style="flex:1;"
+>
+
+<button
+class="action"
+id="browserGo"
+style="width:90px;"
+>
+移動
+</button>
+
+</div>
+
+<iframe
+id="browserFrame"
+style="
+flex:1;
+border:none;
+background:white;
+"
+src="https://www.google.com/search?igu=1"
+></iframe>
+
+</div>
+
+`
+});
+
+setTimeout(setupBrowser,100);
+
+}
+function setupBrowser(){
+
+const frame=
+document.getElementById("browserFrame");
+
+const urlBox=
+document.getElementById("browserUrl");
+
+const backBtn=
+document.getElementById("browserBack");
+
+const history=[];
+
+function navigate(url){
+
+if(!url)return;
+
+if(
+!url.startsWith("http://") &&
+!url.startsWith("https://")
+){
+
+url=
+"https://www.google.com/search?q="+
+encodeURIComponent(url);
+
+}
+
+history.push(url);
+
+frame.src=url;
+
+urlBox.value=url;
+
+}
+
+document
+.getElementById("browserGo")
+.onclick=()=>{
+
+navigate(urlBox.value);
+
+};
+
+urlBox.addEventListener(
+"keydown",
+e=>{
+
+if(e.key==="Enter"){
+
+navigate(urlBox.value);
+
+}
+
+});
+
+backBtn.onclick=()=>{
+
+if(history.length<2)
+return;
+
+history.pop();
+
+const prev=
+history[history.length-1];
+
+frame.src=prev;
+
+urlBox.value=prev;
+
+};
 
 }
 function openTerminal(){
