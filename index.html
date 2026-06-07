@@ -2156,219 +2156,141 @@ return;
 
 function exportFullHTML(){
 
-try{
+  const dat = {
+    menuItems,
+    enterpriseApps: window.__WINCON_ENTERPRISE_APPS__ || []
+  };
 
-// =====================
-// ① state収集
-// =====================
-const state = {
-version: "Wincon Enterprise 2.0",
-timestamp: Date.now(),
-menuItems: menuItems || [],
-enterpriseApps: window.__WINCON_ENTERPRISE_APPS__ || []
-};
+  const datText =
+    JSON.stringify(dat,null,2);
 
-// dat生成
-const datFile = JSON.stringify(state, null, 2);
-
-// =====================
-// ② boot.html（超軽量）
-// =====================
-const bootHTML = `<!DOCTYPE html>
+  const bootHTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <title>Boot</title>
-<style>
-body{
-margin:0;
-background:#111;
-color:white;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
-flex-direction:column;
-font-family:Segoe UI;
-}
-.bar{
-width:260px;
-height:6px;
-background:#333;
-border-radius:3px;
-overflow:hidden;
-margin-top:10px;
-}
-.bar div{
-width:0%;
-height:100%;
-background:#4caf50;
-animation:load 1.5s forwards;
-}
-@keyframes load{to{width:100%;}}
-</style>
 </head>
 <body>
 
 <h2>Wincon Boot</h2>
-<p>Loading...</p>
 
-<div class="bar"><div></div></div>
+<input type="file" id="datFile" hidden>
 
 <script>
-setTimeout(()=>{
-location.href="index.html";
-},1500);
+
+window.addEventListener("keydown",e=>{
+
+  if(e.shiftKey && e.key==="Escape"){
+
+    localStorage.removeItem(
+      "winconMenuItems"
+    );
+
+    localStorage.removeItem(
+      "winconEnterpriseApps"
+    );
+
+    alert("Bootデータを初期化しました");
+
+  }
+
+});
+
+document.getElementById(
+  "datFile"
+).addEventListener(
+  "change",
+  async e=>{
+
+    const file=e.target.files[0];
+
+    if(!file)return;
+
+    const text=
+      await file.text();
+
+    const data=
+      JSON.parse(text);
+
+    localStorage.setItem(
+      "winconMenuItems",
+      JSON.stringify(
+        data.menuItems||[]
+      )
+    );
+
+    localStorage.setItem(
+      "winconEnterpriseApps",
+      JSON.stringify(
+        data.enterpriseApps||[]
+      )
+    );
+
+    location.href="index.html";
+
+});
+
+if(
+  !localStorage.getItem(
+    "winconEnterpriseApps"
+  )
+){
+
+  document.getElementById(
+    "datFile"
+  ).click();
+
+}else{
+
+  setTimeout(()=>{
+
+    location.href="index.html";
+
+  },1000);
+
+}
+
 <\/script>
 
 </body>
 </html>`;
 
-// =====================
-// ③ index.html（復元対応）
-// =====================
-const indexHTML = `<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>Wincon Enterprise</title>
+  function download(
+    name,
+    content
+  ){
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    const blob=
+      new Blob(
+        [content],
+        {type:"text/plain"}
+      );
 
-<style>
-/* ここにあなたのCSSをそのまま入れる */
-</style>
-</head>
-<body>
+    const a=
+      document.createElement("a");
 
-<div id="desktop"></div>
-<div id="menu"></div>
-<div id="taskbar">
-<button id="menuBtn">Menu</button>
-<div id="taskIcons"></div>
-</div>
+    a.href=
+      URL.createObjectURL(blob);
 
-<script>
+    a.download=name;
 
-// =====================
-// ★ dat復元
-// =====================
-(function(){
-try{
+    a.click();
 
-const raw = localStorage.getItem("wincon_state");
-if(raw){
+  }
 
-const state = JSON.parse(raw);
+  download(
+    "boot.html",
+    bootHTML
+  );
 
-if(state.menuItems){
-localStorage.setItem(
-"winconMenuItems",
-JSON.stringify(state.menuItems)
-);
-}
+  download(
+    "wincon.dat",
+    datText
+  );
 
-if(state.enterpriseApps){
-localStorage.setItem(
-"winconEnterpriseApps",
-JSON.stringify(state.enterpriseApps)
-);
-}
-
-console.log("Wincon state loaded");
-
-}
-
-}catch(e){
-console.log("restore error", e);
-}
-
-})();
-
-// =====================
-// Enterprise load
-// =====================
-const ENTERPRISE_STORAGE_KEY="winconEnterpriseApps";
-
-function loadEnterpriseApps(){
-try{
-window.__WINCON_ENTERPRISE_APPS__ =
-JSON.parse(localStorage.getItem(ENTERPRISE_STORAGE_KEY) || "[]");
-}catch(e){
-window.__WINCON_ENTERPRISE_APPS__ = [];
-}
-}
-
-function saveEnterpriseApps(){
-localStorage.setItem(
-ENTERPRISE_STORAGE_KEY,
-JSON.stringify(window.__WINCON_ENTERPRISE_APPS__)
-);
-}
-
-const desktop=document.getElementById("desktop");
-const menu=document.getElementById("menu");
-const taskIcons=document.getElementById("taskIcons");
-
-let menuItems =
-JSON.parse(localStorage.getItem("winconMenuItems") || "null") || [];
-
-function mergeEnterpriseApps(){
-
-menuItems = menuItems.filter(m => !m.enterprise);
-
-(window.__WINCON_ENTERPRISE_APPS__ || []).forEach(app=>{
-menuItems.unshift({...app, enterprise:true});
-});
-
-}
-
-function boot(){
-mergeEnterpriseApps();
-renderMenu();
-}
-
-function renderMenu(){
-menu.innerHTML="";
-
-menuItems.forEach(item=>{
-const btn=document.createElement("button");
-btn.innerHTML=item.icon+" "+item.title;
-btn.onclick=()=>alert(item.title);
-menu.appendChild(btn);
-});
-}
-
-setTimeout(()=>{
-boot();
-},500);
-
-</\script>
-
-</body>
-</html>`;
-
-// =====================
-// ④ ダウンロード
-// =====================
-const download = (name, text) => {
-const blob = new Blob([text], { type: "text/plain" });
-const a = document.createElement("a");
-a.href = URL.createObjectURL(blob);
-a.download = name;
-a.click();
-};
-
-download("boot.html", bootHTML);
-download("index.html", indexHTML);
-download("wincon.dat", datFile);
-
-alert("export完了");
-
-}catch(e){
-console.error(e);
-alert("export失敗: " + e.message);
-}
+  alert(
+    "boot.html と wincon.dat を出力しました"
+  );
 
 }
 function restoreState(){
