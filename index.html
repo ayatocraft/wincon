@@ -2156,141 +2156,102 @@ return;
 
 function exportFullHTML(){
 
-  const dat = {
-    menuItems,
-    enterpriseApps: window.__WINCON_ENTERPRISE_APPS__ || []
-  };
+const dat={
+menuItems:menuItems,
+enterpriseApps:
+window.__WINCON_ENTERPRISE_APPS__
+};
 
-  const datText =
-    JSON.stringify(dat,null,2);
+download(
+"company.dat",
+JSON.stringify(dat,null,2)
+);
 
-  const bootHTML = `<!DOCTYPE html>
+const bootHTML=`<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Boot</title>
+<title>Wincon Boot</title>
 </head>
 <body>
 
 <h2>Wincon Boot</h2>
 
-<input type="file" id="datFile" hidden>
-
 <script>
 
-window.addEventListener("keydown",e=>{
-
-  if(e.shiftKey && e.key==="Escape"){
-
-    localStorage.removeItem(
-      "winconMenuItems"
-    );
-
-    localStorage.removeItem(
-      "winconEnterpriseApps"
-    );
-
-    alert("Bootデータを初期化しました");
-
-  }
-
-});
-
-document.getElementById(
-  "datFile"
-).addEventListener(
-  "change",
-  async e=>{
-
-    const file=e.target.files[0];
-
-    if(!file)return;
-
-    const text=
-      await file.text();
-
-    const data=
-      JSON.parse(text);
-
-    localStorage.setItem(
-      "winconMenuItems",
-      JSON.stringify(
-        data.menuItems||[]
-      )
-    );
-
-    localStorage.setItem(
-      "winconEnterpriseApps",
-      JSON.stringify(
-        data.enterpriseApps||[]
-      )
-    );
-
-    location.href="index.html";
-
-});
+window.addEventListener(
+"keydown",
+e=>{
 
 if(
-  !localStorage.getItem(
-    "winconEnterpriseApps"
-  )
+e.shiftKey &&
+e.key==="Escape"
 ){
 
-  document.getElementById(
-    "datFile"
-  ).click();
+localStorage.removeItem(
+"winconMenuItems"
+);
 
-}else{
+localStorage.removeItem(
+"winconEnterpriseApps"
+);
 
-  setTimeout(()=>{
-
-    location.href="index.html";
-
-  },1000);
+alert("Bootデータ初期化");
 
 }
+
+}
+);
+
+async function boot(){
+
+try{
+
+const res=
+await fetch("company.dat");
+
+const data=
+await res.json();
+
+localStorage.setItem(
+"winconMenuItems",
+JSON.stringify(
+data.menuItems||[]
+)
+);
+
+localStorage.setItem(
+"winconEnterpriseApps",
+JSON.stringify(
+data.enterpriseApps||[]
+)
+);
+
+}catch(e){
+
+console.error(e);
+
+}
+
+location.href="index.html";
+
+}
+
+boot();
 
 <\/script>
 
 </body>
 </html>`;
 
-  function download(
-    name,
-    content
-  ){
+download(
+"boot.html",
+bootHTML
+);
 
-    const blob=
-      new Blob(
-        [content],
-        {type:"text/plain"}
-      );
-
-    const a=
-      document.createElement("a");
-
-    a.href=
-      URL.createObjectURL(blob);
-
-    a.download=name;
-
-    a.click();
-
-  }
-
-  download(
-    "boot.html",
-    bootHTML
-  );
-
-  download(
-    "wincon.dat",
-    datText
-  );
-
-  alert(
-    "boot.html と wincon.dat を出力しました"
-  );
+alert(
+"boot.html と company.dat を出力しました"
+);
 
 }
 function restoreState(){
