@@ -6,7 +6,7 @@
 <title>Wincon Enterprise</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-
+<script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
 <style>
 
 *{
@@ -315,7 +315,14 @@ margin-top:8px;
 
 <script>
 const ENTERPRISE_STORAGE_KEY="winconEnterpriseApps";
+const ably = new Ably.Realtime({
+  token:"YOUR_TOKEN"
+});
 
+const ablyChannel =
+ably.channels.get(
+  "wincon-appcenter"
+);
 function loadEnterpriseApps(){
 
 try{
@@ -385,6 +392,18 @@ type:"file",
 system:true
 },
 {
+  title:"App Center",
+  icon:"📦",
+  type:"appcenter",
+  system:true
+},
+{
+  title:"App Center Developer",
+  icon:"🛠️",
+  type:"appcenterdev",
+  system:true
+},
+{
 title:"タスクマネージャ",
 icon:"📊",
 type:"task",
@@ -434,7 +453,8 @@ system:true
   title:"Wincon Reset Center",
   icon:"🧹",
   type:"reset",
-  system:true
+  system:true,
+  hidden:true
 }
 ];
 
@@ -621,6 +641,13 @@ break;
 case "browser":
 openBrowser();
 break;
+case "appcenter":
+  openAppCenter();
+  break;
+
+case "appcenterdev":
+  openAppCenterDeveloper();
+  break;
 }
 
 };
@@ -1816,19 +1843,19 @@ SYSTEM PROCESS
 
 <b>Product Name</b>
 <br>
-Wincon Enterprise 2.2
+Wincon Enterprise 2.0
 
 <br><br>
 
 <b>Version</b>
 <br>
-Release 2.2
+Beta 2.0
 
 <br><br>
 
 <b>Core Service Version</b>
 <br>
-1.4
+1.3
 
 <br><br>
 
@@ -2414,6 +2441,317 @@ onclick="location.reload()"
 `;
 
 }
+function openAppCenter(){
+
+createWindow({
+title:"App Center",
+icon:"📦",
+content:`
+
+<h2>App Center</h2>
+
+<div id="appCenterList">
+
+読み込み中...
+
+</div>
+
+`
+});
+
+loadAppCenterApps();
+
+}
+function openAppCenterDeveloper(){
+
+createWindow({
+title:"App Center Developer",
+icon:"🛠️",
+content:`
+
+<h2>アプリ公開</h2>
+
+<input id="acTitle"
+placeholder="タイトル">
+
+<br><br>
+
+<input id="acIcon"
+placeholder="アイコン">
+
+<br><br>
+
+<input id="acUrl"
+placeholder="URL">
+
+<br><br>
+
+<textarea
+id="acDesc"
+placeholder="概要">
+</textarea>
+
+<br><br>
+
+<select id="acMode">
+
+<option value="window">
+
+Window
+
+</option>
+
+<option value="popup">
+
+Popup
+
+</option>
+
+</select>
+
+<br><br>
+
+<button
+class="action"
+onclick="publishApp()">
+
+公開
+
+</button>
+
+`
+});
+
+}
+async function publishApp(){
+
+const app={
+
+id:crypto.randomUUID(),
+
+title:
+document.getElementById(
+"acTitle"
+).value,
+
+icon:
+document.getElementById(
+"acIcon"
+).value,
+
+source:
+document.getElementById(
+"acUrl"
+).value,
+
+description:
+document.getElementById(
+"acDesc"
+).value,
+
+popup:
+document.getElementById(
+"acMode"
+).value==="popup",
+
+version:"1.0.0",
+
+created:Date.now()
+
+};
+
+const res =
+await fetch(
+"https://tjyyqwihwgxdjpzgccyc.supabase.co/functions/v1/quick-worker",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify(app)
+}
+);
+
+const json =
+await res.json();
+
+console.log(json);
+
+alert(
+"公開しました"
+);
+
+}
+async function loadAppCenterApps(){
+
+const list=
+document.getElementById(
+"appCenterList"
+);
+
+list.innerHTML=
+"読込中...";
+
+const res=
+await fetch(
+"https://tjyyqwihwgxdjpzgccyc.supabase.co/functions/v1/quick-worker"
+);
+
+const json=
+await res.json();
+
+window.storeApps=
+json.data||[];
+
+renderStore(
+window.storeApps
+);
+
+}
+function renderStore(apps){
+
+const list=
+document.getElementById(
+"appCenterList"
+);
+
+list.innerHTML="";
+
+apps.forEach(app=>{
+
+list.innerHTML+=`
+
+<div
+style="
+border:1px solid #666;
+padding:10px;
+margin:5px;
+">
+
+<h3>
+
+${app.icon}
+${app.title}
+
+</h3>
+
+<p>
+
+${app.description}
+
+</p>
+
+<button
+onclick="installApp('${app.id}')">
+
+インストール
+
+</button>
+
+</div>
+
+`;
+
+});
+
+}
+function installApp(id){
+
+console.log("ID", id);
+console.log("STORE", window.storeApps);
+
+const app =
+window.storeApps.find(
+a => a.id === id
+);
+
+console.log("APP", app);
+
+if(!app){
+  alert("アプリが見つかりません");
+  return;
+}
+
+const apps =
+JSON.parse(
+localStorage.getItem(
+"winconMenuItems"
+) || "[]"
+);
+
+menuItems.push({
+
+title: app.title,
+icon: app.icon,
+type: "externalHTML",
+source: app.source,
+popup: app.popup
+
+});
+
+localStorage.setItem(
+"winconMenuItems",
+JSON.stringify(menuItems)
+);
+alert("インストール完了");
+renderMenu();
+
+
+
+
+}
+function updateApp(app){
+
+const apps=
+JSON.parse(
+
+localStorage.getItem(
+"winconMenuItems"
+)||"[]"
+
+);
+
+const index=
+apps.findIndex(
+a=>a.appId===app.id
+);
+
+if(index<0)return;
+
+apps[index]={
+
+...apps[index],
+
+source:app.source,
+
+version:app.version,
+
+title:app.title,
+
+icon:app.icon
+
+};
+
+localStorage.setItem(
+
+"winconMenuItems",
+
+JSON.stringify(apps)
+
+);
+
+}
+function unpublishApp(id){
+
+ablyChannel.publish(
+"unpublish",
+{
+id
+}
+);
+
+}
+
 function saveState(){
 
 // 復元機能無効
