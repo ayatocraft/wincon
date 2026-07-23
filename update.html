@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wincon Update</title>
+
+<style>
+body{
+    margin:0;
+    background:#f4f4f4;
+    font-family:"Segoe UI",sans-serif;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.window{
+    width:500px;
+    background:#fff;
+    border-radius:12px;
+    box-shadow:0 10px 35px rgba(0,0,0,.18);
+    overflow:hidden;
+}
+
+.title{
+    background:#0067C0;
+    color:white;
+    padding:14px 18px;
+    font-size:22px;
+}
+
+.content{
+    padding:24px;
+}
+
+.company{
+    font-size:15px;
+    color:#666;
+    margin-bottom:12px;
+}
+
+.status{
+    background:#f7f7f7;
+    border:1px solid #ddd;
+    border-radius:8px;
+    padding:15px;
+    margin-bottom:20px;
+    line-height:1.8;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:8px;
+    background:#0067C0;
+    color:white;
+    font-size:17px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#0053a5;
+}
+
+button:disabled{
+    opacity:.6;
+    cursor:default;
+}
+
+.footer{
+    text-align:center;
+    margin-top:20px;
+    color:#888;
+    font-size:13px;
+}
+</style>
+
+</head>
+<body>
+
+<div class="window">
+
+<div class="title">
+Wincon Update
+</div>
+
+<div class="content">
+
+<div class="company" id="company"></div>
+
+<div class="status">
+<b>状態</b><br>
+<span id="status">待機中</span>
+</div>
+
+<button id="update">
+更新を確認して再起動
+</button>
+
+<div class="footer">
+更新が見つかった場合は自動的に適用されます。
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const status=document.getElementById("status");
+const button=document.getElementById("update");
+const company=document.getElementById("company");
+
+const companyName=localStorage.getItem("companyName");
+
+if(companyName){
+    company.textContent=companyName;
+}
+
+button.onclick=async()=>{
+
+    if(!confirm(
+`更新を確認するためWinconを再起動します。
+
+更新が見つかった場合は自動的に適用されます。
+
+続行しますか？`
+    )) return;
+
+    button.disabled=true;
+
+    status.textContent="キャッシュを削除しています...";
+
+    const keys=await caches.keys();
+
+    for(const key of keys){
+
+        if(key.startsWith("wincon")){
+
+            await caches.delete(key);
+
+        }
+
+    }
+
+    status.textContent="Service Workerを更新しています...";
+
+    const reg=await navigator.serviceWorker.getRegistration();
+
+    if(reg){
+
+        await reg.update();
+
+    }
+
+    status.textContent="Winconを起動しています...";
+
+    setTimeout(()=>{
+
+        location.href="../";
+
+    },1000);
+
+};
+
+(async()=>{
+
+    const reg=await navigator.serviceWorker.getRegistration();
+
+    status.textContent=reg?
+    "Service Workerは正常に動作しています":
+    "Service Workerが見つかりません";
+
+})();
+
+</script>
+
+</body>
+</html>
