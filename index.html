@@ -314,6 +314,34 @@ margin-top:8px;
 </div>
 
 <script>
+if ("serviceWorker" in navigator) {
+
+    window.addEventListener("load", async () => {
+
+        try {
+
+            const reg =
+                await navigator.serviceWorker.register(
+                    "./sw.js"
+                );
+
+            console.log(
+                "Wincon Service Worker Ready",
+                reg
+            );
+
+        } catch (err) {
+
+            console.error(
+                "Service Worker Error",
+                err
+            );
+
+        }
+
+    });
+
+}
 const ENTERPRISE_STORAGE_KEY="winconEnterpriseApps";
 const ably = new Ably.Realtime({
   token:"YOUR_TOKEN"
