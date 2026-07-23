@@ -3,333 +3,281 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
 <title>Wincon お引越し</title>
 
 <style>
+
+*{
+box-sizing:border-box;
+}
+
 body{
-    font-family:system-ui,sans-serif;
-    background:#f5f5f5;
-    padding:30px;
+margin:0;
+font-family:"Segoe UI",system-ui,sans-serif;
+background:#f3f3f3;
+}
+
+.page{
+display:none;
+padding:30px;
+max-width:700px;
+margin:auto;
+}
+
+.page.active{
+display:block;
 }
 
 .card{
-    max-width:600px;
-    margin:auto;
-    background:white;
-    padding:25px;
-    border-radius:16px;
+background:white;
+padding:25px;
+border-radius:16px;
+box-shadow:0 3px 15px #0002;
+}
+
+h1{
+margin-top:0;
 }
 
 button{
-    width:100%;
-    padding:14px;
-    margin:8px 0;
-    border:0;
-    border-radius:10px;
-    font-size:16px;
+width:100%;
+padding:15px;
+margin:8px 0;
+border:none;
+border-radius:10px;
+font-size:16px;
+cursor:pointer;
 }
 
 .primary{
-    background:#0078d4;
-    color:white;
+background:#0078d4;
+color:white;
+}
+
+.secondary{
+background:#ddd;
+}
+
+.box{
+background:#eee;
+padding:15px;
+border-radius:10px;
+word-break:break-all;
 }
 
 textarea{
-    width:100%;
-    height:130px;
-    box-sizing:border-box;
+width:100%;
+height:150px;
+padding:10px;
+border-radius:10px;
+border:1px solid #aaa;
 }
 
-#status{
-    background:#eee;
-    padding:12px;
-    border-radius:8px;
+.back{
+margin-bottom:15px;
 }
+
 </style>
 </head>
 
+
 <body>
+
+
+<!-- ホーム -->
+
+<div class="page active" id="home">
 
 <div class="card">
 
 <h1>📦 お引越し</h1>
 
-<button class="primary" onclick="createConnection()">
-🔗 接続コードを作成
+<p>
+Winconのデータを新しい環境へ移行します。
+</p>
+
+
+<button class="primary"
+onclick="showPage('connect')">
+
+🔗 接続コードで移行
+
 </button>
 
-<button class="primary" onclick="joinConnection()">
-🔗 接続コードを入力
+
+<button class="primary"
+onclick="showPage('file')">
+
+📁 ファイルで移行
+
 </button>
 
 
-<button onclick="exportFile()">
-📁 ファイルへ保存
+</div>
+
+</div>
+
+
+
+<!-- 接続 -->
+
+<div class="page" id="connect">
+
+<div class="card">
+
+<button class="secondary back"
+onclick="showPage('home')">
+
+← 戻る
+
 </button>
 
-<button onclick="document.getElementById('file').click()">
-📂 ファイルから復元
+
+<h1>🔗 接続コード移行</h1>
+
+
+<button class="primary"
+onclick="createConnection()">
+
+送信側として開始
+
 </button>
 
-<input id="file" type="file"
-accept=".wcb"
-style="display:none"
-onchange="importFile(event)">
 
+<button class="primary"
+onclick="joinConnection()">
 
-<br>
+受信側として開始
+
+</button>
+
 
 <textarea id="code"
 placeholder="接続コード"></textarea>
 
+
 <button onclick="copyCode()">
+
 📋 コピー
+
 </button>
 
 
-<div id="status">
+<div class="box" id="status">
 待機中
 </div>
 
+
 </div>
+
+</div>
+
+
+
+
+<!-- ファイル -->
+
+<div class="page" id="file">
+
+<div class="card">
+
+
+<button class="secondary back"
+onclick="showPage('home')">
+
+← 戻る
+
+</button>
+
+
+<h1>📁 ファイル移行</h1>
+
+
+<button class="primary"
+onclick="exportFile()">
+
+バックアップ作成
+
+</button>
+
+
+<button class="primary"
+onclick="document.getElementById('input').click()">
+
+バックアップ復元
+
+</button>
+
+
+<input
+id="input"
+type="file"
+accept=".wcb"
+hidden
+onchange="importFile(event)"
+>
+
+
+<div class="box" id="fileStatus">
+
+待機中
+
+</div>
+
+
+</div>
+
+</div>
+
 
 
 <script>
 
-let peer;
-let channel;
+
+function showPage(id){
+
+document.querySelectorAll(".page")
+.forEach(e=>e.classList.remove("active"));
+
+document.getElementById(id)
+.classList.add("active");
+
+}
 
 
-// localStorage取得
+
+
+// localStorage全部取得
 
 function getStorage(){
 
-    let data={};
+let data={};
 
-    for(
-        let i=0;
-        i<localStorage.length;
-        i++
-    ){
+for(let i=0;i<localStorage.length;i++){
 
-        let key=localStorage.key(i);
+let key=localStorage.key(i);
 
-        data[key]=
-        localStorage.getItem(key);
+data[key]=localStorage.getItem(key);
 
-    }
+}
 
-    return data;
+return data;
+
 }
 
 
-
-// 復元
 
 function restore(data){
 
-    for(let key in data){
+for(let key in data){
 
-        localStorage.setItem(
-            key,
-            data[key]
-        );
-
-    }
+localStorage.setItem(
+key,
+data[key]
+);
 
 }
-
-
-
-// WebRTC設定
-
-function createPeer(){
-
-    peer=new RTCPeerConnection({
-        iceServers:[
-            {
-                urls:
-                "stun:stun.l.google.com:19302"
-            }
-        ]
-    });
-
-}
-
-
-
-// 送信側
-
-async function createConnection(){
-
-    createPeer();
-
-
-    channel=
-    peer.createDataChannel(
-        "wincon"
-    );
-
-
-    channel.onopen=()=>{
-
-        status.textContent=
-        "接続完了 転送中";
-
-        channel.send(
-            JSON.stringify(
-                getStorage()
-            )
-        );
-
-    };
-
-
-    let offer=
-    await peer.createOffer();
-
-
-    await peer.setLocalDescription(
-        offer
-    );
-
-
-    await waitICE();
-
-
-    code.value=
-    btoa(
-        JSON.stringify(
-            peer.localDescription
-        )
-    );
-
-
-    status.textContent=
-    "このコードを相手へ送信してください";
-
-}
-
-
-
-// 受信側
-
-async function joinConnection(){
-
-    createPeer();
-
-
-    peer.ondatachannel=e=>{
-
-        channel=e.channel;
-
-
-        channel.onmessage=e=>{
-
-            let data=
-            JSON.parse(
-                e.data
-            );
-
-
-            restore(data);
-
-
-            status.textContent=
-            "完了。再起動します";
-
-
-            setTimeout(()=>{
-
-                location.reload();
-
-            },1500);
-
-
-        };
-
-    };
-
-
-    let offer=
-    JSON.parse(
-        atob(
-            code.value
-        )
-    );
-
-
-    await peer.setRemoteDescription(
-        offer
-    );
-
-
-    let answer=
-    await peer.createAnswer();
-
-
-    await peer.setLocalDescription(
-        answer
-    );
-
-
-    await waitICE();
-
-
-    code.value=
-    btoa(
-        JSON.stringify(
-            peer.localDescription
-        )
-    );
-
-
-    status.textContent=
-    "このコードを相手へ返してください";
-
-}
-
-
-
-// ICE待ち
-
-function waitICE(){
-
-    return new Promise(resolve=>{
-
-        if(
-            peer.iceGatheringState==="complete"
-        ){
-            resolve();
-            return;
-        }
-
-
-        peer.onicegatheringstatechange=()=>{
-
-            if(
-              peer.iceGatheringState==="complete"
-            ){
-
-                resolve();
-
-            }
-
-        };
-
-    });
-
-}
-
-
-
-// コピー
-
-function copyCode(){
-
-    navigator.clipboard.writeText(
-        code.value
-    );
 
 }
 
@@ -339,89 +287,259 @@ function copyCode(){
 
 function exportFile(){
 
-    let backup={
+let data={
 
-        type:"wincon-backup",
+type:"wincon-backup",
 
-        version:1,
+version:1,
 
-        storage:getStorage()
+storage:getStorage()
 
-    };
-
-
-    let blob=
-    new Blob(
-        [
-            JSON.stringify(
-                backup
-            )
-        ],
-        {
-            type:"application/json"
-        }
-    );
+};
 
 
-    let a=
-    document.createElement("a");
+let blob=new Blob(
+[
+JSON.stringify(data)
+],
+{
+type:"application/json"
+}
+);
 
-    a.href=
-    URL.createObjectURL(blob);
 
-    a.download=
-    "Wincon_Backup.wcb";
+let a=document.createElement("a");
 
-    a.click();
+a.href=URL.createObjectURL(blob);
+
+a.download="Wincon_Backup.wcb";
+
+a.click();
+
+
+fileStatus.textContent=
+"バックアップを作成しました";
 
 }
 
 
 
-// ファイル復元
 
 function importFile(e){
 
-    let file=
-    e.target.files[0];
+let file=e.target.files[0];
+
+let reader=new FileReader();
 
 
-    let reader=
-    new FileReader();
+reader.onload=()=>{
+
+let data=
+JSON.parse(reader.result);
 
 
-    reader.onload=()=>{
-
-        let backup=
-        JSON.parse(
-            reader.result
-        );
+restore(data.storage);
 
 
-        restore(
-            backup.storage
-        );
+fileStatus.textContent=
+"復元しました。再起動します";
 
 
-        status.textContent=
-        "復元しました。再起動します";
+setTimeout(()=>{
+
+location.reload();
+
+},1500);
 
 
-        setTimeout(()=>{
-
-            location.reload();
-
-        },1500);
-
-    };
+};
 
 
-    reader.readAsText(file);
+reader.readAsText(file);
+
+}
+
+
+
+
+
+// WebRTC
+
+let peer;
+let channel;
+
+
+function createPeer(){
+
+peer=new RTCPeerConnection({
+
+iceServers:[
+{
+urls:"stun:stun.l.google.com:19302"
+}
+]
+
+});
+
+}
+
+
+
+
+async function createConnection(){
+
+createPeer();
+
+
+channel=
+peer.createDataChannel("wincon");
+
+
+channel.onopen=()=>{
+
+status.textContent="転送開始";
+
+channel.send(
+JSON.stringify(getStorage())
+);
+
+};
+
+
+let offer=
+await peer.createOffer();
+
+
+await peer.setLocalDescription(offer);
+
+
+await waitICE();
+
+
+code.value=
+btoa(
+JSON.stringify(
+peer.localDescription
+)
+);
+
+
+status.textContent=
+"このコードを相手へ送信してください";
+
+}
+
+
+
+async function joinConnection(){
+
+createPeer();
+
+
+peer.ondatachannel=e=>{
+
+channel=e.channel;
+
+
+channel.onmessage=e=>{
+
+restore(
+JSON.parse(e.data)
+);
+
+
+status.textContent=
+"完了しました";
+
+
+setTimeout(()=>{
+
+location.reload();
+
+},1500);
+
+
+};
+
+
+};
+
+
+
+await peer.setRemoteDescription(
+
+JSON.parse(
+atob(code.value)
+)
+
+);
+
+
+
+let answer=
+await peer.createAnswer();
+
+
+await peer.setLocalDescription(answer);
+
+
+await waitICE();
+
+
+code.value=
+btoa(
+JSON.stringify(
+peer.localDescription
+)
+);
+
+
+status.textContent=
+"応答コードを送信してください";
+
+}
+
+
+
+
+function waitICE(){
+
+return new Promise(resolve=>{
+
+if(peer.iceGatheringState==="complete")
+return resolve();
+
+
+peer.onicegatheringstatechange=()=>{
+
+if(
+peer.iceGatheringState==="complete"
+)
+resolve();
+
+};
+
+
+});
+
+}
+
+
+
+function copyCode(){
+
+navigator.clipboard.writeText(
+code.value
+);
+
+status.textContent=
+"コピーしました";
 
 }
 
 
 </script>
+
 
 </body>
 </html>
