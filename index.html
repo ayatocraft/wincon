@@ -313,34 +313,17 @@ margin-top:8px;
 <div id="taskIcons"></div>
 </div>
 
+
 <script>
 if ("serviceWorker" in navigator) {
-
     window.addEventListener("load", async () => {
-
         try {
-
-            const reg =
-                await navigator.serviceWorker.register(
-                    "./sw.js"
-                );
-
-            console.log(
-                "Wincon Service Worker Ready",
-                reg
-            );
-
-        } catch (err) {
-
-            console.error(
-                "Service Worker Error",
-                err
-            );
-
+            await navigator.serviceWorker.register("./sw.js");
+            console.log("Service Worker登録完了");
+        } catch (e) {
+            console.error("Service Worker登録失敗", e);
         }
-
     });
-
 }
 const ENTERPRISE_STORAGE_KEY="winconEnterpriseApps";
 const ably = new Ably.Realtime({
