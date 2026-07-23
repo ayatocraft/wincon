@@ -403,13 +403,13 @@ type:"file",
 system:true
 },
 {
-  title:"App Center",
+  title:"Module Center",
   icon:"📦",
   type:"appcenter",
   system:true
 },
 {
-  title:"App Center Developer",
+  title:"Module Center Developer",
   icon:"🛠️",
   type:"appcenterdev",
   system:true
@@ -443,7 +443,8 @@ system:true
 title:"お引越し",
 icon:"📦",
 type:"transfer",
-system:true
+system:true,
+hidden:true
 },
 
 {
@@ -541,7 +542,7 @@ function fullFactoryReset(){
 
 if(
 !confirm(
-"完全初期化しますか？企業アプリも削除されます。"
+"完全初期化しますか？企業モジュールも削除されます。"
 )
 ){
 return;
@@ -1065,7 +1066,7 @@ First Aid
 
 <div class='setting-group'>
 
-<h2>Installed Apps</h2>
+<h2>Installed Modules</h2>
 
 <div id='installedApps'></div>
 
@@ -1088,11 +1089,11 @@ div.className="setting-group";
 let badge="";
 
 if(app.system){
-badge="<div class='badge'>システムアプリ</div>";
+badge="<div class='badge'>システムモジュール</div>";
 }
 
 if(app.enterprise){
-badge="<div class='badge'>企業固定アプリ</div>";
+badge="<div class='badge'>企業固定モジュール</div>";
 }
 
 div.innerHTML=`
@@ -1118,8 +1119,8 @@ btn.style.opacity=".5";
 
 btn.innerText=
 app.system
-?"システムアプリ"
-:"企業固定アプリ";
+?"システムモジュール"
+:"企業固定モジュール";
 
 }else{
 
@@ -1211,11 +1212,11 @@ SYSTEM PROCESS
 
 <br>
 
-・企業アプリ
+・企業モジュール
 
 <br>
 
-・ユーザーアプリ
+・ユーザーモジュール
 
 <br>
 
@@ -1612,7 +1613,7 @@ m=>m.title===name
 if(!app){
 
 print(
-"アプリが見つかりません"
+"モジュールが見つかりません"
 );
 
 return;
@@ -1677,7 +1678,7 @@ m=>m.title===name
 if(!app){
 
 print(
-"アプリが見つかりません"
+"モジュールが見つかりません"
 );
 
 return;
@@ -1704,14 +1705,14 @@ ${app.type}
 
 <div class="setting-group">
 
-<b>システムアプリ</b><br>
+<b>システムモジュール</b><br>
 ${app.system?"はい":"いいえ"}
 
 </div>
 
 <div class="setting-group">
 
-<b>企業固定アプリ</b><br>
+<b>企業固定モジュール</b><br>
 ${app.enterprise?"はい":"いいえ"}
 
 </div>
@@ -1754,7 +1755,7 @@ print(
 function listAppsGUI(){
 
 createWindow({
-title:"アプリ一覧",
+title:"モジュール一覧",
 icon:"📦",
 width:800,
 height:600,
@@ -1852,7 +1853,7 @@ width:900,
 height:650,
 content:`
 
-<h1>Wincon Enterprise 2.0</h1>
+<h1>Wincon Enterprise 2.2</h1>
 
 <div class="badge">
 SYSTEM PROCESS
@@ -1866,19 +1867,19 @@ SYSTEM PROCESS
 
 <b>Product Name</b>
 <br>
-Wincon Enterprise 2.1
+Wincon Enterprise 2.2
 
 <br><br>
 
 <b>Version</b>
 <br>
-Stable 2.1
+Beta 2.2
 
 <br><br>
 
 <b>Core Service Version</b>
 <br>
-1.4
+1.5
 
 <br><br>
 
@@ -1890,15 +1891,15 @@ Running
 
 <div class="setting-group">
 
-<h2>Applications</h2>
+<h2>Modules</h2>
 
-<b>Loaded Apps</b>
+<b>Loaded Modules</b>
 <br>
 ${menuItems.length}
 
 <br><br>
 
-<b>Enterprise Apps</b>
+<b>Enterprise Modules</b>
 <br>
 ${window.__WINCON_ENTERPRISE_APPS__.length}
 
@@ -1943,7 +1944,7 @@ JSON.stringify(localStorage).length/1024
 
 <h2>Build Information</h2>
 
-Build: 2026.06
+Build: 2026.07
 <br>
 
 Channel: Beta
@@ -2102,7 +2103,7 @@ onclick='addExternalHTML()'>
 
 <div class='setting-group'>
 
-<h2>企業固定アプリ</h2>
+<h2>企業固定モジュール</h2>
 
 <input id='enterpriseTitle'
 placeholder='タイトル'>
@@ -2467,11 +2468,11 @@ onclick="location.reload()"
 function openAppCenter(){
 
 createWindow({
-title:"App Center",
+title:"Module Center",
 icon:"📦",
 content:`
 
-<h2>App Center</h2>
+<h2>Module Center</h2>
 
 <div id="appCenterList">
 
@@ -2488,11 +2489,11 @@ loadAppCenterApps();
 function openAppCenterDeveloper(){
 
 createWindow({
-title:"App Center Developer",
+title:"Module Center Developer",
 icon:"🛠️",
 content:`
 
-<h2>アプリ公開</h2>
+<h2>モジュール公開</h2>
 
 <input id="acTitle"
 placeholder="タイトル">
@@ -2691,7 +2692,7 @@ a => a.id === id
 console.log("APP", app);
 
 if(!app){
-  alert("アプリが見つかりません");
+  alert("モジュールが見つかりません");
   return;
 }
 
@@ -2927,7 +2928,7 @@ border-radius:16px;
 <br>
 
 <p>
-Menuからアプリを開けます。
+Menuからモジュールを開けます。
 ウィンドウは移動・最大化・最小化できます。
 Ctrl+Shiftでセキュリティオプションを開けます。
 </p>
