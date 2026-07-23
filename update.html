@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wincon Update</title>
+<title>🚀 Wincon Update</title>
 
 <style>
 body{
@@ -18,7 +18,7 @@ body{
 
 .window{
     width:500px;
-    background:#fff;
+    background:white;
     border-radius:12px;
     box-shadow:0 10px 35px rgba(0,0,0,.18);
     overflow:hidden;
@@ -36,7 +36,6 @@ body{
 }
 
 .company{
-    font-size:15px;
     color:#666;
     margin-bottom:12px;
 }
@@ -47,13 +46,13 @@ body{
     border-radius:8px;
     padding:15px;
     margin-bottom:20px;
-    line-height:1.8;
+    line-height:1.7;
 }
 
 button{
     width:100%;
     padding:14px;
-    border:none;
+    border:0;
     border-radius:8px;
     background:#0067C0;
     color:white;
@@ -61,30 +60,27 @@ button{
     cursor:pointer;
 }
 
-button:hover{
-    background:#0053a5;
-}
-
 button:disabled{
     opacity:.6;
-    cursor:default;
 }
 
 .footer{
+    margin-top:18px;
     text-align:center;
-    margin-top:20px;
     color:#888;
     font-size:13px;
+    white-space:pre-line;
 }
 </style>
 
 </head>
+
 <body>
 
 <div class="window">
 
 <div class="title">
-Wincon Update
+🚀 Wincon Update
 </div>
 
 <div class="content">
@@ -93,88 +89,116 @@ Wincon Update
 
 <div class="status">
 <b>状態</b><br>
-<span id="status">待機中</span>
+<span id="status">
+待機中
+</span>
 </div>
 
 <button id="update">
-更新を確認して再起動
+更新して再起動
 </button>
 
 <div class="footer">
-更新が見つかった場合は自動的に適用されます。<br>すべてのシステムモジュール、Wincon Update Centerも更新されます。更新はすぐに終わります。
+更新が見つかった場合は自動的に適用されます。
+すべてのシステムモジュール、Wincon Update Centerも更新されます。
 </div>
 
 </div>
 
 </div>
+
 
 <script>
 
-const status=document.getElementById("status");
-const button=document.getElementById("update");
-const company=document.getElementById("company");
+const status = document.getElementById("status");
+const button = document.getElementById("update");
+const company = document.getElementById("company");
 
-const companyName=localStorage.getItem("companyName");
+
+// 企業名表示（あれば）
+const companyName = localStorage.getItem("companyName");
 
 if(companyName){
-    company.textContent=companyName;
+    company.textContent = companyName;
 }
 
-button.onclick=async()=>{
 
-    if(!confirm(
-`更新を確認するためWinconを再起動します。
-
-更新が見つかった場合は自動的に適用されます。
-
-続行しますか？`
-    )) return;
-
-    button.disabled=true;
-
-    status.textContent="キャッシュを削除しています...";
-
-    const keys=await caches.keys();
-
-    for(const key of keys){
-
-        if(key.startsWith("wincon")){
-
-            await caches.delete(key);
-
-        }
-
-    }
-
-    status.textContent="Service Workerを更新しています...";
-
-    const reg=await navigator.serviceWorker.getRegistration();
-
-    if(reg){
-
-        await reg.update();
-
-    }
-
-    status.textContent="Winconを起動しています...";
-
-    setTimeout(()=>{
-
-        location.href="../";
-
-    },1000);
-
-};
-
+// Service Worker確認
 (async()=>{
 
-    const reg=await navigator.serviceWorker.getRegistration();
+    const reg = await navigator.serviceWorker.getRegistration();
 
-    status.textContent=reg?
-    "Service Workerは正常に動作しています":
-    "Service Workerが見つかりません";
+    if(reg){
+        status.textContent =
+        "Service Workerは正常に動作しています";
+    }else{
+        status.textContent =
+        "Service Workerが見つかりません";
+    }
 
 })();
+
+
+
+button.onclick = async()=>{
+
+    if(!confirm(
+        "Winconを再起動して更新を確認します。\n\n続行しますか？"
+    )){
+        return;
+    }
+
+
+    button.disabled = true;
+
+
+    try{
+
+        status.textContent =
+        "キャッシュを削除しています...";
+
+
+        // Winconキャッシュのみ削除
+        await caches.delete("wincon-cache-v1");
+
+
+        status.textContent =
+        "Service Workerを更新しています...";
+
+
+        const reg =
+        await navigator.serviceWorker.getRegistration();
+
+
+        if(reg){
+            await reg.update();
+        }
+
+
+        status.textContent =
+        "Winconを再起動しています...";
+
+
+        setTimeout(()=>{
+
+            // Update Centerを履歴に残さずWinconへ
+            window.location.replace("./index.html");
+
+        },1000);
+
+
+    }catch(e){
+
+        console.error(e);
+
+        status.textContent =
+        "更新中にエラーが発生しました";
+
+        button.disabled = false;
+
+    }
+
+};
 
 </script>
 
