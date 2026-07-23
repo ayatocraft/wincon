@@ -62,6 +62,7 @@ button{
 
 button:disabled{
     opacity:.6;
+    cursor:default;
 }
 
 .footer{
@@ -83,9 +84,11 @@ button:disabled{
 🚀 Wincon Update
 </div>
 
+
 <div class="content">
 
 <div class="company" id="company"></div>
+
 
 <div class="status">
 <b>状態</b><br>
@@ -94,14 +97,17 @@ button:disabled{
 </span>
 </div>
 
+
 <button id="update">
 更新して再起動
 </button>
+
 
 <div class="footer">
 更新が見つかった場合は自動的に適用されます。
 すべてのシステムモジュール、Wincon Update Centerも更新されます。
 </div>
+
 
 </div>
 
@@ -110,13 +116,19 @@ button:disabled{
 
 <script>
 
-const status = document.getElementById("status");
-const button = document.getElementById("update");
-const company = document.getElementById("company");
+const status =
+document.getElementById("status");
+
+const button =
+document.getElementById("update");
+
+const company =
+document.getElementById("company");
 
 
-// 企業名表示（あれば）
-const companyName = localStorage.getItem("companyName");
+// 企業名表示
+const companyName =
+localStorage.getItem("companyName");
 
 if(companyName){
     company.textContent = companyName;
@@ -126,14 +138,19 @@ if(companyName){
 // Service Worker確認
 (async()=>{
 
-    const reg = await navigator.serviceWorker.getRegistration();
+    const reg =
+    await navigator.serviceWorker.getRegistration();
 
     if(reg){
+
         status.textContent =
         "Service Workerは正常に動作しています";
+
     }else{
+
         status.textContent =
         "Service Workerが見つかりません";
+
     }
 
 })();
@@ -141,6 +158,7 @@ if(companyName){
 
 
 button.onclick = async()=>{
+
 
     if(!confirm(
         "Winconを再起動して更新を確認します。\n\n続行しますか？"
@@ -154,12 +172,16 @@ button.onclick = async()=>{
 
     try{
 
+
         status.textContent =
         "キャッシュを削除しています...";
 
 
-        // Winconキャッシュのみ削除
-        await caches.delete("wincon-cache-v1");
+        // Wincon本体キャッシュ削除
+        await caches.delete(
+            "wincon-cache-v1"
+        );
+
 
 
         status.textContent =
@@ -171,36 +193,49 @@ button.onclick = async()=>{
 
 
         if(reg){
+
             await reg.update();
+
         }
+
 
 
         status.textContent =
         "Winconを再起動しています...";
 
 
+
         setTimeout(()=>{
 
-            // Update Centerを履歴に残さずWinconへ
-            window.location.replace("./index.html");
+
+            // 親のWincon本体を再読み込み
+            window.parent.location.reload();
+
 
         },1000);
 
 
-    }catch(e){
 
-        console.error(e);
+    }catch(error){
+
+
+        console.error(error);
+
 
         status.textContent =
-        "更新中にエラーが発生しました";
+        "更新に失敗しました";
 
-        button.disabled = false;
+
+        button.disabled=false;
+
 
     }
+
 
 };
 
 </script>
+
 
 </body>
 </html>
