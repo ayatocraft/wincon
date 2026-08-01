@@ -292,6 +292,89 @@ background:#475569;
 font-size:12px;
 margin-top:8px;
 }
+#tray{
+
+margin-left:auto;
+
+display:flex;
+
+align-items:center;
+
+gap:8px;
+
+height:100%;
+
+}
+
+
+#networkStatus,
+#batteryStatus,
+#clock{
+
+height:40px;
+
+padding:4px 10px;
+
+border-radius:10px;
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+cursor:pointer;
+
+background:transparent;
+
+}
+
+
+#networkStatus:hover,
+#batteryStatus:hover,
+#clock:hover{
+
+background:#3d4654;
+
+}
+
+
+#batteryStatus{
+
+gap:4px;
+
+font-size:16px;
+
+}
+
+
+#clock{
+
+flex-direction:column;
+
+line-height:16px;
+
+min-width:75px;
+
+}
+
+
+#time{
+
+font-size:15px;
+
+font-weight:600;
+
+}
+
+
+#date{
+
+font-size:11px;
+
+opacity:.8;
+
+}
 
 </style>
 </head>
@@ -309,8 +392,44 @@ margin-top:8px;
 <div id="contextMenu"></div>
 
 <div id="taskbar">
-<button id="menuBtn">Menu</button>
+
+<button id="menuBtn">
+Menu
+</button>
+
 <div id="taskIcons"></div>
+
+
+<div id="tray">
+
+    <div id="networkStatus">
+        🌐
+    </div>
+
+
+    <div id="batteryStatus">
+        🔋
+        <span id="batteryLevel">
+        --
+        </span>
+    </div>
+
+
+    <div id="clock">
+
+        <div id="time">
+        --:--
+        </div>
+
+        <div id="date">
+        ----/--
+        </div>
+
+    </div>
+
+</div>
+
+
 </div>
 
 
@@ -2969,6 +3088,165 @@ window.addEventListener(
 saveEnterpriseApps();
 }
 );
+
+function updateClock(){
+
+const now =
+new Date();
+
+
+document.getElementById(
+"time"
+).textContent =
+now.toLocaleTimeString(
+"ja-JP",
+{
+hour:"2-digit",
+minute:"2-digit"
+}
+);
+
+
+document.getElementById(
+"date"
+).textContent =
+now.toLocaleDateString(
+"ja-JP",
+{
+month:"numeric",
+day:"numeric"
+}
+);
+
+
+}
+
+
+updateClock();
+
+
+setInterval(
+updateClock,
+1000
+);
+function updateNetwork(){
+
+const el =
+document.getElementById(
+"networkStatus"
+);
+
+
+if(navigator.onLine){
+
+el.textContent="🌐";
+
+el.title=
+"オンライン";
+
+}else{
+
+el.textContent="💾";
+
+el.title=
+"オフライン";
+
+}
+
+
+}
+
+
+updateNetwork();
+
+
+window.addEventListener(
+"online",
+updateNetwork
+);
+
+
+window.addEventListener(
+"offline",
+updateNetwork
+);
+async function updateBattery(){
+
+const el =
+document.getElementById(
+"batteryStatus"
+);
+
+
+if(!navigator.getBattery){
+
+el.style.display="none";
+
+return;
+
+}
+
+
+const battery =
+await navigator.getBattery();
+
+
+
+function refresh(){
+
+const level =
+Math.round(
+battery.level * 100
+);
+
+
+let icon="🔋";
+
+
+if(level <= 20){
+
+icon="🪫";
+
+}
+
+
+if(battery.charging){
+
+icon="⚡🔋";
+
+}
+
+
+el.innerHTML =
+`
+${icon}
+<span>
+${level}%
+</span>
+`;
+
+}
+
+
+refresh();
+
+
+battery.addEventListener(
+"levelchange",
+refresh
+);
+
+
+battery.addEventListener(
+"chargingchange",
+refresh
+);
+
+
+}
+
+
+updateBattery();
 </script>
 
 </body>
