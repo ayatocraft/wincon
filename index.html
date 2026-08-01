@@ -561,13 +561,7 @@ Menu
 確認中...
 </p>
 
-<button
-id="connectionToggle"
-class="icon-toggle">
 
-🌐
-
-</button>
 
 </div>
 
@@ -583,6 +577,106 @@ class="icon-toggle">
 
 <p id="ccDate">
 ----</p>
+
+
+</div>
+
+<div class="cc-card">
+
+<h3>⚡ Power</h3>
+
+
+<button
+class="action"
+onclick="showPowerConfirm('shutdown')">
+
+⏻ シャットダウン
+
+</button>
+
+
+<br><br>
+
+
+<button
+class="action"
+onclick="showPowerConfirm('restart')">
+
+🔄 再起動
+
+</button>
+
+</div>
+
+
+
+<div class="cc-card">
+
+<h3>🚀 Quick Launch</h3>
+
+
+<button
+class="action"
+onclick="openTerminal()">
+
+⌨ Terminal
+
+</button>
+
+
+<br><br>
+
+
+<button
+class="action"
+onclick="openBrowser()">
+
+🌐 Sail Browser Beta
+
+</button>
+
+
+</div>
+
+
+
+<div id="powerConfirm"
+class="cc-card"
+style="display:none;">
+
+
+<h3 id="powerConfirmTitle">
+確認
+</h3>
+
+
+<p id="powerConfirmText">
+</p>
+
+
+<div style="display:flex;gap:10px;">
+
+
+<button
+class="action"
+onclick="cancelPower()">
+
+キャンセル
+
+</button>
+
+
+
+<button
+class="action"
+onclick="executePower()">
+
+実行
+
+</button>
+
+
+</div>
 
 
 </div>
@@ -2147,19 +2241,19 @@ SYSTEM PROCESS
 
 <b>Product Name</b>
 <br>
-Wincon Enterprise 2.2.1
+Wincon Enterprise 3.1
 
 <br><br>
 
 <b>Version</b>
 <br>
-Beta 2.2.1
+Stable 3.1
 
 <br><br>
 
 <b>Core Service Version</b>
 <br>
-1.5
+1.6
 
 <br><br>
 
@@ -2227,7 +2321,7 @@ JSON.stringify(localStorage).length/1024
 Build: 2026.08
 <br>
 
-Channel: Beta
+Channel: Stable
 <br>
 
 Platform: Web
@@ -3549,59 +3643,35 @@ document.getElementById(
 "ccConnectionMode"
 );
 
-const btn =
-document.getElementById(
-"connectionToggle"
-);
 
+if(navigator.onLine){
 
-if(winconCacheMode){
-
-text.textContent=
-"💾 Cache Mode";
-
-btn.textContent=
-"💾";
+text.textContent =
+"🌐 Online";
 
 }else{
 
-text.textContent=
-"🌐 Online Mode";
-
-btn.textContent=
-"🌐";
+text.textContent =
+"💾 Offline";
 
 }
 
 }
 
 
-
-document
-.getElementById(
-"connectionToggle"
-)
-.onclick=()=>{
+updateConnection();
 
 
-winconCacheMode =
-!winconCacheMode;
-
-
-localStorage.setItem(
-"winconCacheMode",
-winconCacheMode
+window.addEventListener(
+"online",
+updateConnection
 );
 
 
-updateConnection();
-
-
-};
-
-
-
-updateConnection();
+window.addEventListener(
+"offline",
+updateConnection
+);
 function updateCCClock(){
 
 const now =
@@ -3639,6 +3709,111 @@ setInterval(
 updateCCClock,
 1000
 );
+
+let pendingPowerAction = null;
+
+
+
+function showPowerConfirm(action){
+
+
+pendingPowerAction = action;
+
+
+const box =
+document.getElementById(
+"powerConfirm"
+);
+
+
+const title =
+document.getElementById(
+"powerConfirmTitle"
+);
+
+
+const text =
+document.getElementById(
+"powerConfirmText"
+);
+
+
+
+if(action==="shutdown"){
+
+
+title.textContent =
+"⏻ シャットダウン";
+
+
+text.textContent =
+"Winconを終了しますか？";
+
+
+}
+
+
+
+if(action==="restart"){
+
+
+title.textContent =
+"🔄 再起動";
+
+
+text.textContent =
+"Winconを再起動しますか？";
+
+
+}
+
+
+
+box.style.display =
+"block";
+
+
+}
+function cancelPower(){
+
+
+pendingPowerAction=null;
+
+
+document.getElementById(
+"powerConfirm"
+).style.display =
+"none";
+
+
+}
+function executePower(){
+
+
+if(
+pendingPowerAction==="shutdown"
+){
+
+shutdownSystem();
+
+}
+
+
+
+if(
+pendingPowerAction==="restart"
+){
+
+restartSystem();
+
+}
+
+
+
+cancelPower();
+
+
+}
 </script>
 
 </body>
