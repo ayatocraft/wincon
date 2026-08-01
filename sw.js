@@ -13,33 +13,64 @@ self.addEventListener("install", (event) => {
     self.skipWaiting();
 });
 
+
 self.addEventListener("activate", (event) => {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil(
+        self.clients.claim()
+    );
 });
+
 
 self.addEventListener("fetch", (event) => {
 
     if (event.request.method !== "GET") return;
 
+
+    // Module Center(Supabase)は常にネットから取得
+    if (
+        event.request.url.includes(
+            "supabase.co/functions"
+        )
+    ) {
+
+        event.respondWith(
+            fetch(event.request)
+        );
+
+        return;
+    }
+
+
+    // それ以外は今まで通りキャッシュ優先
     event.respondWith(
-        caches.match(event.request).then(cached => {
+
+        caches.match(event.request)
+        .then(cached => {
 
             if (cached) {
                 return cached;
             }
 
-            return fetch(event.request).then(response => {
+            return fetch(event.request)
+            .then(response => {
 
-                const copy = response.clone();
+                const copy =
+                    response.clone();
 
-                caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, copy);
+                caches.open(CACHE_NAME)
+                .then(cache => {
+                    cache.put(
+                        event.request,
+                        copy
+                    );
                 });
 
                 return response;
+
             });
 
         })
+
     );
 
 });
