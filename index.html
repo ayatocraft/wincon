@@ -3180,16 +3180,22 @@ document.getElementById(
 
 if(!navigator.getBattery){
 
-el.style.display="none";
+    // Battery API非対応の場合
+    el.innerHTML =
+    `
+    🔌
+    <span>
+    AC
+    </span>
+    `;
 
-return;
+    return;
 
 }
 
 
 const battery =
 await navigator.getBattery();
-
 
 
 function refresh(){
@@ -3202,17 +3208,22 @@ battery.level * 100
 
 let icon="🔋";
 
+let text =
+level + "%";
 
-if(level <= 20){
 
-icon="🪫";
+// 充電中
+if(battery.charging){
+
+    icon="⚡🔋";
 
 }
 
 
-if(battery.charging){
+// 残量低下
+else if(level <= 20){
 
-icon="⚡🔋";
+    icon="🪫";
 
 }
 
@@ -3221,7 +3232,7 @@ el.innerHTML =
 `
 ${icon}
 <span>
-${level}%
+${text}
 </span>
 `;
 
