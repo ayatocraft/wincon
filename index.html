@@ -3815,6 +3815,782 @@ cancelPower();
 
 
 }
+// ========================================
+// Wincon External App API
+// ========================================
+
+// ========================================
+// Wincon External App API
+// ========================================
+
+const WINCON_API_ALLOWED_ORIGIN =
+    "https://ayatocraft.github.io";
+
+const winconAPIWindows = new Map();
+
+
+// ----------------------------------------
+// API初期化
+// ----------------------------------------
+
+function initWinconAppAPI() {
+
+    window.addEventListener(
+        "message",
+        handleWinconAppMessage
+    );
+
+    console.log(
+        "[Wincon API] Ready"
+    );
+}
+
+
+// ----------------------------------------
+// Message受信
+// ----------------------------------------
+
+function handleWinconAppMessage(event) {
+
+    if (
+        event.origin !==
+        WINCON_API_ALLOWED_ORIGIN
+    ) {
+        return;
+    }
+
+    const data = event.data;
+
+    if (
+        !data ||
+        data.type !== "wincon"
+    ) {
+        return;
+    }
+
+    switch (data.action) {
+
+        case "getApps":
+
+            winconAPIGetApps(event);
+
+            break;
+
+
+        case "searchApps":
+
+            winconAPISearchApps(
+                event,
+                data
+            );
+
+            break;
+
+
+        case "openWindow":
+
+            winconAPIOpenWindow(
+                event,
+                data
+            );
+
+            break;
+
+
+        case "launchApp":
+
+            winconAPILaunchApp(
+                event,
+                data
+            );
+
+            break;
+
+
+        case "closeWindow":
+
+            winconAPICloseWindow(
+                event,
+                data
+            );
+
+            break;
+
+
+        case "setWindowTitle":
+
+            winconAPISetWindowTitle(
+                event,
+                data
+            );
+
+            break;
+
+
+        default:
+
+            winconAPISend(
+                event,
+                "error",
+                {
+                    message:
+                        "Unknown API action",
+                    action:
+                        data.action
+                }
+            );
+
+    }
+
+}
+
+
+// ----------------------------------------
+// APIレスポンス
+// ----------------------------------------
+
+function winconAPISend(
+    event,
+    action,
+    data = {}
+) {
+
+    if (
+        !event.source ||
+        !event.source.postMessage
+    ) {
+        return;
+    }
+
+    event.source.postMessage(
+
+        {
+            type: "wincon",
+            action,
+            ...data
+        },
+
+        event.origin
+
+    );
+
+}
+
+
+// ----------------------------------------
+// App情報を作る
+// ----------------------------------------
+
+function winconAPIFormatApp(
+    app,
+    index
+) {
+
+    return {
+
+        id:
+            app.id ||
+            app.appId ||
+            app.title ||
+            "app-" + index,
+
+        title:
+            app.title || "",
+
+        icon:
+            app.icon || "🌐",
+
+        type:
+            app.type || "app",
+
+        popup:
+            !!app.popup,
+
+        system:
+            !!app.system,
+
+        enterprise:
+            !!app.enterprise
+
+    };
+
+}
+
+
+// ----------------------------------------
+// App一覧
+// ----------------------------------------
+
+function winconAPIGetApps(event) {
+
+    const apps =
+        menuItems.map(
+            winconAPIFormatApp
+        );
+
+    winconAPISend(
+        event,
+        "apps",
+        {
+            apps
+        }
+    );
+
+}
+
+
+// ----------------------------------------
+// App検索
+// ----------------------------------------
+
+function winconAPISearchApps(
+    event,
+    data
+) {
+
+    const query =
+        String(
+            data.query || ""
+        )
+        .trim()
+        .toLowerCase();
+
+
+    const apps =
+        menuItems
+
+        .filter(app => {
+
+            const title =
+                String(
+                    app.title || ""
+                ).toLowerCase();
+
+            const type =
+                String(
+                    app.type || ""
+                ).toLowerCase();
+
+            return (
+                title.includes(query) ||
+                type.includes(query)
+            );
+
+        })
+
+        .map(
+            winconAPIFormatApp
+        );
+
+
+    winconAPISend(
+        event,
+        "searchResults",
+        {
+            query,
+            apps
+        }
+    );
+
+}
+
+
+// ----------------------------------------
+// App起動
+// ----------------------------------------
+
+function winconAPILaunchApp(
+    event,
+    data
+) {
+
+    if (!data.appId) {
+
+        winconAPISend(
+            event,
+            "error",
+            {
+                message:
+                    "appId is required"
+            }
+        );
+
+        return;
+
+    }
+
+
+    const app =
+        menuItems.find(
+            (item, index) => {
+
+                const id =
+                    item.id ||
+                    item.appId ||
+                    item.title;
+
+                return (
+                    id ===
+                    data.appId
+                );
+
+            }
+        );
+
+
+    if (!app) {
+
+        winconAPISend(
+            event,
+            "error",
+            {
+                message:
+                    "App not found",
+
+                appId:
+                    data.appId
+            }
+        );
+
+        return;
+
+    }
+
+
+    winconOpenAppAPI(app);
+
+
+    winconAPISend(
+        event,
+        "launchResult",
+        {
+            success: true,
+
+            appId:
+                data.appId,
+
+            title:
+                app.title
+        }
+    );
+
+}
+
+
+// ----------------------------------------
+// 既存Winconアプリを起動
+// ----------------------------------------
+
+function winconOpenAppAPI(app) {
+
+    switch (app.type) {
+
+        case "window":
+
+            openTestWindow();
+
+            break;
+
+
+        case "popup":
+
+            openTestPopup();
+
+            break;
+
+
+        case "file":
+
+            openFileManager();
+
+            break;
+
+
+        case "task":
+
+            openTaskManager();
+
+            break;
+
+
+        case "settings":
+
+            openSystemSettings(false);
+
+            break;
+
+
+        case "recovery":
+
+            openRecovery();
+
+            break;
+
+
+        case "shutdown":
+
+            shutdownSystem();
+
+            break;
+
+
+        case "externalHTML":
+
+            openExternalHTML(app);
+
+            break;
+
+
+        case "transfer":
+
+            openTransferApp();
+
+            break;
+
+
+        case "terminal":
+
+            openTerminal();
+
+            break;
+
+
+        case "reset":
+
+            openResetCenter();
+
+            break;
+
+
+        case "browser":
+
+            openBrowser();
+
+            break;
+
+
+        case "appcenter":
+
+            openAppCenter();
+
+            break;
+
+
+        case "appcenterdev":
+
+            openAppCenterDeveloper();
+
+            break;
+
+
+        case "coreservice":
+
+            openCoreService();
+
+            break;
+
+
+        default:
+
+            if (app.source) {
+
+                openExternalHTML(app);
+
+            }
+
+            break;
+
+    }
+
+}
+
+
+// ----------------------------------------
+// 外部HTML Windowを開く
+// ----------------------------------------
+
+function winconAPIOpenWindow(
+    event,
+    data
+) {
+
+    if (!data.url) {
+
+        winconAPISend(
+            event,
+            "error",
+            {
+                message:
+                    "url is required"
+            }
+        );
+
+        return;
+
+    }
+
+
+    const windowId =
+        "wincon-" +
+        crypto.randomUUID();
+
+
+    const win =
+        createWindow({
+
+            title:
+                data.title ||
+                "Wincon App",
+
+            icon:
+                data.icon ||
+                "🌐",
+
+            width:
+                Number(data.width) ||
+                800,
+
+            height:
+                Number(data.height) ||
+                600,
+
+            popup:
+                data.popup === true ||
+                data.windowType ===
+                "popup",
+
+            content: `
+
+                <iframe
+                    src="${data.url}"
+                    style="
+                        width:100%;
+                        height:100%;
+                        border:0;
+                    "
+                ></iframe>
+
+            `
+
+        });
+
+
+    win.dataset.apiWindowId =
+        windowId;
+
+
+    winconAPIWindows.set(
+        windowId,
+        win
+    );
+
+
+    winconAPISend(
+        event,
+        "windowOpened",
+        {
+            success: true,
+            windowId
+        }
+    );
+
+}
+
+
+// ----------------------------------------
+// Windowを閉じる
+// ----------------------------------------
+
+function winconAPICloseWindow(
+    event,
+    data
+) {
+
+    const win =
+        winconAPIWindows.get(
+            data.windowId
+        );
+
+
+    if (!win) {
+
+        winconAPISend(
+            event,
+            "error",
+            {
+                message:
+                    "Window not found",
+
+                windowId:
+                    data.windowId
+            }
+        );
+
+        return;
+
+    }
+
+
+    win.remove();
+
+
+    winconAPIWindows.delete(
+        data.windowId
+    );
+
+
+    winconAPISend(
+        event,
+        "windowClosed",
+        {
+            success: true,
+
+            windowId:
+                data.windowId
+        }
+    );
+
+}
+
+
+// ----------------------------------------
+// Windowタイトル変更
+// ----------------------------------------
+
+function winconAPISetWindowTitle(
+    event,
+    data
+) {
+
+    const win =
+        winconAPIWindows.get(
+            data.windowId
+        );
+
+
+    if (!win) {
+
+        winconAPISend(
+            event,
+            "error",
+            {
+                message:
+                    "Window not found",
+
+                windowId:
+                    data.windowId
+            }
+        );
+
+        return;
+
+    }
+
+
+    const title =
+        data.title ||
+        "Wincon App";
+
+
+    win.dataset.title =
+        title;
+
+
+    const titleElement =
+        win.querySelector(
+            ".title-left div:last-child"
+        );
+
+
+    if (titleElement) {
+
+        titleElement.textContent =
+            title;
+
+    }
+
+
+    /*
+     * タスクバーアイコンのタイトルも更新
+     */
+
+    const taskIcon =
+        [...document.querySelectorAll(
+            ".task-icon"
+        )]
+        .find(
+            icon =>
+                icon.title ===
+                win.dataset.title
+        );
+
+
+    if (taskIcon) {
+
+        taskIcon.title =
+            title;
+
+    }
+
+
+    winconAPISend(
+        event,
+        "titleChanged",
+        {
+            success: true,
+
+            windowId:
+                data.windowId,
+
+            title
+        }
+    );
+
+}
+
+
+// ----------------------------------------
+// Wincon Windowが閉じられたときの後処理
+// ----------------------------------------
+
+function winconAPIForgetWindow(
+    win
+) {
+
+    for (
+        const [
+            windowId,
+            storedWindow
+        ]
+        of winconAPIWindows
+    ) {
+
+        if (
+            storedWindow ===
+            win
+        ) {
+
+            winconAPIWindows.delete(
+                windowId
+            );
+
+            break;
+
+        }
+
+    }
+
+}
+
+
+// ----------------------------------------
+// API開始
+// ----------------------------------------
+
+initWinconAppAPI();
+
+
+
 </script>
 
 </body>
