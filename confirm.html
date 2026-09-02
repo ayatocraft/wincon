@@ -177,10 +177,9 @@ button {
 </div>
 
 
+
 <script>
 
-const windowId =
-    params.get("winconWindowId");
 const WINCON_ORIGIN =
     "https://ayatocraft.github.io";
 
@@ -192,24 +191,26 @@ const params =
 
 
 const appId =
-    params.get(
-        "appId"
-    );
+    params.get("appId");
 
 
 const appTitle =
-    params.get(
-        "title"
-    ) ||
+    params.get("title") ||
     "App";
 
 
 const appIcon =
-    params.get(
-        "icon"
-    ) ||
+    params.get("icon") ||
     "🌐";
 
+
+const windowId =
+    params.get("winconWindowId");
+
+
+/* ========================================
+   表示
+======================================== */
 
 document.getElementById(
     "title"
@@ -223,22 +224,36 @@ document.getElementById(
     appIcon;
 
 
-/*
-==================================================
- Appを起動
-==================================================
-*/
+/* ========================================
+   Confirm Popupを閉じる
+======================================== */
 
 function closeConfirm() {
 
-    if (!windowId) return;
+    if (!windowId) {
+
+        console.error(
+            "Wincon Window IDがありません"
+        );
+
+        return;
+
+    }
+
 
     window.parent.postMessage(
 
         {
-            type: "wincon",
-            action: "closeWindow",
-            windowId: windowId
+
+            type:
+                "wincon",
+
+            action:
+                "closeWindow",
+
+            windowId:
+                windowId
+
         },
 
         WINCON_ORIGIN
@@ -248,24 +263,48 @@ function closeConfirm() {
 }
 
 
+/* ========================================
+   アプリを開く
+======================================== */
+
 function openApp() {
+
+    /*
+     * 先にWinconへ起動要求
+     */
 
     window.parent.postMessage(
 
         {
-            type: "wincon",
-            action: "launchApp",
-            appId: appId
+
+            type:
+                "wincon",
+
+            action:
+                "launchApp",
+
+            appId:
+                appId
+
         },
 
         WINCON_ORIGIN
 
     );
+
+
+    /*
+     * Confirm Popupだけ閉じる
+     */
 
     closeConfirm();
 
 }
 
+
+/* ========================================
+   キャンセル
+======================================== */
 
 function cancel() {
 
@@ -274,6 +313,7 @@ function cancel() {
 }
 
 </script>
+
 
 
 </body>
