@@ -478,98 +478,66 @@ color:white;
 opacity:.8;
 
 }
-/* Wincon UAC */
-
 #winconUACOverlay {
-    position: fixed;
-    inset: 0;
+
+    position: fixed !important;
+
+    top: 0 !important;
+    left: 0 !important;
+
+    width: 100vw !important;
+    height: 100vh !important;
 
     display: none;
 
-    align-items: center;
-    justify-content: center;
+    align-items: center !important;
+    justify-content: center !important;
 
-    background: rgba(0, 0, 0, 0.65);
+    background:
+        rgba(0, 0, 0, 0.7);
 
-    z-index: 9999999;
+    z-index: 2147483647 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    transform: none !important;
 }
 
+
 #winconUACOverlay.show {
-    display: flex;
+
+    display: flex !important;
+
 }
 
 
 #winconUACDialog {
+
+    position: relative !important;
+
     width: 520px;
-    max-width: calc(100vw - 40px);
+
+    max-width:
+        calc(100vw - 40px);
 
     min-height: 260px;
 
     padding: 30px;
 
-    box-sizing: border-box;
+    box-sizing:
+        border-box;
 
     background: white;
 
     border-radius: 16px;
 
-    box-shadow:
-        0 20px 80px rgba(0, 0, 0, 0.5);
-
     color: black;
 
-    display: flex;
-    flex-direction: column;
+    z-index: 2147483647 !important;
 
-    gap: 20px;
-}
+    transform: none !important;
 
-
-#winconUACIcon {
-    font-size: 48px;
-}
-
-
-#winconUACTitle {
-    font-size: 18px;
-    font-weight: bold;
-}
-
-
-#winconUACAppName {
-    margin-top: 12px;
-
-    font-size: 24px;
-    font-weight: bold;
-}
-
-
-#winconUACDescription {
-    margin-top: 10px;
-
-    font-size: 14px;
-
-    opacity: 0.7;
-}
-
-
-#winconUACButtons {
-    display: flex;
-
-    justify-content: flex-end;
-
-    gap: 10px;
-
-    margin-top: auto;
-}
-
-
-#winconUACButtons button {
-    min-width: 100px;
-
-    padding: 10px 20px;
-
-    cursor: pointer;
 }
 </style>
 </head>
@@ -5572,7 +5540,42 @@ window.winconAssistantAPI = {
 // ========================================
 // Wincon UAC - Stable
 // ========================================
+// ========================================
+// Wincon UAC を body直下へ移動
+// ========================================
 
+function moveWinconUACToBody() {
+
+    const overlay =
+        document.getElementById(
+            "winconUACOverlay"
+        );
+
+    if (!overlay) {
+
+        console.warn(
+            "Wincon UAC Overlayが見つかりません"
+        );
+
+        return;
+
+    }
+
+    // body直下に移動
+    if (
+        overlay.parentElement !==
+        document.body
+    ) {
+
+        document.body.appendChild(
+            overlay
+        );
+
+    }
+
+}
+
+moveWinconUACToBody();
 let winconUACResolve = null;
 let winconUACActive = false;
 
