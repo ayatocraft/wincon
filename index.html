@@ -482,174 +482,95 @@ opacity:.8;
    Wincon UAC
 ======================================== */
 
-#winconUACOverlay{
-    position:fixed;
-    inset:0;
+/* ========================================
+   Wincon UAC - Stable
+======================================== */
 
-    display:none;
+#winconUACOverlay {
+    position: fixed;
+    inset: 0;
 
-    align-items:center;
-    justify-content:center;
+    display: none;
 
-    background:rgba(0,0,0,.82);
+    align-items: center;
+    justify-content: center;
 
-    backdrop-filter:blur(8px);
+    background: rgba(0, 0, 0, 0.72);
 
-    z-index:2147483647;
+    z-index: 2147483647;
+
+    pointer-events: auto;
 }
 
-#winconUACOverlay.show{
-    display:flex;
+#winconUACOverlay.show {
+    display: flex;
 }
 
-#winconUACDialog{
-    width:min(560px, calc(100vw - 40px));
-    min-height:340px;
+#winconUACDialog {
+    width: min(560px, calc(100vw - 40px));
 
-    background:#2b313b;
+    min-height: 260px;
 
-    border:1px solid rgba(255,255,255,.12);
+    padding: 32px;
 
-    border-radius:18px;
+    box-sizing: border-box;
+
+    border-radius: 18px;
+
+    background: #202020;
+
+    color: white;
 
     box-shadow:
-        0 30px 100px rgba(0,0,0,.7);
+        0 24px 80px rgba(0, 0, 0, 0.75);
 
-    overflow:hidden;
+    position: relative;
 
-    animation:winconUACOpen .18s ease;
+    pointer-events: auto;
 }
 
-@keyframes winconUACOpen{
+#winconUACIcon {
+    font-size: 42px;
 
-    from{
-        opacity:0;
-        transform:scale(.96);
-    }
-
-    to{
-        opacity:1;
-        transform:scale(1);
-    }
-
+    margin-bottom: 12px;
 }
 
-#winconUACTitleBar{
-
-    height:52px;
-
-    display:flex;
-    align-items:center;
-
-    padding:0 18px;
-
-    background:#39414d;
-
-    font-size:16px;
-    font-weight:600;
-
+#winconUACDialog h2 {
+    margin: 0 0 18px;
 }
 
-#winconUACContent{
+#winconUACAppName {
+    margin: 0 0 12px;
 
-    padding:28px;
-
+    font-size: 22px;
 }
 
-#winconUACApp{
+#winconUACDescription {
+    opacity: 0.8;
 
-    display:flex;
-    align-items:center;
-
-    gap:18px;
-
-    margin:20px 0;
-
+    margin-bottom: 28px;
 }
 
-#winconUACIcon{
+.wincon-uac-buttons {
+    display: flex;
 
-    width:72px;
-    height:72px;
+    justify-content: flex-end;
 
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    font-size:40px;
-
-    border-radius:18px;
-
-    background:#404a58;
-
+    gap: 12px;
 }
 
-#winconUACAppName{
+.wincon-uac-buttons button {
+    min-width: 100px;
 
-    font-size:22px;
-    font-weight:600;
+    padding: 10px 18px;
 
-}
+    border: none;
 
-#winconUACDescription{
+    border-radius: 8px;
 
-    margin-top:6px;
+    cursor: pointer;
 
-    opacity:.75;
-
-}
-
-#winconUACActions{
-
-    display:flex;
-
-    justify-content:flex-end;
-
-    gap:12px;
-
-    margin-top:28px;
-
-}
-
-.wincon-uac-btn{
-
-    min-width:120px;
-    height:44px;
-
-    border:none;
-
-    border-radius:10px;
-
-    color:white;
-
-    cursor:pointer;
-
-    font-size:15px;
-
-}
-
-#winconUACAllow{
-
-    background:#2563eb;
-
-}
-
-#winconUACAllow:hover{
-
-    background:#3b82f6;
-
-}
-
-#winconUACDeny{
-
-    background:#4d5767;
-
-}
-
-#winconUACDeny:hover{
-
-    background:#64748b;
-
+    font-size: 15px;
 }
 </style>
 </head>
@@ -712,55 +633,37 @@ Menu
 
     <div id="winconUACDialog">
 
-        <div id="winconUACTitleBar">
-
-            🛡️ Wincon Security
-
+        <div id="winconUACIcon">
+            🛡️
         </div>
 
-        <div id="winconUACContent">
+        <h2>
+            このWinconデバイスに変更を許可しますか？
+        </h2>
 
-            <h2>
-                このWinconデバイスに変更を許可しますか？
-            </h2>
+        <div id="winconUACAppName">
+            不明なアプリ
+        </div>
 
-            <div id="winconUACApp">
+        <div id="winconUACDescription">
+            このアプリはWinconに変更を加えようとしています。
+        </div>
 
-                <div id="winconUACIcon">
-                    📦
-                </div>
+        <div class="wincon-uac-buttons">
 
-                <div>
+            <button
+                id="winconUACDeny"
+                type="button"
+            >
+                拒否
+            </button>
 
-                    <div id="winconUACAppName">
-                        App Name
-                    </div>
-
-                    <div id="winconUACDescription">
-                        このアプリはWinconに変更を加えようとしています。
-                    </div>
-
-                </div>
-
-            </div>
-
-            <div id="winconUACActions">
-
-                <button
-                    id="winconUACDeny"
-                    class="wincon-uac-btn"
-                >
-                    拒否
-                </button>
-
-                <button
-                    id="winconUACAllow"
-                    class="wincon-uac-btn"
-                >
-                    許可
-                </button>
-
-            </div>
+            <button
+                id="winconUACAllow"
+                type="button"
+            >
+                許可
+            </button>
 
         </div>
 
@@ -5687,134 +5590,107 @@ window.winconAssistantAPI = {
   });
 })();
 // ========================================
-// Wincon UAC + External App API
-// ========================================
-
-
-// ========================================
-// UAC State
+// Wincon UAC - Stable
 // ========================================
 
 let winconUACResolve = null;
-
 let winconUACActive = false;
 
 
-// ========================================
-// Wincon UAC
-// ========================================
+// ----------------------------------------
+// UACを表示
+// ----------------------------------------
 
 function requestWinconUAC(options = {}) {
-
-    const title =
-        options.title ||
-        "不明なアプリ";
-
-    const icon =
-        options.icon ||
-        "🛡️";
-
-    const description =
-        options.description ||
-        "このアプリはWinconに変更を加えようとしています。";
-
 
     const overlay =
         document.getElementById(
             "winconUACOverlay"
         );
 
-
     if (!overlay) {
 
         console.error(
-            "Wincon UAC Overlayが見つかりません"
+            "[Wincon UAC] Overlay not found"
         );
 
         return Promise.resolve(false);
-
     }
 
 
-    // 既にUACが表示されている場合
-
+    // 既に表示中なら拒否
     if (winconUACActive) {
 
         return Promise.resolve(false);
-
     }
 
 
     winconUACActive = true;
 
 
-    return new Promise(resolve => {
+    const appName =
+        document.getElementById(
+            "winconUACAppName"
+        );
 
+    const appIcon =
+        document.getElementById(
+            "winconUACIcon"
+        );
+
+    const description =
+        document.getElementById(
+            "winconUACDescription"
+        );
+
+
+    if (appName) {
+
+        appName.textContent =
+            options.title ||
+            "不明なアプリ";
+
+    }
+
+
+    if (appIcon) {
+
+        appIcon.textContent =
+            options.icon ||
+            "🛡️";
+
+    }
+
+
+    if (description) {
+
+        description.textContent =
+            options.description ||
+            "このアプリはWinconに変更を加えようとしています。";
+
+    }
+
+
+    overlay.classList.add(
+        "show"
+    );
+
+
+    return new Promise(resolve => {
 
         winconUACResolve =
             resolve;
-
-
-        const appName =
-            document.getElementById(
-                "winconUACAppName"
-            );
-
-
-        const appIcon =
-            document.getElementById(
-                "winconUACIcon"
-            );
-
-
-        const appDescription =
-            document.getElementById(
-                "winconUACDescription"
-            );
-
-
-        if (appName) {
-
-            appName.textContent =
-                title;
-
-        }
-
-
-        if (appIcon) {
-
-            appIcon.textContent =
-                icon;
-
-        }
-
-
-        if (appDescription) {
-
-            appDescription.textContent =
-                description;
-
-        }
-
-
-        disableWinconForUAC();
-
-
-        overlay.classList.add(
-            "show"
-        );
-
 
     });
 
 }
 
 
-// ========================================
-// UAC Close
-// ========================================
+// ----------------------------------------
+// UACを閉じる
+// ----------------------------------------
 
-function closeWinconUAC(result) {
+function closeWinconUAC(result = false) {
 
     const overlay =
         document.getElementById(
@@ -5831,124 +5707,31 @@ function closeWinconUAC(result) {
     }
 
 
-    enableWinconAfterUAC();
+    winconUACActive = false;
 
 
-    winconUACActive =
-        false;
+    if (typeof winconUACResolve === "function") {
 
+        const resolve =
+            winconUACResolve;
 
-    if (winconUACResolve) {
-
-        winconUACResolve(
-            result
-        );
 
         winconUACResolve =
             null;
 
+
+        resolve(
+            result
+        );
+
     }
 
 }
 
 
-// ========================================
-// Disable Wincon
-// ========================================
-
-function disableWinconForUAC() {
-
-    const taskbar =
-        document.getElementById(
-            "taskbar"
-        );
-
-
-    const menu =
-        document.getElementById(
-            "menu"
-        );
-
-
-    const contextMenu =
-        document.getElementById(
-            "contextMenu"
-        );
-
-
-    if (taskbar) {
-
-        taskbar.style.visibility =
-            "hidden";
-
-    }
-
-
-    if (menu) {
-
-        menu.style.display =
-            "none";
-
-    }
-
-
-    if (contextMenu) {
-
-        contextMenu.style.display =
-            "none";
-
-    }
-
-
-    // 既存ウィンドウを操作不可にする
-
-    document
-        .querySelectorAll(".window")
-        .forEach(win => {
-
-            win.style.pointerEvents =
-                "none";
-
-        });
-
-}
-
-
-// ========================================
-// Restore Wincon
-// ========================================
-
-function enableWinconAfterUAC() {
-
-    const taskbar =
-        document.getElementById(
-            "taskbar"
-        );
-
-
-    if (taskbar) {
-
-        taskbar.style.visibility =
-            "visible";
-
-    }
-
-
-    document
-        .querySelectorAll(".window")
-        .forEach(win => {
-
-            win.style.pointerEvents =
-                "";
-
-        });
-
-}
-
-
-// ========================================
-// UAC Buttons
-// ========================================
+// ----------------------------------------
+// UACボタン初期化
+// ----------------------------------------
 
 function setupWinconUAC() {
 
@@ -5956,7 +5739,6 @@ function setupWinconUAC() {
         document.getElementById(
             "winconUACAllow"
         );
-
 
     const deny =
         document.getElementById(
@@ -5998,1532 +5780,21 @@ function setupWinconUAC() {
 }
 
 
-// ========================================
-// Launch Menu Item
-// ========================================
-// 既存のアプリ起動処理を
-// APIからも呼び出せるようにする
-// ========================================
+// ----------------------------------------
+// DOM読み込み後に初期化
+// ----------------------------------------
 
-function launchMenuItem(app) {
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
-    if (!app) {
+        setupWinconUAC();
 
-        return false;
+        console.log(
+            "[Wincon UAC] Stable Ready"
+        );
 
     }
-
-
-    switch (app.type) {
-
-
-        case "window":
-
-            openTestWindow();
-
-            break;
-
-
-        case "popup":
-
-            openTestPopup();
-
-            break;
-
-
-        case "file":
-
-            openFileManager();
-
-            break;
-
-
-        case "task":
-
-            openTaskManager();
-
-            break;
-
-
-        case "settings":
-
-            openSystemSettings(
-                false
-            );
-
-            break;
-
-
-        case "recovery":
-
-            openRecovery();
-
-            break;
-
-
-        case "shutdown":
-
-            shutdownSystem();
-
-            break;
-
-
-        case "transfer":
-
-            openTransferApp();
-
-            break;
-
-
-        case "terminal":
-
-            openTerminal();
-
-            break;
-
-
-        case "reset":
-
-            openResetCenter();
-
-            break;
-
-
-        case "browser":
-
-            openBrowser();
-
-            break;
-
-
-        case "appcenter":
-
-            openAppCenter();
-
-            break;
-
-
-        case "appcenterdev":
-
-            openAppCenterDeveloper();
-
-            break;
-
-
-        case "coreservice":
-
-            openCoreService();
-
-            break;
-
-
-        case "externalHTML":
-
-            openExternalHTML(
-                app
-            );
-
-            break;
-
-
-        default:
-
-            console.warn(
-                "Unknown app type:",
-                app.type
-            );
-
-            return false;
-
-    }
-
-
-    return true;
-
-}
-
-
-// ========================================
-// API Initialize
-// ========================================
-
-function initWinconAppAPI() {
-
-    window.addEventListener(
-        "message",
-        handleWinconAppMessage
-    );
-
-
-    console.log(
-        "Wincon External App API Ready"
-    );
-
-}
-
-
-// ========================================
-// API Origin Check
-// ========================================
-
-function isAllowedWinconOrigin(origin) {
-
-    const allowedOrigins = [
-
-        "https://ayatocraft.github.io",
-
-        "http://localhost:3000",
-
-        "http://127.0.0.1:3000",
-
-        "http://localhost:5173",
-
-        "http://127.0.0.1:5173"
-
-    ];
-
-
-    return allowedOrigins.includes(
-        origin
-    );
-
-}
-
-
-// ========================================
-// Receive Message
-// ========================================
-
-function handleWinconAppMessage(event) {
-
-
-    // Origin Check
-
-    if (
-        !isAllowedWinconOrigin(
-            event.origin
-        )
-    ) {
-
-        console.warn(
-            "Blocked Wincon API request:",
-            event.origin
-        );
-
-        return;
-
-    }
-
-
-    const data =
-        event.data;
-
-
-    if (
-        !data ||
-        data.type !== "wincon"
-    ) {
-
-        return;
-
-    }
-
-
-    console.log(
-        "Wincon API Request:",
-        data.action
-    );
-
-
-    switch (data.action) {
-
-
-        // ============================
-        // READ
-        // ============================
-
-        case "getApps":
-
-            winconAPIGetApps(
-                event,
-                data
-            );
-
-            break;
-
-
-        case "getApp":
-
-            winconAPIGetApp(
-                event,
-                data
-            );
-
-            break;
-
-
-        // ============================
-        // LAUNCH
-        // ============================
-
-        case "launchApp":
-
-            winconAPILaunchApp(
-                event,
-                data
-            );
-
-            break;
-
-
-        // ============================
-        // WINDOW
-        // ============================
-
-        case "openWindow":
-
-            winconAPIOpenWindow(
-                event,
-                data
-            );
-
-            break;
-
-
-        case "closeWindow":
-
-            winconAPICloseWindow(
-                event,
-                data
-            );
-
-            break;
-
-
-        case "setWindowTitle":
-
-            winconAPISetWindowTitle(
-                event,
-                data
-            );
-
-            break;
-
-
-        // ============================
-        // MODULE
-        // ============================
-
-        case "installApp":
-
-            winconAPIInstallApp(
-                event,
-                data
-            );
-
-            break;
-
-
-        case "removeApp":
-
-            winconAPIRemoveApp(
-                event,
-                data
-            );
-
-            break;
-
-
-        // ============================
-        // GENERIC CHANGE
-        // ============================
-
-        case "requestChange":
-
-            winconAPIRequestChange(
-                event,
-                data
-            );
-
-            break;
-
-
-        default:
-
-            winconAPISendError(
-
-                event,
-
-                data,
-
-                "Unknown action"
-
-            );
-
-            break;
-
-    }
-
-}
-
-
-// ========================================
-// Send Response
-// ========================================
-
-function winconAPISendResponse(
-    event,
-    request,
-    payload
-) {
-
-    if (!event.source) {
-
-        return;
-
-    }
-
-
-    event.source.postMessage(
-
-        {
-
-            type:
-                "wincon",
-
-            action:
-                "response",
-
-            requestId:
-                request.requestId ||
-                null,
-
-            success:
-                true,
-
-            ...payload
-
-        },
-
-        event.origin
-
-    );
-
-}
-
-
-// ========================================
-// Send Error
-// ========================================
-
-function winconAPISendError(
-    event,
-    request,
-    message
-) {
-
-    if (!event.source) {
-
-        return;
-
-    }
-
-
-    event.source.postMessage(
-
-        {
-
-            type:
-                "wincon",
-
-            action:
-                "error",
-
-            requestId:
-                request.requestId ||
-                null,
-
-            success:
-                false,
-
-            message:
-                message
-
-        },
-
-        event.origin
-
-    );
-
-}
-
-
-// ========================================
-// Get Apps
-// ========================================
-
-function winconAPIGetApps(
-    event,
-    data
-) {
-
-    const apps =
-        menuItems.map(
-            app => ({
-
-                id:
-                    app.appId ||
-                    app.id ||
-                    app.title,
-
-                title:
-                    app.title,
-
-                icon:
-                    app.icon ||
-                    "",
-
-                type:
-                    app.type ||
-                    "app",
-
-                popup:
-                    app.popup === true,
-
-                system:
-                    app.system === true,
-
-                enterprise:
-                    app.enterprise === true
-
-            })
-        );
-
-
-    winconAPISendResponse(
-
-        event,
-
-        data,
-
-        {
-
-            action:
-                "apps",
-
-            apps:
-                apps
-
-        }
-
-    );
-
-}
-
-
-// ========================================
-// Get App
-// ========================================
-
-function winconAPIGetApp(
-    event,
-    data
-) {
-
-    const app =
-        menuItems.find(
-            item =>
-
-                (
-                    item.appId ||
-                    item.id ||
-                    item.title
-                )
-
-                ===
-
-                data.appId
-        );
-
-
-    if (!app) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "App not found"
-
-        );
-
-        return;
-
-    }
-
-
-    winconAPISendResponse(
-
-        event,
-
-        data,
-
-        {
-
-            action:
-                "app",
-
-            app:
-
-                {
-
-                    id:
-                        app.appId ||
-                        app.id ||
-                        app.title,
-
-                    title:
-                        app.title,
-
-                    icon:
-                        app.icon,
-
-                    type:
-                        app.type,
-
-                    popup:
-                        app.popup === true
-
-                }
-
-        }
-
-    );
-
-}
-
-
-// ========================================
-// Launch App
-// ========================================
-
-async function winconAPILaunchApp(
-    event,
-    data
-) {
-
-    if (!data.appId) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "appId is required"
-
-        );
-
-        return;
-
-    }
-
-
-    const app =
-        menuItems.find(
-            item =>
-
-                (
-                    item.appId ||
-                    item.id ||
-                    item.title
-                )
-
-                ===
-
-                data.appId
-        );
-
-
-    if (!app) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "App not found"
-
-        );
-
-        return;
-
-    }
-
-
-    // アプリ起動自体は
-    // Wincon変更を伴わないため
-    // 基本的にはUACなし
-
-    const success =
-        launchMenuItem(
-            app
-        );
-
-
-    winconAPISendResponse(
-
-        event,
-
-        data,
-
-        {
-
-            action:
-                "launchApp",
-
-            launched:
-                success,
-
-            appId:
-                data.appId
-
-        }
-
-    );
-
-}
-
-
-// ========================================
-// Open Window
-// ========================================
-
-async function winconAPIOpenWindow(
-    event,
-    data
-) {
-
-    if (!data.url) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "url is required"
-
-        );
-
-        return;
-
-    }
-
-
-    // UAC
-
-    const allowed =
-        await requestWinconUAC(
-
-            {
-
-                title:
-                    data.appName ||
-                    data.title ||
-                    "外部アプリ",
-
-                icon:
-                    data.appIcon ||
-                    "🌐",
-
-                description:
-                    "Wincon上に新しいウィンドウを開こうとしています。"
-
-            }
-
-        );
-
-
-    if (!allowed) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "User denied permission"
-
-        );
-
-        return;
-
-    }
-
-
-    const win =
-        createWindow(
-
-            {
-
-                title:
-                    data.title ||
-                    "Wincon App",
-
-                icon:
-                    data.icon ||
-                    "🌐",
-
-                width:
-                    data.width ||
-                    800,
-
-                height:
-                    data.height ||
-                    600,
-
-                popup:
-                    data.popup === true,
-
-                content:
-
-                    `
-                    <iframe
-                        src="${data.url}"
-                        style="
-                            width:100%;
-                            height:100%;
-                            border:0;
-                        "
-                    ></iframe>
-                    `
-
-            }
-
-        );
-
-
-    winconAPISendResponse(
-
-        event,
-
-        data,
-
-        {
-
-            action:
-                "openWindow",
-
-            opened:
-                true,
-
-            title:
-                data.title ||
-
-                "Wincon App"
-
-        }
-
-    );
-
-}
-
-
-// ========================================
-// Close Own Window
-// ========================================
-
-async function winconAPICloseWindow(
-    event,
-    data
-) {
-
-    const allowed =
-        await requestWinconUAC(
-
-            {
-
-                title:
-                    data.appName ||
-                    "外部アプリ",
-
-                icon:
-                    data.appIcon ||
-                    "🌐",
-
-                description:
-                    "Wincon上のウィンドウを閉じようとしています。"
-
-            }
-
-        );
-
-
-    if (!allowed) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "User denied permission"
-
-        );
-
-        return;
-
-    }
-
-
-    const windows =
-        Array.from(
-
-            document.querySelectorAll(
-                ".window"
-            )
-
-        );
-
-
-    const win =
-        windows.find(
-
-            item =>
-
-                item.dataset.title ===
-                data.title
-
-        );
-
-
-    if (!win) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "Window not found"
-
-        );
-
-        return;
-
-    }
-
-
-    win.remove();
-
-
-    winconAPISendResponse(
-
-        event,
-
-        data,
-
-        {
-
-            action:
-                "closeWindow",
-
-            closed:
-                true
-
-        }
-
-    );
-
-}
-
-
-// ========================================
-// Set Window Title
-// ========================================
-
-async function winconAPISetWindowTitle(
-    event,
-    data
-) {
-
-    if (!data.title) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "title is required"
-
-        );
-
-        return;
-
-    }
-
-
-    const allowed =
-        await requestWinconUAC(
-
-            {
-
-                title:
-                    data.appName ||
-                    "外部アプリ",
-
-                icon:
-                    data.appIcon ||
-                    "🌐",
-
-                description:
-                    "Winconウィンドウのタイトルを変更しようとしています。"
-
-            }
-
-        );
-
-
-    if (!allowed) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "User denied permission"
-
-        );
-
-        return;
-
-    }
-
-
-    const windows =
-        Array.from(
-
-            document.querySelectorAll(
-                ".window"
-            )
-
-        );
-
-
-    const win =
-        windows.find(
-
-            item =>
-
-                item.dataset.title ===
-                data.oldTitle
-
-        );
-
-
-    if (!win) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "Window not found"
-
-        );
-
-        return;
-
-    }
-
-
-    win.dataset.title =
-        data.title;
-
-
-    const titleElement =
-        win.querySelector(
-            ".title-left div:last-child"
-        );
-
-
-    if (titleElement) {
-
-        titleElement.textContent =
-            data.title;
-
-    }
-
-
-    winconAPISendResponse(
-
-        event,
-
-        data,
-
-        {
-
-            action:
-                "setWindowTitle",
-
-            changed:
-                true
-
-        }
-
-    );
-
-}
-
-
-// ========================================
-// Install App
-// ========================================
-
-async function winconAPIInstallApp(
-    event,
-    data
-) {
-
-    if (
-
-        !data.app ||
-
-        !data.app.title ||
-
-        !data.app.source
-
-    ) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "Invalid app data"
-
-        );
-
-        return;
-
-    }
-
-
-    const app =
-        data.app;
-
-
-    // UAC
-
-    const allowed =
-        await requestWinconUAC(
-
-            {
-
-                title:
-                    app.title,
-
-                icon:
-                    app.icon ||
-                    "📦",
-
-                description:
-                    "このモジュールをWinconにインストールし、" +
-                    "メニューとモジュール情報を変更します。"
-
-            }
-
-        );
-
-
-    if (!allowed) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "User denied permission"
-
-        );
-
-        return;
-
-    }
-
-
-    const exists =
-        menuItems.some(
-
-            item =>
-
-                (
-
-                    item.appId === app.id
-
-                )
-
-                ||
-
-                (
-
-                    item.title ===
-                    app.title
-
-                    &&
-
-                    item.source ===
-                    app.source
-
-                )
-
-        );
-
-
-    if (exists) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "App already installed"
-
-        );
-
-        return;
-
-    }
-
-
-    const newApp = {
-
-        appId:
-            app.id ||
-            crypto.randomUUID(),
-
-        title:
-            app.title,
-
-        icon:
-            app.icon ||
-            "📦",
-
-        type:
-            "externalHTML",
-
-        source:
-            app.source,
-
-        popup:
-            app.popup === true,
-
-        version:
-            app.version ||
-            "1.0.0"
-
-    };
-
-
-    menuItems.push(
-        newApp
-    );
-
-
-    localStorage.setItem(
-
-        "winconMenuItems",
-
-        JSON.stringify(
-            menuItems
-        )
-
-    );
-
-
-    renderMenu();
-
-
-    winconAPISendResponse(
-
-        event,
-
-        data,
-
-        {
-
-            action:
-                "installApp",
-
-            installed:
-                true,
-
-            app:
-                newApp
-
-        }
-
-    );
-
-}
-
-
-// ========================================
-// Remove App
-// ========================================
-
-async function winconAPIRemoveApp(
-    event,
-    data
-) {
-
-    if (!data.appId) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "appId is required"
-
-        );
-
-        return;
-
-    }
-
-
-    const app =
-        menuItems.find(
-
-            item =>
-
-                (
-
-                    item.appId ||
-                    item.id ||
-                    item.title
-
-                )
-
-                ===
-
-                data.appId
-
-        );
-
-
-    if (!app) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "App not found"
-
-        );
-
-        return;
-
-    }
-
-
-    // システムアプリは
-    // 外部APIから削除禁止
-
-    if (
-
-        app.system === true ||
-
-        app.enterprise === true
-
-    ) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "Protected app"
-
-        );
-
-        return;
-
-    }
-
-
-    const allowed =
-        await requestWinconUAC(
-
-            {
-
-                title:
-                    data.appName ||
-                    "外部アプリ",
-
-                icon:
-                    data.appIcon ||
-                    "🌐",
-
-                description:
-                    `「${app.title}」をWinconから削除しようとしています。`
-
-            }
-
-        );
-
-
-    if (!allowed) {
-
-        winconAPISendError(
-
-            event,
-
-            data,
-
-            "User denied permission"
-
-        );
-
-        return;
-
-    }
-
-
-    menuItems =
-        menuItems.filter(
-
-            item =>
-
-                (
-
-                    item.appId ||
-                    item.id ||
-                    item.title
-
-                )
-
-                !==
-
-                data.appId
-
-        );
-
-
-    localStorage.setItem(
-
-        "winconMenuItems",
-
-        JSON.stringify(
-            menuItems
-        )
-
-    );
-
-
-    renderMenu();
-
-
-    winconAPISendResponse(
-
-        event,
-
-        data,
-
-        {
-
-            action:
-                "removeApp",
-
-            removed:
-                true,
-
-            appId:
-                data.appId
-
-        }
-
-    );
-
-}
-
-
-// ========================================
-// Generic Change Request
-// ========================================
-
-async function winconAPIRequestChange(
-    event,
-    data
-) {
-
-    const allowed =
-        await requestWinconUAC(
-
-            {
-
-                title:
-                    data.appName ||
-                    "外部アプリ",
-
-                icon:
-                    data.appIcon ||
-                    "🛡️",
-
-                description:
-                    data.description ||
-                    "このアプリはWinconに変更を加えようとしています。"
-
-            }
-
-        );
-
-
-    winconAPISendResponse(
-
-        event,
-
-        data,
-
-        {
-
-            action:
-                "requestChange",
-
-            allowed:
-                allowed
-
-        }
-
-    );
-
-}
-
-
-// ========================================
-// Start API
-// ========================================
-
-setupWinconUAC();
-
-initWinconAppAPI();
-
-console.log(
-    "Wincon UAC + External App API Started"
 );
 </script>
 </body>
