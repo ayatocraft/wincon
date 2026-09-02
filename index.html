@@ -478,72 +478,98 @@ color:white;
 opacity:.8;
 
 }
-/* ========================================
-   Wincon UAC
-======================================== */
+/* Wincon UAC */
 
 #winconUACOverlay {
-    position: fixed !important;
+    position: fixed;
+    inset: 0;
 
-    inset: 0 !important;
+    display: none;
 
-    width: 100vw !important;
-    height: 100vh !important;
+    align-items: center;
+    justify-content: center;
 
-    display: none !important;
+    background: rgba(0, 0, 0, 0.65);
 
-    align-items: center !important;
-    justify-content: center !important;
-
-    background: rgba(0, 0, 0, 0.65) !important;
-
-    z-index: 2147483647 !important;
-
-    pointer-events: auto !important;
+    z-index: 9999999;
 }
-
 
 #winconUACOverlay.show {
-    display: flex !important;
+    display: flex;
 }
 
-
-/* ========================================
-   UAC Dialog
-======================================== */
 
 #winconUACDialog {
-    position: relative !important;
+    width: 520px;
+    max-width: calc(100vw - 40px);
 
-    width: min(520px, calc(100vw - 40px)) !important;
+    min-height: 260px;
 
-    min-height: 260px !important;
+    padding: 30px;
 
-    max-height: calc(100vh - 40px) !important;
+    box-sizing: border-box;
 
-    margin: 0 !important;
+    background: white;
 
-    transform: none !important;
-
-    z-index: 2147483647 !important;
-
-    pointer-events: auto !important;
-
-    overflow: hidden !important;
-
-    border-radius: 14px !important;
-
-    background: #ffffff !important;
+    border-radius: 16px;
 
     box-shadow:
-        0 20px 80px rgba(0, 0, 0, 0.5) !important;
+        0 20px 80px rgba(0, 0, 0, 0.5);
+
+    color: black;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 20px;
 }
 
 
-/* ダークモードなどを使う場合 */
+#winconUACIcon {
+    font-size: 48px;
+}
 
-#winconUACOverlay * {
-    pointer-events: auto;
+
+#winconUACTitle {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+
+#winconUACAppName {
+    margin-top: 12px;
+
+    font-size: 24px;
+    font-weight: bold;
+}
+
+
+#winconUACDescription {
+    margin-top: 10px;
+
+    font-size: 14px;
+
+    opacity: 0.7;
+}
+
+
+#winconUACButtons {
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 10px;
+
+    margin-top: auto;
+}
+
+
+#winconUACButtons button {
+    min-width: 100px;
+
+    padding: 10px 20px;
+
+    cursor: pointer;
 }
 </style>
 </head>
@@ -598,50 +624,31 @@ Menu
 
 </div>
 
-<!-- ========================================
-     Wincon UAC
-======================================== -->
-
 <div id="winconUACOverlay">
-
     <div id="winconUACDialog">
 
-        <div id="winconUACIcon">
-            🛡️
+        <div id="winconUACIcon">🛡️</div>
+
+        <div id="winconUACMessage">
+            <div id="winconUACTitle">
+                このWinconデバイスに変更を許可しますか？
+            </div>
+
+            <div id="winconUACAppName">
+                不明なアプリ
+            </div>
+
+            <div id="winconUACDescription">
+                このアプリはWinconに変更を加えようとしています。
+            </div>
         </div>
 
-        <h2>
-            このWinconデバイスに変更を許可しますか？
-        </h2>
-
-        <div id="winconUACAppName">
-            不明なアプリ
-        </div>
-
-        <div id="winconUACDescription">
-            このアプリはWinconに変更を加えようとしています。
-        </div>
-
-        <div class="wincon-uac-buttons">
-
-            <button
-                id="winconUACDeny"
-                type="button"
-            >
-                拒否
-            </button>
-
-            <button
-                id="winconUACAllow"
-                type="button"
-            >
-                許可
-            </button>
-
+        <div id="winconUACButtons">
+            <button id="winconUACDeny">いいえ</button>
+            <button id="winconUACAllow">はい</button>
         </div>
 
     </div>
-
 </div>
 <div id="controlCenter">
 
