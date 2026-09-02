@@ -4309,10 +4309,7 @@ function winconOpenAppAPI(app) {
 // 外部HTML Windowを開く
 // ----------------------------------------
 
-function winconAPIOpenWindow(
-    event,
-    data
-) {
+function winconAPIOpenWindow(event, data) {
 
     if (!data.url) {
 
@@ -4320,85 +4317,89 @@ function winconAPIOpenWindow(
             event,
             "error",
             {
-                message:
-                    "url is required"
+                message: "url is required"
             }
         );
 
         return;
-
     }
 
 
     const windowId =
-    "wincon-" +
-    crypto.randomUUID();
+        "wincon-" +
+        crypto.randomUUID();
 
-const separator =
-    data.url.includes("?")
-        ? "&"
-        : "?";
 
-const finalURL =
-    data.url +
-    separator +
-    "winconWindowId=" +
-    encodeURIComponent(windowId);
+    const separator =
+        data.url.includes("?")
+            ? "&"
+            : "?";
 
-const win =
-    createWindow({
 
-        title:
-            data.title ||
-            "Wincon App",
+    const finalURL =
+        data.url +
+        separator +
+        "winconWindowId=" +
+        encodeURIComponent(windowId);
 
-        icon:
-            data.icon ||
-            "🌐",
 
-        width:
-            Number(data.width) ||
-            800,
+    const win =
+        createWindow({
 
-        height:
-            Number(data.height) ||
-            600,
+            title:
+                data.title ||
+                "Wincon App",
 
-        popup:
-            data.popup === true ||
-            data.windowType === "popup",
+            icon:
+                data.icon ||
+                "🌐",
 
-        content: `
+            width:
+                Number(data.width) ||
+                800,
 
-            <iframe
-                src="${finalURL}"
-                style="
-                    width:100%;
-                    height:100%;
-                    border:0;
-                "
-            ></iframe>
+            height:
+                Number(data.height) ||
+                600,
 
-        `
+            popup:
+                data.popup === true ||
+                data.windowType === "popup",
 
-    });
+            content: `
+                <iframe
+                    src="${finalURL}"
+                    style="
+                        width:100%;
+                        height:100%;
+                        border:0;
+                    "
+                ></iframe>
+            `
 
-win.dataset.apiWindowId =
-    windowId;
+        });
 
-winconAPIWindows.set(
-    windowId,
-    win
-);
 
-winconAPISend(
-    event,
-    "windowOpened",
-    {
-        success: true,
-        windowId
-    }
-);
+    win.dataset.apiWindowId =
+        windowId;
+
+
+    winconAPIWindows.set(
+        windowId,
+        win
+    );
+
+
+    winconAPISend(
+        event,
+        "windowOpened",
+        {
+            success: true,
+            windowId: windowId
+        }
+    );
+
+}
 
 
 // ----------------------------------------
