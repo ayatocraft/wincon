@@ -4331,70 +4331,74 @@ function winconAPIOpenWindow(
 
 
     const windowId =
-        "wincon-" +
-        crypto.randomUUID();
+    "wincon-" +
+    crypto.randomUUID();
 
+const separator =
+    data.url.includes("?")
+        ? "&"
+        : "?";
 
-    const win =
-        createWindow({
+const finalURL =
+    data.url +
+    separator +
+    "winconWindowId=" +
+    encodeURIComponent(windowId);
 
-            title:
-                data.title ||
-                "Wincon App",
+const win =
+    createWindow({
 
-            icon:
-                data.icon ||
-                "🌐",
+        title:
+            data.title ||
+            "Wincon App",
 
-            width:
-                Number(data.width) ||
-                800,
+        icon:
+            data.icon ||
+            "🌐",
 
-            height:
-                Number(data.height) ||
-                600,
+        width:
+            Number(data.width) ||
+            800,
 
-            popup:
-                data.popup === true ||
-                data.windowType ===
-                "popup",
+        height:
+            Number(data.height) ||
+            600,
 
-            content: `
+        popup:
+            data.popup === true ||
+            data.windowType === "popup",
 
-                <iframe
-                    src="${data.url}"
-                    style="
-                        width:100%;
-                        height:100%;
-                        border:0;
-                    "
-                ></iframe>
+        content: `
 
-            `
+            <iframe
+                src="${finalURL}"
+                style="
+                    width:100%;
+                    height:100%;
+                    border:0;
+                "
+            ></iframe>
 
-        });
+        `
 
+    });
 
-    win.dataset.apiWindowId =
-        windowId;
+win.dataset.apiWindowId =
+    windowId;
 
+winconAPIWindows.set(
+    windowId,
+    win
+);
 
-    winconAPIWindows.set(
-        windowId,
-        win
-    );
-
-
-    winconAPISend(
-        event,
-        "windowOpened",
-        {
-            success: true,
-            windowId
-        }
-    );
-
-}
+winconAPISend(
+    event,
+    "windowOpened",
+    {
+        success: true,
+        windowId
+    }
+);
 
 
 // ----------------------------------------
