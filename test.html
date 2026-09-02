@@ -1,0 +1,690 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Wincon TestApp</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family:
+        "Segoe UI",
+        "Noto Sans JP",
+        sans-serif;
+
+    background: #f5f5f5;
+    color: #202020;
+}
+
+.header {
+    height: 64px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 24px;
+
+    background: white;
+
+    border-bottom: 1px solid #ddd;
+}
+
+.header-title {
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.header-subtitle {
+    margin-left: 12px;
+    color: #777;
+    font-size: 13px;
+}
+
+.container {
+    padding: 24px;
+    max-width: 1000px;
+    margin: auto;
+}
+
+.status {
+    padding: 14px 16px;
+
+    background: white;
+
+    border-radius: 10px;
+
+    border: 1px solid #ddd;
+
+    margin-bottom: 20px;
+
+    font-size: 14px;
+}
+
+.app-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fill, minmax(220px, 1fr));
+
+    gap: 14px;
+}
+
+.app {
+    background: white;
+
+    border: 1px solid #ddd;
+
+    border-radius: 12px;
+
+    padding: 18px;
+
+    cursor: pointer;
+
+    transition:
+        transform .12s,
+        box-shadow .12s,
+        background .12s;
+}
+
+.app:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 5px 20px rgba(0,0,0,.08);
+
+    background: #fafafa;
+}
+
+.app-icon {
+    font-size: 36px;
+
+    margin-bottom: 12px;
+}
+
+.app-title {
+    font-size: 17px;
+
+    font-weight: 600;
+
+    margin-bottom: 6px;
+}
+
+.app-type {
+    font-size: 12px;
+
+    color: #777;
+}
+
+.empty {
+    text-align: center;
+
+    padding: 60px 20px;
+
+    color: #777;
+}
+
+
+/* ============================= */
+/* Confirmation UI */
+/* ============================= */
+
+.confirm {
+    min-height: 100vh;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 20px;
+}
+
+.confirm-card {
+    width: 100%;
+
+    max-width: 400px;
+
+    background: white;
+
+    border-radius: 16px;
+
+    padding: 28px;
+
+    box-shadow:
+        0 10px 35px rgba(0,0,0,.15);
+
+    text-align: center;
+}
+
+.confirm-icon {
+    font-size: 52px;
+
+    margin-bottom: 12px;
+}
+
+.confirm-title {
+    font-size: 21px;
+
+    font-weight: 600;
+
+    margin-bottom: 10px;
+}
+
+.confirm-text {
+    color: #666;
+
+    font-size: 14px;
+
+    line-height: 1.6;
+
+    margin-bottom: 24px;
+}
+
+.buttons {
+    display: flex;
+
+    gap: 10px;
+
+    justify-content: center;
+}
+
+button {
+    border: 0;
+
+    border-radius: 8px;
+
+    padding: 10px 22px;
+
+    font-size: 14px;
+
+    cursor: pointer;
+}
+
+.cancel {
+    background: #eee;
+}
+
+.open {
+    background: #0078d4;
+
+    color: white;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="app"></div>
+
+<script>
+
+/*
+==================================================
+ Wincon TestApp
+==================================================
+*/
+
+
+const WINCON_ORIGIN =
+    "https://ayatocraft.github.io";
+
+
+let apps = [];
+
+let selectedApp = null;
+
+
+/*
+==================================================
+ Winconへメッセージ送信
+==================================================
+*/
+
+function sendToWincon(action, data = {}) {
+
+    window.parent.postMessage(
+
+        {
+            type: "wincon",
+            action,
+            ...data
+        },
+
+        WINCON_ORIGIN
+
+    );
+
+}
+
+
+/*
+==================================================
+ Winconからのメッセージ
+==================================================
+*/
+
+window.addEventListener(
+    "message",
+    event => {
+
+        if (
+            event.origin !==
+            WINCON_ORIGIN
+        ) {
+            return;
+        }
+
+
+        const data =
+            event.data;
+
+
+        if (
+            !data ||
+            data.type !== "wincon"
+        ) {
+            return;
+        }
+
+
+        switch (data.action) {
+
+
+            /*
+            --------------------------------------
+            App一覧
+            --------------------------------------
+            */
+
+            case "apps":
+
+                apps =
+                    data.apps || [];
+
+                renderApps();
+
+                break;
+
+
+            /*
+            --------------------------------------
+            検索結果
+            --------------------------------------
+            */
+
+            case "searchResults":
+
+                apps =
+                    data.apps || [];
+
+                renderApps();
+
+                break;
+
+
+            /*
+            --------------------------------------
+            Popup作成完了
+            --------------------------------------
+            */
+
+            case "windowOpened":
+
+                console.log(
+                    "Wincon Window opened:",
+                    data.windowId
+                );
+
+                break;
+
+
+            /*
+            --------------------------------------
+            App起動完了
+            --------------------------------------
+            */
+
+            case "launchResult":
+
+                console.log(
+                    "App launched:",
+                    data
+                );
+
+                break;
+
+
+            /*
+            --------------------------------------
+            エラー
+            --------------------------------------
+            */
+
+            case "error":
+
+                console.error(
+                    "[Wincon API]",
+                    data.message
+                );
+
+                break;
+
+        }
+
+    }
+);
+
+
+/*
+==================================================
+ App一覧取得
+==================================================
+*/
+
+function loadApps() {
+
+    setStatus(
+        "Winconからモジュールを取得しています..."
+    );
+
+    sendToWincon(
+        "getApps"
+    );
+
+}
+
+
+/*
+==================================================
+ Status
+==================================================
+*/
+
+function setStatus(text) {
+
+    const status =
+        document.getElementById(
+            "status"
+        );
+
+    if (status) {
+
+        status.textContent =
+            text;
+
+    }
+
+}
+
+
+/*
+==================================================
+ App一覧表示
+==================================================
+*/
+
+function renderApps() {
+
+    const app =
+        document.getElementById(
+            "app"
+        );
+
+
+    app.innerHTML = `
+
+        <div class="header">
+
+            <div class="header-title">
+                Wincon TestApp
+            </div>
+
+            <div class="header-subtitle">
+                External App API
+            </div>
+
+        </div>
+
+
+        <div class="container">
+
+            <div
+                class="status"
+                id="status"
+            >
+                ${apps.length}個のモジュールを検出しました
+            </div>
+
+
+            <div
+                class="app-grid"
+                id="appGrid"
+            ></div>
+
+        </div>
+
+    `;
+
+
+    const grid =
+        document.getElementById(
+            "appGrid"
+        );
+
+
+    if (apps.length === 0) {
+
+        grid.innerHTML = `
+
+            <div class="empty">
+
+                Winconにモジュールがありません。
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    apps.forEach(
+        appInfo => {
+
+            const item =
+                document.createElement(
+                    "div"
+                );
+
+
+            item.className =
+                "app";
+
+
+            item.innerHTML = `
+
+                <div class="app-icon">
+                    ${escapeHTML(
+                        appInfo.icon || "🌐"
+                    )}
+                </div>
+
+                <div class="app-title">
+                    ${escapeHTML(
+                        appInfo.title ||
+                        "Unnamed App"
+                    )}
+                </div>
+
+                <div class="app-type">
+                    ${escapeHTML(
+                        appInfo.type ||
+                        "app"
+                    )}
+                </div>
+
+            `;
+
+
+            item.addEventListener(
+                "click",
+                () => {
+
+                    selectApp(
+                        appInfo
+                    );
+
+                }
+            );
+
+
+            grid.appendChild(
+                item
+            );
+
+        }
+    );
+
+}
+
+
+/*
+==================================================
+ App選択
+==================================================
+*/
+
+function selectApp(appInfo) {
+
+    selectedApp =
+        appInfo;
+
+
+    /*
+     * TestApp自身の確認UIを
+     * Wincon Popupに表示する
+     */
+
+    const confirmURL =
+        location.origin +
+        location.pathname
+            .replace(
+                /[^/]*$/,
+                ""
+            ) +
+        "confirm.html";
+
+
+    sendToWincon(
+
+        "openWindow",
+
+        {
+
+            windowType:
+                "popup",
+
+            popup:
+                true,
+
+            title:
+                "Wincon App",
+
+            icon:
+                appInfo.icon ||
+                "🌐",
+
+            url:
+                confirmURL +
+
+                "?appId=" +
+                encodeURIComponent(
+                    appInfo.id
+                ) +
+
+                "&title=" +
+                encodeURIComponent(
+                    appInfo.title
+                ) +
+
+                "&icon=" +
+                encodeURIComponent(
+                    appInfo.icon ||
+                    "🌐"
+                ),
+
+            width:
+                450,
+
+            height:
+                280
+
+        }
+
+    );
+
+}
+
+
+/*
+==================================================
+ HTMLエスケープ
+==================================================
+*/
+
+function escapeHTML(value) {
+
+    return String(value)
+
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+
+        .replace(
+            /</g,
+            "&lt;"
+        )
+
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+/*
+==================================================
+ 起動
+==================================================
+*/
+
+loadApps();
+
+</script>
+
+</body>
+</html>
+
