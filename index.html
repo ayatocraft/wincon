@@ -800,7 +800,8 @@ id: "wincon-assistant",
 title: "Wincon Assistant",
 icon: "🤖",
 type: "assistant",
-system: true
+system: true,
+hidden:true
 },
 {
 title:"システム設定",
@@ -5358,17 +5359,7 @@ window.winconAssistantAPI = {
   window.openWinconAssistant = openAssistant;
   window.closeWinconAssistant = closeAssistant;
 
-  document.addEventListener("keydown", function (event) {
-    if (
-      event.ctrlKey &&
-      !event.shiftKey &&
-      !event.altKey &&
-      event.key.toLowerCase() === "q"
-    ) {
-      event.preventDefault();
-      window.toggleWinconAssistant();
-    }
-  });
+  
 
   window.addEventListener("load", function () {
     createAssistant();
