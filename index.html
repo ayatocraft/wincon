@@ -4670,6 +4670,7 @@ window.winconAssistantAPI = {
     var utterance = new SpeechSynthesisUtterance(String(text));
     utterance.lang = "ja-JP";
     utterance.rate = 1;
+    utterance.volume = 0;
     utterance.pitch = 1;
 
     window.speechSynthesis.speak(utterance);
