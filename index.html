@@ -4605,2013 +4605,775 @@ function winconAPIForgetWindow(
 // API開始
 // ----------------------------------------
 
-initWinconAppAPI();
+// ===== Wincon Assistant API Bridge =====
+window.winconAssistantAPI = {
+  searchApps: function (query) {
+    var q = String(query || "").trim().toLowerCase();
 
+    if (!Array.isArray(window.menuItems)) {
+      return [];
+    }
 
-let winconAssistantOpen = false;
-let winconAssistantApps = [];
+    return window.menuItems.filter(function (app) {
+      var text = [
+        app.title || "",
+        app.name || "",
+        app.description || "",
+        app.type || ""
+      ].join(" ").toLowerCase();
 
+      return !q || text.includes(q);
+    });
+  },
 
-/* ---------- UI ---------- */
+  getApps: function () {
+    return Array.isArray(window.menuItems)
+      ? window.menuItems.slice()
+      : [];
+  },
 
-/* =========================================================
-   Wincon Assistant Pro
-   Local / No Ollama / No External API
-   ========================================================= */
+  launchApp: function (app) {
+    if (typeof window.winconOpenAppAPI === "function") {
+      window.winconOpenAppAPI(app);
+      return true;
+    }
 
-(() => {
+    return false;
+  }
+};
+
+</script>
+<script>
+(function () {
   "use strict";
 
-  const ASSISTANT_ID = "wincon-assistant-pro";
-  const STYLE_ID = "wincon-assistant-pro-style";
-
-  let assistantOpen = false;
-  let messages = [];
-
-  /* =========================================================
-     Utility
-     ========================================================= */
-
-  function normalizeText(text) {
-    return String(text || "")
-      .toLowerCase()
-      .replace(/[！!？?。．、,]/g, "")
-      .replace(/\s+/g, "")
-      .trim();
-  }
-
-  function speak(text) {
-    if (!("speechSynthesis" in window)) return;
-
-    try {
-      speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "ja-JP";
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-
-      speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.warn("Wincon Assistant Speech Error:", e);
-    }
-  }
+  var assistant = null;
+  var recognition = null;
+  var listening = false;
 
   function escapeHTML(text) {
-    return String(text)
+    return String(text || "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+      .replace(/"/g, "&quot;");
   }
 
-  /* =========================================================
-     UI
-     ========================================================= */
+  function speak(text) {
+    if (!("speechSynthesis" in window)) {
+      return;
+    }
 
-  function injectStyle() {
-    if (document.getElementById(STYLE_ID)) return;
+    window.speechSynthesis.cancel();
 
-    const style = document.createElement("style");
-    style.id = STYLE_ID;
+    var utterance = new SpeechSynthesisUtterance(String(text));
+    utterance.lang = "ja-JP";
+    utterance.rate = 1;
+    utterance.pitch = 1;
 
-    style.textContent = `
-      #wincon-assistant-pro {
-        position: fixed !important;
-        top: 22px !important;
-        right: 22px !important;
-        width: 390px !important;
-        max-width: calc(100vw - 30px) !important;
-        height: 560px !important;
-        max-height: calc(100vh - 44px) !important;
-
-        display: flex !important;
-        flex-direction: column !important;
-
-        background: rgba(22, 22, 28, .88) !important;
-        backdrop-filter: blur(30px) saturate(150%) !important;
-        -webkit-backdrop-filter: blur(30px) saturate(150%) !important;
-
-        border: 1px solid rgba(255,255,255,.14) !important;
-        border-radius: 22px !important;
-
-        box-shadow:
-          0 24px 70px rgba(0,0,0,.45),
-          0 4px 18px rgba(0,0,0,.25) !important;
-
-        color: white !important;
-        font-family:
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          "Noto Sans JP",
-          sans-serif !important;
-
-        overflow: hidden !important;
-
-        z-index: 2147483647 !important;
-
-        opacity: 0 !important;
-        transform: translateY(-12px) scale(.97) !important;
-        pointer-events: none !important;
-
-        transition:
-          opacity .18s ease,
-          transform .18s ease !important;
-      }
-
-      #wincon-assistant-pro.show {
-        opacity: 1 !important;
-        transform: translateY(0) scale(1) !important;
-        pointer-events: auto !important;
-      }
-
-      #wincon-assistant-pro .wa-header {
-        height: 76px;
-        min-height: 76px;
-        display: flex;
-        align-items: center;
-        padding: 0 18px;
-        gap: 12px;
-        border-bottom: 1px solid rgba(255,255,255,.08);
-      }
-
-      #wincon-assistant-pro .wa-orb {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-
-        background:
-          radial-gradient(
-            circle at 35% 30%,
-            #fff 0%,
-            #b9d8ff 10%,
-            #697dff 32%,
-            #8b35ff 60%,
-            #30105e 100%
-          );
-
-        box-shadow:
-          0 0 18px rgba(100,120,255,.65),
-          inset 0 0 12px rgba(255,255,255,.5);
-
-        animation: waOrbPulse 3s ease-in-out infinite;
-      }
-
-      @keyframes waOrbPulse {
-        0%,100% {
-          transform: scale(1);
-          box-shadow: 0 0 18px rgba(100,120,255,.55);
-        }
-
-        50% {
-          transform: scale(1.06);
-          box-shadow: 0 0 27px rgba(130,100,255,.8);
-        }
-      }
-
-      #wincon-assistant-pro .wa-title {
-        flex: 1;
-      }
-
-      #wincon-assistant-pro .wa-title-main {
-        font-size: 16px;
-        font-weight: 600;
-      }
-
-      #wincon-assistant-pro .wa-title-sub {
-        font-size: 11px;
-        opacity: .55;
-        margin-top: 2px;
-      }
-
-      #wincon-assistant-pro .wa-close {
-        width: 32px;
-        height: 32px;
-        border: 0;
-        border-radius: 50%;
-        background: rgba(255,255,255,.08);
-        color: white;
-        cursor: pointer;
-        font-size: 18px;
-      }
-
-      #wincon-assistant-pro .wa-close:hover {
-        background: rgba(255,255,255,.16);
-      }
-
-      #wincon-assistant-pro .wa-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 18px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      #wincon-assistant-pro .wa-message {
-        max-width: 88%;
-        padding: 10px 13px;
-        border-radius: 15px;
-        font-size: 14px;
-        line-height: 1.5;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      #wincon-assistant-pro .wa-message.assistant {
-        align-self: flex-start;
-        background: rgba(255,255,255,.09);
-      }
-
-      #wincon-assistant-pro .wa-message.user {
-        align-self: flex-end;
-        background: rgba(90,110,255,.65);
-      }
-
-      #wincon-assistant-pro .wa-suggestions {
-        padding: 0 15px 10px;
-        display: flex;
-        gap: 7px;
-        overflow-x: auto;
-      }
-
-      #wincon-assistant-pro .wa-suggestion {
-        flex: 0 0 auto;
-        border: 1px solid rgba(255,255,255,.12);
-        background: rgba(255,255,255,.06);
-        color: white;
-        border-radius: 14px;
-        padding: 7px 11px;
-        cursor: pointer;
-        font-size: 12px;
-      }
-
-      #wincon-assistant-pro .wa-suggestion:hover {
-        background: rgba(255,255,255,.12);
-      }
-
-      #wincon-assistant-pro .wa-input-area {
-        padding: 12px;
-        border-top: 1px solid rgba(255,255,255,.08);
-        display: flex;
-        gap: 8px;
-      }
-
-      #wincon-assistant-pro .wa-input {
-        flex: 1;
-        min-width: 0;
-        border: 1px solid rgba(255,255,255,.12);
-        background: rgba(0,0,0,.24);
-        color: white;
-        outline: none;
-        border-radius: 15px;
-        padding: 11px 13px;
-        font-size: 14px;
-      }
-
-      #wincon-assistant-pro .wa-input::placeholder {
-        color: rgba(255,255,255,.42);
-      }
-
-      #wincon-assistant-pro .wa-send {
-        width: 44px;
-        border: 0;
-        border-radius: 14px;
-        background: rgba(100,120,255,.8);
-        color: white;
-        cursor: pointer;
-        font-size: 17px;
-      }
-
-      #wincon-assistant-pro .wa-send:hover {
-        background: rgba(120,140,255,.95);
-      }
-
-      #wincon-assistant-pro .wa-status {
-        font-size: 10px;
-        opacity: .4;
-        text-align: center;
-        padding: 0 0 8px;
-      }
-    `;
-
-    document.head.appendChild(style);
+    window.speechSynthesis.speak(utterance);
   }
 
-  function createUI() {
-    let box = document.getElementById(ASSISTANT_ID);
+  function addMessage(text, type) {
+    var messages = document.getElementById("winconAssistantMessages");
 
-    if (box) return box;
+    if (!messages) {
+      return;
+    }
 
-    box = document.createElement("div");
-    box.id = ASSISTANT_ID;
+    var div = document.createElement("div");
+    div.className = "winconAssistantMessage " + type;
+    div.textContent = text;
 
-    box.innerHTML = `
-      <div class="wa-header">
-        <div class="wa-orb"></div>
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
 
-        <div class="wa-title">
-          <div class="wa-title-main">Wincon Assistant</div>
-          <div class="wa-title-sub">Local Assistant</div>
-        </div>
-
-        <button class="wa-close" title="閉じる">×</button>
-      </div>
-
-      <div class="wa-messages"></div>
-
-      <div class="wa-suggestions">
-        <button class="wa-suggestion">設定を開いて</button>
-        <button class="wa-suggestion">アプリ一覧</button>
-        <button class="wa-suggestion">今何時？</button>
-        <button class="wa-suggestion">ヘルプ</button>
-      </div>
-
-      <div class="wa-status">
-        Ollama / 外部API 不使用
-      </div>
-
-      <div class="wa-input-area">
-        <input
-          class="wa-input"
-          type="text"
-          placeholder="Winconに何をしてほしい？"
-          autocomplete="off"
-        />
-
-        <button class="wa-send">↑</button>
-      </div>
-    `;
-
-    document.body.appendChild(box);
-
-    const input = box.querySelector(".wa-input");
-    const send = box.querySelector(".wa-send");
-    const close = box.querySelector(".wa-close");
-
-    send.addEventListener("click", () => {
-      executeUserCommand(input.value);
-    });
-
-    input.addEventListener("keydown", e => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        executeUserCommand(input.value);
-      }
-    });
-
-    close.addEventListener("click", closeAssistant);
-
-    box.querySelectorAll(".wa-suggestion").forEach(button => {
-      button.addEventListener("click", () => {
-        input.value = button.textContent;
-        executeUserCommand(input.value);
-      });
-    });
-
-    return box;
-  }
-
-  function addMessage(text, type = "assistant", shouldSpeak = false) {
-    const box = createUI();
-    const messagesBox = box.querySelector(".wa-messages");
-
-    messages.push({
-      text,
-      type,
-      time: Date.now()
-    });
-
-    const msg = document.createElement("div");
-    msg.className = `wa-message ${type}`;
-    msg.textContent = text;
-
-    messagesBox.appendChild(msg);
-    messagesBox.scrollTop = messagesBox.scrollHeight;
-
-    if (shouldSpeak && type === "assistant") {
+    if (type === "assistant") {
       speak(text);
     }
   }
 
-  /* =========================================================
-     Assistant open / close
-     ========================================================= */
+  function openAssistant() {
+    if (!assistant) {
+      createAssistant();
+    }
 
-(() => {
-  "use strict";
+    assistant.classList.add("show");
 
-  /* =========================================================
-     Wincon Assistant Pro
-     Wincon API + Voice Input + Speech Output
-     No Ollama / No External API
-     ========================================================= */
+    var input = document.getElementById("winconAssistantInput");
 
-  const ID = "wincon-assistant-pro";
-  const STYLE_ID = "wincon-assistant-pro-style";
-
-  let opened = false;
-  let recognizing = false;
-  let recognition = null;
-  let conversation = [];
-
-  /* =========================================================
-     Basic utilities
-     ========================================================= */
-
-  function normalize(text) {
-    return String(text || "")
-      .toLowerCase()
-      .replace(/[！!？?。．、,，]/g, "")
-      .replace(/\s+/g, "")
-      .trim();
-  }
-
-  function escapeHTML(text) {
-    return String(text)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  /* =========================================================
-     Speech Output
-     ========================================================= */
-
-  function speak(text) {
-    if (!("speechSynthesis" in window)) return;
-
-    try {
-      speechSynthesis.cancel();
-
-      const u = new SpeechSynthesisUtterance(String(text));
-      u.lang = "ja-JP";
-      u.rate = 1;
-      u.pitch = 1;
-
-      const voices = speechSynthesis.getVoices();
-
-      const japaneseVoice =
-        voices.find(v => v.lang === "ja-JP") ||
-        voices.find(v => v.lang?.startsWith("ja"));
-
-      if (japaneseVoice) {
-        u.voice = japaneseVoice;
-      }
-
-      speechSynthesis.speak(u);
-    } catch (e) {
-      console.warn("[Wincon Assistant] Speech error:", e);
+    if (input) {
+      setTimeout(function () {
+        input.focus();
+      }, 100);
     }
   }
 
-  /* =========================================================
-     Voice Input
-     ========================================================= */
-
-  function setupVoiceRecognition() {
-    const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      recognition = null;
-      return false;
+  function closeAssistant() {
+    if (assistant) {
+      assistant.classList.remove("show");
     }
 
-    recognition = new SpeechRecognition();
-
-    recognition.lang = "ja-JP";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      recognizing = true;
-      updateMicUI(true);
-      updateStatus("聞き取り中…");
-    };
-
-    recognition.onresult = event => {
-      let finalText = "";
-      let interimText = "";
-
-      for (
-        let i = event.resultIndex;
-        i < event.results.length;
-        i++
-      ) {
-        const result = event.results[i];
-
-        if (result.isFinal) {
-          finalText += result[0].transcript;
-        } else {
-          interimText += result[0].transcript;
-        }
-      }
-
-      const input =
-        document.querySelector(
-          "#wincon-assistant-pro .wa-input"
-        );
-
-      if (input) {
-        input.value = finalText || interimText;
-      }
-
-      if (finalText.trim()) {
-        executeUserCommand(finalText.trim());
-      }
-    };
-
-    recognition.onerror = event => {
-      console.warn(
-        "[Wincon Assistant] Speech recognition:",
-        event.error
-      );
-
-      recognizing = false;
-      updateMicUI(false);
-
-      if (event.error === "not-allowed") {
-        updateStatus("マイクの使用が許可されていません");
-      } else if (event.error === "no-speech") {
-        updateStatus("音声を認識できませんでした");
-      } else {
-        updateStatus("音声入力エラー");
-      }
-    };
-
-    recognition.onend = () => {
-      recognizing = false;
-      updateMicUI(false);
-
-      if (opened) {
-        updateStatus("準備完了");
-      }
-    };
-
-    return true;
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
   }
 
-  function toggleMicrophone() {
-    if (!recognition) {
-      addMessage(
-        "このブラウザでは音声入力に対応していません。",
-        "assistant",
-        true
-      );
+  function createAssistant() {
+    if (document.getElementById("winconAssistant")) {
+      assistant = document.getElementById("winconAssistant");
       return;
     }
 
-    if (recognizing) {
-      try {
-        recognition.stop();
-      } catch {}
-      return;
-    }
-
-    try {
-      recognition.start();
-    } catch (e) {
-      console.warn(e);
-    }
-  }
-
-  /* =========================================================
-     UI
-     ========================================================= */
-
-  function injectStyle() {
-    if (document.getElementById(STYLE_ID)) return;
-
-    const style = document.createElement("style");
-    style.id = STYLE_ID;
+    var style = document.createElement("style");
 
     style.textContent = `
-      #wincon-assistant-pro {
-        position: fixed !important;
-        top: 20px !important;
-        right: 20px !important;
-
-        width: 410px !important;
-        max-width: calc(100vw - 30px) !important;
-
-        height: 570px !important;
-        max-height: calc(100vh - 40px) !important;
-
-        display: flex !important;
-        flex-direction: column !important;
-
-        color: #fff !important;
-
-        background: rgba(22,22,28,.90) !important;
-
-        backdrop-filter:
-          blur(32px)
-          saturate(150%) !important;
-
-        -webkit-backdrop-filter:
-          blur(32px)
-          saturate(150%) !important;
-
-        border:
-          1px solid rgba(255,255,255,.14) !important;
-
-        border-radius: 24px !important;
-
+      #winconAssistant {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 390px;
+        height: 570px;
+        z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: 24px;
+        background: rgba(25, 25, 30, 0.82);
+        backdrop-filter: blur(28px) saturate(140%);
+        -webkit-backdrop-filter: blur(28px) saturate(140%);
         box-shadow:
-          0 28px 80px rgba(0,0,0,.50),
-          0 0 1px rgba(255,255,255,.4) !important;
-
-        overflow: hidden !important;
-
+          0 20px 60px rgba(0,0,0,.45),
+          inset 0 1px 0 rgba(255,255,255,.12);
+        border: 1px solid rgba(255,255,255,.12);
+        color: white;
         font-family:
           -apple-system,
           BlinkMacSystemFont,
           "Segoe UI",
-          "Noto Sans JP",
-          sans-serif !important;
-
-        z-index: 2147483647 !important;
-
-        opacity: 0 !important;
-        visibility: hidden !important;
-
-        transform:
-          translateY(-12px)
-          scale(.97) !important;
-
+          sans-serif;
+        opacity: 0;
+        transform: translateY(-12px) scale(.97);
+        pointer-events: none;
         transition:
-          opacity .18s ease,
-          transform .18s ease,
-          visibility .18s !important;
+          opacity .2s ease,
+          transform .2s ease;
       }
 
-      #wincon-assistant-pro.show {
-        opacity: 1 !important;
-        visibility: visible !important;
-        transform:
-          translateY(0)
-          scale(1) !important;
+      #winconAssistant.show {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
       }
 
-      .wa-header {
-        height: 78px;
-        min-height: 78px;
-
+      .winconAssistantHeader {
+        height: 74px;
         display: flex;
         align-items: center;
-
         padding: 0 18px;
-
-        gap: 12px;
-
-        border-bottom:
-          1px solid rgba(255,255,255,.08);
+        box-sizing: border-box;
+        border-bottom: 1px solid rgba(255,255,255,.1);
       }
 
-      .wa-orb {
-        width: 44px;
-        height: 44px;
-
-        flex: 0 0 44px;
-
+      .winconAssistantOrb {
+        width: 42px;
+        height: 42px;
         border-radius: 50%;
-
+        margin-right: 12px;
         background:
-          radial-gradient(
-            circle at 35% 30%,
-            #fff 0%,
-            #b9d9ff 9%,
-            #7388ff 30%,
-            #8a3dff 58%,
-            #260b52 100%
-          );
-
+          radial-gradient(circle at 35% 30%, #ffffff, #9bdcff 20%, #6a73ff 50%, #933cff 75%, #222);
         box-shadow:
-          0 0 18px rgba(110,130,255,.65),
-          inset 0 0 12px rgba(255,255,255,.5);
-
-        animation:
-          waOrbPulse 3s
-          ease-in-out infinite;
+          0 0 18px rgba(110,140,255,.8),
+          0 0 40px rgba(140,80,255,.35);
+        animation: winconAssistantOrb 3s ease-in-out infinite;
       }
 
-      @keyframes waOrbPulse {
+      @keyframes winconAssistantOrb {
         0%,100% {
           transform: scale(1);
         }
-
-        50% {
-          transform: scale(1.07);
-        }
-      }
-
-      .wa-title {
-        flex: 1;
-      }
-
-      .wa-title-main {
-        font-size: 16px;
-        font-weight: 600;
-      }
-
-      .wa-title-sub {
-        margin-top: 2px;
-        font-size: 11px;
-        opacity: .5;
-      }
-
-      .wa-close {
-        width: 32px;
-        height: 32px;
-
-        border: 0;
-        border-radius: 50%;
-
-        color: #fff;
-        background: rgba(255,255,255,.08);
-
-        cursor: pointer;
-        font-size: 18px;
-      }
-
-      .wa-close:hover {
-        background: rgba(255,255,255,.16);
-      }
-
-      .wa-messages {
-        flex: 1;
-
-        overflow-y: auto;
-
-        padding: 18px;
-
-        display: flex;
-        flex-direction: column;
-
-        gap: 10px;
-      }
-
-      .wa-message {
-        max-width: 88%;
-
-        padding:
-          10px 13px;
-
-        border-radius: 16px;
-
-        font-size: 14px;
-        line-height: 1.5;
-
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      .wa-message.assistant {
-        align-self: flex-start;
-        background:
-          rgba(255,255,255,.09);
-      }
-
-      .wa-message.user {
-        align-self: flex-end;
-
-        background:
-          rgba(93,112,255,.70);
-      }
-
-      .wa-app-result {
-        margin-top: 8px;
-
-        display: flex;
-        flex-direction: column;
-
-        gap: 5px;
-      }
-
-      .wa-app-button {
-        width: 100%;
-
-        text-align: left;
-
-        border: 1px solid
-          rgba(255,255,255,.10);
-
-        background:
-          rgba(255,255,255,.06);
-
-        color: white;
-
-        padding: 9px 10px;
-
-        border-radius: 12px;
-
-        cursor: pointer;
-      }
-
-      .wa-app-button:hover {
-        background:
-          rgba(255,255,255,.13);
-      }
-
-      .wa-suggestions {
-        padding:
-          0 14px 10px;
-
-        display: flex;
-        gap: 7px;
-
-        overflow-x: auto;
-      }
-
-      .wa-suggestion {
-        flex: 0 0 auto;
-
-        border:
-          1px solid rgba(255,255,255,.12);
-
-        background:
-          rgba(255,255,255,.06);
-
-        color: white;
-
-        border-radius: 14px;
-
-        padding:
-          7px 11px;
-
-        cursor: pointer;
-
-        font-size: 12px;
-      }
-
-      .wa-suggestion:hover {
-        background:
-          rgba(255,255,255,.12);
-      }
-
-      .wa-status {
-        min-height: 18px;
-
-        padding:
-          0 14px 7px;
-
-        text-align: center;
-
-        font-size: 10px;
-
-        opacity: .45;
-      }
-
-      .wa-input-area {
-        padding: 12px;
-
-        display: flex;
-
-        gap: 7px;
-
-        border-top:
-          1px solid rgba(255,255,255,.08);
-      }
-
-      .wa-input {
-        flex: 1;
-
-        min-width: 0;
-
-        border:
-          1px solid rgba(255,255,255,.12);
-
-        outline: none;
-
-        border-radius: 15px;
-
-        padding:
-          11px 13px;
-
-        background:
-          rgba(0,0,0,.25);
-
-        color: white;
-
-        font-size: 14px;
-      }
-
-      .wa-input::placeholder {
-        color:
-          rgba(255,255,255,.40);
-      }
-
-      .wa-button {
-        width: 43px;
-        height: 43px;
-
-        flex: 0 0 43px;
-
-        border: 0;
-        border-radius: 14px;
-
-        color: white;
-
-        background:
-          rgba(255,255,255,.09);
-
-        cursor: pointer;
-
-        font-size: 17px;
-      }
-
-      .wa-button:hover {
-        background:
-          rgba(255,255,255,.16);
-      }
-
-      .wa-mic.recording {
-        background:
-          rgba(255,70,90,.75);
-
-        animation:
-          waMicPulse 1s
-          infinite;
-      }
-
-      @keyframes waMicPulse {
         50% {
           transform: scale(1.08);
         }
       }
 
-      .wa-send {
-        background:
-          rgba(100,120,255,.80);
+      .winconAssistantTitle {
+        flex: 1;
       }
 
-      .wa-send:hover {
-        background:
-          rgba(120,140,255,.95);
+      .winconAssistantTitle strong {
+        display: block;
+        font-size: 16px;
+      }
+
+      .winconAssistantTitle span {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        opacity: .55;
+      }
+
+      .winconAssistantClose {
+        width: 34px;
+        height: 34px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255,255,255,.08);
+        color: white;
+        font-size: 18px;
+        cursor: pointer;
+      }
+
+      .winconAssistantClose:hover {
+        background: rgba(255,255,255,.16);
+      }
+
+      #winconAssistantMessages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px;
+        box-sizing: border-box;
+      }
+
+      .winconAssistantMessage {
+        max-width: 86%;
+        padding: 11px 14px;
+        margin-bottom: 10px;
+        border-radius: 16px;
+        line-height: 1.45;
+        font-size: 14px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .winconAssistantMessage.assistant {
+        margin-right: auto;
+        background: rgba(255,255,255,.09);
+      }
+
+      .winconAssistantMessage.user {
+        margin-left: auto;
+        background: rgba(100,120,255,.38);
+      }
+
+      .winconAssistantResults {
+        margin-top: 8px;
+      }
+
+      .winconAssistantApp {
+        width: 100%;
+        margin: 5px 0;
+        padding: 10px 12px;
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 12px;
+        background: rgba(255,255,255,.06);
+        color: white;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .winconAssistantApp:hover {
+        background: rgba(255,255,255,.14);
+      }
+
+      .winconAssistantAppTitle {
+        font-weight: 600;
+      }
+
+      .winconAssistantAppType {
+        margin-top: 2px;
+        font-size: 11px;
+        opacity: .55;
+      }
+
+      .winconAssistantInputArea {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        border-top: 1px solid rgba(255,255,255,.1);
+        background: rgba(0,0,0,.12);
+      }
+
+      #winconAssistantInput {
+        flex: 1;
+        min-width: 0;
+        height: 42px;
+        box-sizing: border-box;
+        padding: 0 14px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 21px;
+        outline: none;
+        background: rgba(255,255,255,.08);
+        color: white;
+        font-size: 14px;
+      }
+
+      #winconAssistantInput::placeholder {
+        color: rgba(255,255,255,.45);
+      }
+
+      .winconAssistantButton {
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255,255,255,.09);
+        color: white;
+        cursor: pointer;
+        font-size: 17px;
+      }
+
+      .winconAssistantButton:hover {
+        background: rgba(255,255,255,.16);
+      }
+
+      .winconAssistantButton.listening {
+        background: rgba(255,80,100,.5);
+        box-shadow: 0 0 18px rgba(255,80,100,.4);
       }
     `;
 
     document.head.appendChild(style);
-  }
 
-  function createUI() {
-    let box =
-      document.getElementById(ID);
+    assistant = document.createElement("div");
+    assistant.id = "winconAssistant";
 
-    if (box) return box;
+    assistant.innerHTML = `
+      <div class="winconAssistantHeader">
+        <div class="winconAssistantOrb"></div>
 
-    box = document.createElement("div");
-    box.id = ID;
-
-    box.innerHTML = `
-      <div class="wa-header">
-
-        <div class="wa-orb"></div>
-
-        <div class="wa-title">
-          <div class="wa-title-main">
-            Wincon Assistant
-          </div>
-
-          <div class="wa-title-sub">
-            Wincon Local Intelligence
-          </div>
+        <div class="winconAssistantTitle">
+          <strong>Wincon Assistant</strong>
+          <span>System Assistant</span>
         </div>
 
         <button
-          class="wa-close"
+          class="winconAssistantClose"
+          id="winconAssistantClose"
           title="閉じる"
         >×</button>
-
       </div>
 
-      <div class="wa-messages"></div>
+      <div id="winconAssistantMessages"></div>
 
-      <div class="wa-suggestions">
-
-        <button class="wa-suggestion">
-          設定を開いて
-        </button>
-
-        <button class="wa-suggestion">
-          アプリ一覧
-        </button>
-
-        <button class="wa-suggestion">
-          ウィンドウ一覧
-        </button>
-
-        <button class="wa-suggestion">
-          ヘルプ
-        </button>
-
-      </div>
-
-      <div class="wa-status">
-        準備完了
-      </div>
-
-      <div class="wa-input-area">
-
-        <input
-          class="wa-input"
-          type="text"
-          autocomplete="off"
-          placeholder="Winconに何をしてほしい？"
-        />
-
+      <div class="winconAssistantInputArea">
         <button
-          class="wa-button wa-mic"
+          class="winconAssistantButton"
+          id="winconAssistantMic"
           title="音声入力"
         >🎙</button>
 
-        <button
-          class="wa-button wa-send"
-          title="送信"
-        >↑</button>
+        <input
+          id="winconAssistantInput"
+          type="text"
+          autocomplete="off"
+          placeholder="Winconに何をしてほしい？"
+        >
 
+        <button
+          class="winconAssistantButton"
+          id="winconAssistantSend"
+          title="送信"
+        >➤</button>
       </div>
     `;
 
-    document.body.appendChild(box);
+    document.body.appendChild(assistant);
 
-    const input =
-      box.querySelector(".wa-input");
+    document
+      .getElementById("winconAssistantClose")
+      .addEventListener("click", closeAssistant);
 
-    box.querySelector(".wa-send")
-      .addEventListener(
-        "click",
-        () => executeUserCommand(input.value)
-      );
+    document
+      .getElementById("winconAssistantSend")
+      .addEventListener("click", sendInput);
 
-    input.addEventListener(
-      "keydown",
-      e => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          executeUserCommand(input.value);
+    document
+      .getElementById("winconAssistantInput")
+      .addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          sendInput();
         }
-      }
-    );
-
-    box.querySelector(".wa-mic")
-      .addEventListener(
-        "click",
-        toggleMicrophone
-      );
-
-    box.querySelector(".wa-close")
-      .addEventListener(
-        "click",
-        closeAssistant
-      );
-
-    box.querySelectorAll(".wa-suggestion")
-      .forEach(button => {
-        button.addEventListener(
-          "click",
-          () => {
-            input.value =
-              button.textContent.trim();
-
-            executeUserCommand(input.value);
-          }
-        );
       });
 
-    setupVoiceRecognition();
+    document
+      .getElementById("winconAssistantMic")
+      .addEventListener("click", startSpeechRecognition);
 
-    return box;
-  }
-
-  function updateStatus(text) {
-    const status =
-      document.querySelector(
-        "#wincon-assistant-pro .wa-status"
-      );
-
-    if (status) {
-      status.textContent = text;
-    }
-  }
-
-  function updateMicUI(active) {
-    const mic =
-      document.querySelector(
-        "#wincon-assistant-pro .wa-mic"
-      );
-
-    if (!mic) return;
-
-    mic.classList.toggle(
-      "recording",
-      active
-    );
-
-    mic.textContent =
-      active ? "■" : "🎙";
-  }
-
-  function addMessage(
-    text,
-    type = "assistant",
-    read = false
-  ) {
-    const box = createUI();
-
-    const container =
-      box.querySelector(".wa-messages");
-
-    const message =
-      document.createElement("div");
-
-    message.className =
-      `wa-message ${type}`;
-
-    message.textContent =
-      String(text);
-
-    container.appendChild(message);
-
-    container.scrollTop =
-      container.scrollHeight;
-
-    conversation.push({
-      role:
-        type === "user"
-          ? "user"
-          : "assistant",
-      content: String(text),
-      timestamp: Date.now()
-    });
-
-    if (read) {
-      speak(text);
-    }
-  }
-
-  /* =========================================================
-     Wincon API
-     ========================================================= */
-
-  function apiAvailable() {
-    return (
-      typeof window.winconAPIGetApps === "function" ||
-      typeof window.winconOpenAppAPI === "function"
+    addMessage(
+      "こんにちは。Wincon Assistantです。アプリの検索や起動、ウィンドウ操作などができます。",
+      "assistant"
     );
   }
 
-  /*
-   * ここが重要。
-   *
-   * Assistant → Wincon API
-   *
-   * まずpostMessage APIではなく、
-   * Wincon本体内部で既に公開されている関数を
-   * 優先して利用する。
-   */
-
-  function getLocalApps() {
+  function searchApps(query) {
     if (
-      Array.isArray(window.menuItems)
+      window.winconAssistantAPI &&
+      typeof window.winconAssistantAPI.searchApps === "function"
     ) {
-      return window.menuItems;
+      return window.winconAssistantAPI.searchApps(query);
     }
 
     return [];
   }
 
-  function getAppTitle(app) {
-    return String(
-      app?.title ||
-      app?.name ||
-      app?.label ||
-      ""
-    );
-  }
-
-  function localSearchApps(query) {
-    const q = normalize(query);
-
-    return getLocalApps()
-      .filter(app => {
-        const title =
-          normalize(getAppTitle(app));
-
-        const id =
-          normalize(app?.id);
-
-        return (
-          title.includes(q) ||
-          id.includes(q)
-        );
-      })
-      .slice(0, 20);
-  }
-
-  /*
-   * Wincon External App API の searchApps を
-   * Assistant側から使用するためのラッパー。
-   *
-   * APIが非同期応答を返す構造なら、
-   * この部分をMessage APIにも接続できる。
-   */
-
-  function searchAppsViaAPI(query) {
-    /*
-     * Wincon本体の menuItems が存在する場合、
-     * それ自体がWincon APIの元データなので、
-     * 現在は内部APIとして検索する。
-     *
-     * 将来的にiframe APIから呼ぶ場合も、
-     * この関数だけ差し替えればよい。
-     */
-
-    return localSearchApps(query);
-  }
-
-  function launchViaAPI(app) {
-    if (!app) return false;
-
-    try {
-      if (
-        typeof window.winconOpenAppAPI ===
-        "function"
-      ) {
-        window.winconOpenAppAPI(app);
-        return true;
-      }
-
-      /*
-       * APIがまだ公開されていない場合の
-       * 最低限のfallback。
-       */
-
-      if (
-        typeof window.renderMenu ===
-        "function"
-      ) {
-        window.renderMenu(app);
-        return true;
-      }
-
-    } catch (error) {
-      console.error(
-        "[Wincon Assistant] API launch error:",
-        error
-      );
+  function launchApp(app) {
+    if (
+      window.winconAssistantAPI &&
+      typeof window.winconAssistantAPI.launchApp === "function"
+    ) {
+      return window.winconAssistantAPI.launchApp(app);
     }
 
     return false;
   }
 
-  /* =========================================================
-     Intent Parser
-     ========================================================= */
+  function showApps(apps) {
+    var messages = document.getElementById("winconAssistantMessages");
 
-  function parseIntent(raw) {
-    const text = normalize(raw);
+    if (!messages) {
+      return;
+    }
+
+    var container = document.createElement("div");
+    container.className =
+      "winconAssistantMessage assistant winconAssistantResults";
+
+    if (!apps.length) {
+      container.textContent = "該当するアプリが見つかりませんでした。";
+      messages.appendChild(container);
+      messages.scrollTop = messages.scrollHeight;
+      speak("該当するアプリが見つかりませんでした。");
+      return;
+    }
+
+    container.textContent = "見つかったアプリです。";
+
+    apps.slice(0, 8).forEach(function (app) {
+      var button = document.createElement("button");
+      button.className = "winconAssistantApp";
+
+      var title = document.createElement("div");
+      title.className = "winconAssistantAppTitle";
+      title.textContent = (app.icon || "🪟") + " " + (app.title || app.name || "アプリ");
+
+      var type = document.createElement("div");
+      type.className = "winconAssistantAppType";
+      type.textContent = app.type || "application";
+
+      button.appendChild(title);
+      button.appendChild(type);
+
+      button.addEventListener("click", function () {
+        var ok = launchApp(app);
+
+        if (ok) {
+          addMessage(
+            (app.title || app.name || "アプリ") + "を起動しました。",
+            "assistant"
+          );
+        } else {
+          addMessage("アプリを起動できませんでした。", "assistant");
+        }
+      });
+
+      container.appendChild(button);
+    });
+
+    messages.appendChild(container);
+    messages.scrollTop = messages.scrollHeight;
+    speak("アプリを検索しました。");
+  }
+
+  function normalize(text) {
+    return String(text || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[？?！!。．]/g, "");
+  }
+
+  function extractAppQuery(text) {
+    return text
+      .replace(/アプリを(開いて|ひらいて|起動して|起動)/g, "")
+      .replace(/アプリ(を)?(検索|探して|さがして)/g, "")
+      .replace(/開いて/g, "")
+      .replace(/ひらいて/g, "")
+      .replace(/起動して/g, "")
+      .replace(/検索して/g, "")
+      .replace(/探して/g, "")
+      .replace(/さがして/g, "")
+      .trim();
+  }
+
+  function handleCommand(rawText) {
+    var text = normalize(rawText);
 
     if (!text) {
-      return {
-        intent: "EMPTY"
-      };
+      return;
     }
-
-    /* HELP */
 
     if (
-      text === "ヘルプ" ||
-      text.includes("何ができる") ||
-      text.includes("できること") ||
-      text.includes("使い方")
+      text === "閉じて" ||
+      text === "閉じる" ||
+      text === "アシスタントを閉じて" ||
+      text === "終了"
     ) {
-      return {
-        intent: "HELP"
-      };
+      closeAssistant();
+      return;
     }
-
-    /* TIME */
-
-    if (
-      text.includes("今何時") ||
-      text.includes("現在時刻") ||
-      text.includes("時間教えて") ||
-      text.includes("時刻教えて")
-    ) {
-      return {
-        intent: "TIME"
-      };
-    }
-
-    /* APP LIST */
 
     if (
       text.includes("アプリ一覧") ||
-      text.includes("アプリリスト") ||
-      text.includes("インストールされているアプリ")
+      text.includes("アプリを一覧") ||
+      text === "アプリ"
     ) {
-      return {
-        intent: "APP_LIST"
-      };
+      var allApps =
+        window.winconAssistantAPI &&
+        typeof window.winconAssistantAPI.getApps === "function"
+          ? window.winconAssistantAPI.getApps()
+          : [];
+
+      showApps(allApps);
+      return;
     }
-
-    /* APP SEARCH */
-
-    const searchPatterns = [
-      /(.+)(?:を)?検索して$/,
-      /(.+)(?:を)?探して$/,
-      /(.+)(?:の)?アプリを検索$/,
-      /(.+)(?:の)?アプリ探して$/
-    ];
-
-    for (const pattern of searchPatterns) {
-      const match =
-        raw.match(pattern);
-
-      if (match) {
-        return {
-          intent: "APP_SEARCH",
-          query: match[1]
-        };
-      }
-    }
-
-    /* WINDOW LIST */
 
     if (
-      text.includes("ウィンドウ一覧") ||
-      text.includes("開いているウィンドウ") ||
-      text.includes("開いてるウィンドウ")
+      text.includes("アプリを開いて") ||
+      text.includes("アプリをひらいて") ||
+      text.includes("アプリを起動して") ||
+      text.includes("アプリ開いて") ||
+      text.includes("アプリ起動")
     ) {
-      return {
-        intent: "WINDOW_LIST"
-      };
-    }
+      var appQuery = extractAppQuery(rawText);
+      var results = searchApps(appQuery);
 
-    /* CLOSE WINDOWS */
+      if (results.length === 1) {
+        var ok = launchApp(results[0]);
 
-    if (
-      text.includes("ウィンドウ全部閉じ") ||
-      text.includes("ウィンドウを全部閉じ") ||
-      text.includes("全部のウィンドウを閉じ")
-    ) {
-      return {
-        intent: "WINDOW_CLOSE_ALL"
-      };
-    }
-
-    /* MINIMIZE */
-
-    if (
-      text.includes("全部最小化") ||
-      text.includes("すべて最小化") ||
-      text.includes("ウィンドウを全部最小化")
-    ) {
-      return {
-        intent: "WINDOW_MINIMIZE_ALL"
-      };
-    }
-
-    /* SHOW */
-
-    if (
-      text.includes("全部表示") ||
-      text.includes("すべて表示") ||
-      text.includes("ウィンドウを全部表示")
-    ) {
-      return {
-        intent: "WINDOW_SHOW_ALL"
-      };
-    }
-
-    /* RELOAD */
-
-    if (
-      text.includes("winconを再起動") ||
-      text.includes("wincon再起動") ||
-      text.includes("winconをリロード") ||
-      text.includes("再読み込みして")
-    ) {
-      return {
-        intent: "RELOAD"
-      };
-    }
-
-    /* SYSTEM INFO */
-
-    if (
-      text.includes("システム情報") ||
-      text.includes("winconの情報") ||
-      text.includes("環境情報")
-    ) {
-      return {
-        intent: "SYSTEM_INFO"
-      };
-    }
-
-    /* SETTINGS */
-
-    if (
-      text.includes("設定を開いて") ||
-      text.includes("設定開いて") ||
-      text.includes("システム設定を出して") ||
-      text.includes("システム設定を開いて") ||
-      text.includes("settingsを開いて") ||
-      text.includes("settings開いて")
-    ) {
-      return {
-        intent: "APP_OPEN",
-        query: "設定"
-      };
-    }
-
-    /* TERMINAL */
-
-    if (
-      text.includes("ターミナル起動して") ||
-      text.includes("ターミナルを開いて") ||
-      text.includes("ターミナル開いて") ||
-      text.includes("コマンドプロンプトを出して") ||
-      text.includes("コマンドプロンプト開いて")
-    ) {
-      return {
-        intent: "APP_OPEN",
-        query: "ターミナル"
-      };
-    }
-
-    /* FILE MANAGER */
-
-    if (
-      text.includes("ファイルマネージャー") ||
-      text.includes("ファイル管理") ||
-      text.includes("ファイルを開いて")
-    ) {
-      return {
-        intent: "APP_OPEN",
-        query: "ファイル"
-      };
-    }
-
-    /* BROWSER */
-
-    if (
-      text.includes("ブラウザを開いて") ||
-      text.includes("ブラウザ開いて") ||
-      text.includes("ブラウザ起動して")
-    ) {
-      return {
-        intent: "APP_OPEN",
-        query: "ブラウザ"
-      };
-    }
-
-    /* Generic OPEN */
-
-    const openWords = [
-      "開いて",
-      "開く",
-      "起動して",
-      "起動する",
-      "起動",
-      "出して",
-      "立ち上げて",
-      "立ち上げる"
-    ];
-
-    for (const word of openWords) {
-      const normalizedWord =
-        normalize(word);
-
-      if (text.endsWith(normalizedWord)) {
-        const target =
-          text.slice(
-            0,
-            -normalizedWord.length
-          );
-
-        if (target) {
-          return {
-            intent: "APP_OPEN",
-            query: target
-          };
-        }
-      }
-    }
-
-    /* ASSISTANT CLOSE */
-
-    if (
-      text.includes("アシスタントを閉じ") ||
-      text.includes("アシスタント閉じ")
-    ) {
-      return {
-        intent: "ASSISTANT_CLOSE"
-      };
-    }
-
-    return {
-      intent: "UNKNOWN",
-      raw
-    };
-  }
-
-  /* =========================================================
-     Window Engine
-     ========================================================= */
-
-  function getWindows() {
-    return [
-      ...document.querySelectorAll(
-        ".window"
-      )
-    ];
-  }
-
-  function getWindowTitle(win) {
-    return (
-      win.dataset?.title ||
-      win.querySelector(
-        ".titlebar-title"
-      )?.textContent ||
-      win.querySelector(
-        ".titlebar"
-      )?.textContent ||
-      "無題のウィンドウ"
-    ).trim();
-  }
-
-  function closeWindow(win) {
-    try {
-      const close =
-        win.querySelector(
-          '[data-action="close"]'
-        ) ||
-        win.querySelector(
-          ".window-close"
-        ) ||
-        win.querySelector(
-          ".close"
+        addMessage(
+          ok
+            ? (results[0].title || results[0].name || "アプリ") + "を起動しました。"
+            : "アプリを起動できませんでした。",
+          "assistant"
         );
 
-      if (close) {
-        close.click();
-      } else {
-        win.remove();
+        return;
       }
 
-      return true;
-    } catch {
-      return false;
+      showApps(results);
+      return;
     }
-  }
 
-  /* =========================================================
-     Execute Intent
-     ========================================================= */
+    if (
+      text.includes("アプリを検索") ||
+      text.includes("アプリ検索") ||
+      text.includes("アプリを探して") ||
+      text.includes("アプリをさがして")
+    ) {
+      var query = extractAppQuery(rawText);
+      var found = searchApps(query);
 
-  function executeIntent(intent) {
-
-    switch (intent.intent) {
-
-      case "EMPTY":
-        return {
-          text:
-            "何をすればいいか入力してください。"
-        };
-
-      case "ASSISTANT_CLOSE":
-        closeAssistant();
-        return null;
-
-      case "HELP":
-        return {
-          text:
-`Wincon Assistantでできます。
-
-・アプリを開く
-・アプリを検索
-・アプリ一覧
-・ウィンドウ一覧
-・ウィンドウを閉じる
-・ウィンドウを最小化
-・ウィンドウを表示
-・Winconを再読み込み
-・システム情報
-・現在時刻
-・音声入力
-
-例えば、
-「設定を開いて」
-「ターミナル起動して」
-「ペイントを検索して」
-「アプリ一覧」
-「ウィンドウ全部最小化」
-「今何時？」`
-        };
-
-      case "TIME": {
-        const now =
-          new Date();
-
-        return {
-          text:
-            `現在時刻は ${now.toLocaleTimeString(
-              "ja-JP",
-              {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit"
-              }
-            )}です。`,
-          speak: true
-        };
-      }
-
-      case "APP_LIST": {
-        const apps =
-          searchAppsViaAPI("");
-
-        if (!apps.length) {
-          return {
-            text:
-              "アプリを取得できませんでした。"
-          };
-        }
-
-        return {
-          text:
-            `現在 ${apps.length} 個のアプリがあります。\n\n` +
-            apps
-              .map(
-                app =>
-                  `• ${getAppTitle(app)}`
-              )
-              .join("\n")
-        };
-      }
-
-      case "APP_SEARCH": {
-        const apps =
-          searchAppsViaAPI(
-            intent.query
-          );
-
-        if (!apps.length) {
-          return {
-            text:
-              `「${intent.query}」に一致するアプリはありませんでした。`
-          };
-        }
-
-        return {
-          text:
-            `「${intent.query}」の検索結果：\n\n` +
-            apps
-              .map(
-                app =>
-                  `• ${getAppTitle(app)}`
-              )
-              .join("\n")
-        };
-      }
-
-      case "APP_OPEN": {
-        let apps =
-          searchAppsViaAPI(
-            intent.query
-          );
-
-        if (!apps.length) {
-          return {
-            text:
-              `「${intent.query}」というアプリが見つかりませんでした。`
-          };
-        }
-
-        /*
-         * 完全一致を優先
-         */
-
-        const exact =
-          apps.find(
-            app =>
-              normalize(
-                getAppTitle(app)
-              ) ===
-              normalize(
-                intent.query
-              )
-          );
-
-        const app =
-          exact || apps[0];
-
-        if (!launchViaAPI(app)) {
-          return {
-            text:
-              `「${getAppTitle(app)}」を起動できませんでした。`
-          };
-        }
-
-        return {
-          text:
-            `${getAppTitle(app)}を開きました。`,
-          speak: true
-        };
-      }
-
-      case "WINDOW_LIST": {
-        const windows =
-          getWindows();
-
-        if (!windows.length) {
-          return {
-            text:
-              "現在、開いているウィンドウはありません。"
-          };
-        }
-
-        return {
-          text:
-            `現在 ${windows.length} 個のウィンドウが開いています。\n\n` +
-            windows
-              .map(
-                (win, i) =>
-                  `${i + 1}. ${getWindowTitle(win)}`
-              )
-              .join("\n")
-        };
-      }
-
-      case "WINDOW_CLOSE_ALL": {
-        const windows =
-          getWindows();
-
-        let count = 0;
-
-        windows.forEach(win => {
-          if (closeWindow(win)) {
-            count++;
-          }
-        });
-
-        return {
-          text:
-            `${count}個のウィンドウを閉じました。`,
-          speak: true
-        };
-      }
-
-      case "WINDOW_MINIMIZE_ALL": {
-        const windows =
-          getWindows();
-
-        windows.forEach(win => {
-          win.style.display =
-            "none";
-        });
-
-        return {
-          text:
-            `${windows.length}個のウィンドウを最小化しました。`,
-          speak: true
-        };
-      }
-
-      case "WINDOW_SHOW_ALL": {
-        const windows =
-          getWindows();
-
-        windows.forEach(win => {
-          win.style.display =
-            "";
-        });
-
-        return {
-          text:
-            `${windows.length}個のウィンドウを表示しました。`,
-          speak: true
-        };
-      }
-
-      case "SYSTEM_INFO":
-        return {
-          text:
-`Wincon Assistant
-
-Platform:
-${navigator.platform}
-
-Browser:
-${navigator.userAgent}
-
-Screen:
-${screen.width} × ${screen.height}
-
-Language:
-${navigator.language}
-
-Online:
-${navigator.onLine ? "Yes" : "No"}
-
-Wincon API:
-${apiAvailable() ? "Available" : "Unavailable"}`
-        };
-
-      case "RELOAD":
-        return {
-          text:
-            "Winconを再読み込みします。",
-          speak: true,
-          action: () => {
-            setTimeout(
-              () => location.reload(),
-              500
-            );
-          }
-        };
-
-      default:
-        return {
-          text:
-            `「${intent.raw}」にはまだ対応していません。\n「ヘルプ」と入力すると対応操作を確認できます。`
-        };
+      showApps(found);
+      return;
     }
-  }
 
-  /* =========================================================
-     Command
-     ========================================================= */
+    if (
+      text.includes("何時") ||
+      text.includes("時間") ||
+      text.includes("現在時刻")
+    ) {
+      var now = new Date();
 
-  function executeUserCommand(raw) {
-    const text =
-      String(raw || "").trim();
+      var timeText =
+        "現在は " +
+        now.getHours() +
+        "時" +
+        String(now.getMinutes()).padStart(2, "0") +
+        "分です。";
 
-    if (!text) return;
+      addMessage(timeText, "assistant");
+      return;
+    }
 
-    const box =
-      createUI();
+    if (
+      text.includes("ヘルプ") ||
+      text.includes("何ができる") ||
+      text.includes("できること")
+    ) {
+      addMessage(
+        "アプリの検索・起動、アプリ一覧、時刻の確認などに対応しています。",
+        "assistant"
+      );
+      return;
+    }
 
-    const input =
-      box.querySelector(
-        ".wa-input"
+    if (
+      text.includes("再読み込み") ||
+      text.includes("リロード")
+    ) {
+      addMessage("Winconを再読み込みします。", "assistant");
+
+      setTimeout(function () {
+        location.reload();
+      }, 800);
+
+      return;
+    }
+
+    var generalResults = searchApps(rawText);
+
+    if (generalResults.length === 1) {
+      addMessage(
+        "「" +
+          (generalResults[0].title ||
+            generalResults[0].name ||
+            "アプリ") +
+          "」が見つかりました。",
+        "assistant"
       );
 
+      return;
+    }
+
+    if (generalResults.length > 1) {
+      showApps(generalResults);
+      return;
+    }
+
     addMessage(
-      text,
-      "user"
+      "すみません、その操作にはまだ対応していません。「アプリを検索して」のように指定してみてください。",
+      "assistant"
     );
+  }
+
+  function sendInput() {
+    var input = document.getElementById("winconAssistantInput");
+
+    if (!input) {
+      return;
+    }
+
+    var text = input.value.trim();
+
+    if (!text) {
+      return;
+    }
 
     input.value = "";
 
-    const intent =
-      parseIntent(text);
-
-    console.log(
-      "[Wincon Assistant]",
-      intent
-    );
-
-    const result =
-      executeIntent(intent);
-
-    if (!result) return;
-
-    addMessage(
-      result.text,
-      "assistant",
-      Boolean(result.speak)
-    );
-
-    if (
-      typeof result.action ===
-      "function"
-    ) {
-      result.action();
-    }
+    addMessage(text, "user");
+    handleCommand(text);
   }
 
-  window.winconAssistantCommand =
-    executeUserCommand;
+  function startSpeechRecognition() {
+    var Recognition =
+      window.SpeechRecognition ||
+      window.webkitSpeechRecognition;
 
-  /* =========================================================
-     Open / Close
-     ========================================================= */
-
-  function openAssistant() {
-    const box =
-      createUI();
-
-    opened = true;
-
-    box.classList.add(
-      "show"
-    );
-
-    updateStatus(
-      "準備完了"
-    );
-
-    setTimeout(() => {
-      box.querySelector(
-        ".wa-input"
-      )?.focus();
-    }, 120);
-
-    if (!conversation.length) {
+    if (!Recognition) {
       addMessage(
-        "こんにちは。Wincon Assistantです。\nWinconの操作やアプリ検索をお手伝いします。",
-        "assistant",
-        false
+        "このブラウザでは音声入力に対応していません。ChromeまたはEdgeを試してください。",
+        "assistant"
       );
-    }
-  }
-
-  function closeAssistant() {
-    const box =
-      document.getElementById(ID);
-
-    if (!box) return;
-
-    opened = false;
-
-    box.classList.remove(
-      "show"
-    );
-
-    if (
-      recognition &&
-      recognizing
-    ) {
-      try {
-        recognition.stop();
-      } catch {}
+      return;
     }
 
-    try {
-      speechSynthesis.cancel();
-    } catch {}
-  }
+    if (listening && recognition) {
+      recognition.stop();
+      return;
+    }
 
-  window.toggleWinconAssistant =
-    function() {
-      if (opened) {
-        closeAssistant();
-      } else {
-        openAssistant();
+    recognition = new Recognition();
+
+    recognition.lang = "ja-JP";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = function () {
+      listening = true;
+
+      var mic = document.getElementById("winconAssistantMic");
+
+      if (mic) {
+        mic.classList.add("listening");
+        mic.textContent = "●";
       }
     };
 
-  window.openWinconAssistant =
-    openAssistant;
+    recognition.onresult = function (event) {
+      var result = event.results[0][0].transcript;
 
-  window.closeWinconAssistant =
-    closeAssistant;
+      var input = document.getElementById("winconAssistantInput");
 
-  /* =========================================================
-     Ctrl + Q
-     ========================================================= */
-
-  document.addEventListener(
-    "keydown",
-    e => {
-      if (
-        e.ctrlKey &&
-        !e.shiftKey &&
-        !e.altKey &&
-        e.key.toLowerCase() === "q"
-      ) {
-        e.preventDefault();
-
-        window.toggleWinconAssistant();
+      if (input) {
+        input.value = result;
       }
+
+      sendInput();
+    };
+
+    recognition.onerror = function (event) {
+      if (event.error === "not-allowed") {
+        addMessage(
+          "マイクの使用が許可されていません。ブラウザのサイト設定からマイクを許可してください。",
+          "assistant"
+        );
+      }
+    };
+
+    recognition.onend = function () {
+      listening = false;
+
+      var mic = document.getElementById("winconAssistantMic");
+
+      if (mic) {
+        mic.classList.remove("listening");
+        mic.textContent = "🎙";
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch (error) {
+      listening = false;
     }
-  );
+  }
 
-  /* =========================================================
-     Init
-     ========================================================= */
+  window.toggleWinconAssistant = function () {
+    if (!assistant) {
+      createAssistant();
+    }
 
-  injectStyle();
-  createUI();
+    if (assistant.classList.contains("show")) {
+      closeAssistant();
+    } else {
+      openAssistant();
+    }
+  };
 
-  console.log(
-    "%cWincon Assistant Pro ready",
-    "font-weight:bold;color:#8798ff"
-  );
+  window.openWinconAssistant = openAssistant;
+  window.closeWinconAssistant = closeAssistant;
 
+  document.addEventListener("keydown", function (event) {
+    if (
+      event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey &&
+      event.key.toLowerCase() === "q"
+    ) {
+      event.preventDefault();
+      window.toggleWinconAssistant();
+    }
+  });
+
+  window.addEventListener("load", function () {
+    createAssistant();
+  });
 })();
-
 </script>
-
 </body>
 </html>
