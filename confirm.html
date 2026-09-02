@@ -1,4 +1,4 @@
-```html
+
 <!DOCTYPE html>
 <html lang="ja">
 
@@ -179,7 +179,8 @@ button {
 
 <script>
 
-
+const windowId =
+    params.get("winconWindowId");
 const WINCON_ORIGIN =
     "https://ayatocraft.github.io";
 
@@ -228,42 +229,16 @@ document.getElementById(
 ==================================================
 */
 
-function openApp() {
+function closeConfirm() {
+
+    if (!windowId) return;
 
     window.parent.postMessage(
 
         {
-
-            type:
-                "wincon",
-
-            action:
-                "launchApp",
-
-            appId:
-                appId
-
-        },
-
-        WINCON_ORIGIN
-
-    );
-
-
-    /*
-     * 起動後、確認Popup自身を閉じる
-     */
-
-    window.parent.postMessage(
-
-        {
-
-            type:
-                "wincon",
-
-            action:
-                "closeWindow"
-
+            type: "wincon",
+            action: "closeWindow",
+            windowId: windowId
         },
 
         WINCON_ORIGIN
@@ -273,29 +248,28 @@ function openApp() {
 }
 
 
-/*
-==================================================
- キャンセル
-==================================================
-*/
-
-function cancel() {
+function openApp() {
 
     window.parent.postMessage(
 
         {
-
-            type:
-                "wincon",
-
-            action:
-                "closeWindow"
-
+            type: "wincon",
+            action: "launchApp",
+            appId: appId
         },
 
         WINCON_ORIGIN
 
     );
+
+    closeConfirm();
+
+}
+
+
+function cancel() {
+
+    closeConfirm();
 
 }
 
@@ -305,4 +279,4 @@ function cancel() {
 </body>
 
 </html>
-```
+
