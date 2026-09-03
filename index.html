@@ -4870,6 +4870,47 @@ function winconAPIForgetWindow(
 
 }
 
+
+// ----------------------------------------
+// API開始
+// ----------------------------------------
+
+// ===== Wincon Assistant API Bridge =====
+window.winconAssistantAPI = {
+  searchApps: function (query) {
+    var q = String(query || "").trim().toLowerCase();
+
+    if (!Array.isArray(window.menuItems)) {
+      return [];
+    }
+
+    return window.menuItems.filter(function (app) {
+      var text = [
+        app.title || "",
+        app.name || "",
+        app.description || "",
+        app.type || ""
+      ].join(" ").toLowerCase();
+
+      return !q || text.includes(q);
+    });
+  },
+
+  getApps: function () {
+    return Array.isArray(window.menuItems)
+      ? window.menuItems.slice()
+      : [];
+  },
+
+  launchApp: function (app) {
+    if (typeof window.winconOpenAppAPI === "function") {
+      window.winconOpenAppAPI(app);
+      return true;
+    }
+
+    return false;
+  }
+};
 // ========================================
 // Wincon Module API
 // ========================================
@@ -5172,47 +5213,6 @@ window.WinconModuleAPI = {
 console.log(
     "[Wincon Module API] Ready"
 );
-// ----------------------------------------
-// API開始
-// ----------------------------------------
-
-// ===== Wincon Assistant API Bridge =====
-window.winconAssistantAPI = {
-  searchApps: function (query) {
-    var q = String(query || "").trim().toLowerCase();
-
-    if (!Array.isArray(window.menuItems)) {
-      return [];
-    }
-
-    return window.menuItems.filter(function (app) {
-      var text = [
-        app.title || "",
-        app.name || "",
-        app.description || "",
-        app.type || ""
-      ].join(" ").toLowerCase();
-
-      return !q || text.includes(q);
-    });
-  },
-
-  getApps: function () {
-    return Array.isArray(window.menuItems)
-      ? window.menuItems.slice()
-      : [];
-  },
-
-  launchApp: function (app) {
-    if (typeof window.winconOpenAppAPI === "function") {
-      window.winconOpenAppAPI(app);
-      return true;
-    }
-
-    return false;
-  }
-};
-
 </script>
 <script>
 (function () {
