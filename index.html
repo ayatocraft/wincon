@@ -6196,7 +6196,308 @@ document.addEventListener(
 );
 
 // ========================================
+// ========================================
+// Wincon Module API
+// ========================================
+// Third-party Module Installer
+//
+// 既存のExternal App APIとは分離
+// インストールを伴う操作は必ずUACを通す
+// ========================================
 
+
+// ----------------------------------------
+// Moduleインストール
+// ----------------------------------------
+
+async function winconInstallModule(
+    module
+) {
+
+    // ------------------------------------
+    // モジュール情報チェック
+    // ------------------------------------
+
+    if (
+        !module ||
+        typeof module !== "object"
+    ) {
+
+        return {
+            success: false,
+            reason: "invalid-module"
+        };
+
+    }
+
+
+    if (!module.id) {
+
+        return {
+            success: false,
+            reason: "missing-id"
+        };
+
+    }
+
+
+    // ------------------------------------
+    // 既にインストールされているか確認
+    // ------------------------------------
+
+    const alreadyInstalled =
+        menuItems.some(
+            item => {
+
+                const id =
+                    item.id ||
+                    item.appId ||
+                    item.title;
+
+                return (
+                    id === module.id
+                );
+
+            }
+        );
+
+
+    if (alreadyInstalled) {
+
+        return {
+            success: false,
+            reason: "already-installed"
+        };
+
+    }
+
+
+    // ------------------------------------
+    // UAC
+    // ------------------------------------
+
+    const allowed =
+        await requestWinconUAC({
+
+            title:
+                module.title ||
+                module.name ||
+                "不明なアプリ",
+
+            icon:
+                module.icon ||
+                "📦",
+
+            description:
+                module.description ||
+                "このモジュールをWinconにインストールします。"
+
+        });
+
+
+    // ------------------------------------
+    // UAC拒否
+    // ------------------------------------
+
+    if (!allowed) {
+
+        return {
+            success: false,
+            reason: "uac-denied"
+        };
+
+    }
+
+
+    // ------------------------------------
+    // Module作成
+    // ------------------------------------
+
+    const newModule = {
+
+        id:
+            module.id,
+
+        title:
+            module.title ||
+            module.name ||
+            "名称未設定",
+
+        icon:
+            module.icon ||
+            "📦",
+
+        type:
+            module.type ||
+            "window",
+
+        content:
+            module.content ||
+            "",
+
+        source:
+            module.source ||
+            "",
+
+        version:
+            module.version ||
+            "1.0.0",
+
+        description:
+            module.description ||
+            "",
+
+        system:
+            false,
+
+        thirdParty:
+            true
+
+    };
+
+
+    // ------------------------------------
+    // menuItemsへ追加
+    // ------------------------------------
+
+    menuItems.push(
+        newModule
+    );
+
+
+    // ------------------------------------
+    // 保存
+    // ------------------------------------
+
+    localStorage.setItem(
+        "winconMenuItems",
+        JSON.stringify(
+            menuItems
+        )
+    );
+
+
+    saveState();
+
+
+    // ------------------------------------
+    // メニュー更新
+    // ------------------------------------
+
+    if (
+        typeof renderMenu ===
+        "function"
+    ) {
+
+        renderMenu();
+
+    }
+
+
+    console.log(
+        "[Wincon Module API] Module installed:",
+        newModule.id
+    );
+
+
+    return {
+
+        success:
+            true,
+
+        module:
+            winconAPIFormatApp(
+                newModule,
+                menuItems.length - 1
+            )
+
+    };
+
+}
+
+
+// ----------------------------------------
+// Moduleインストール確認
+// ----------------------------------------
+
+function winconIsModuleInstalled(
+    id
+) {
+
+    if (!id) {
+
+        return false;
+
+    }
+
+
+    return menuItems.some(
+        item => {
+
+            const itemId =
+                item.id ||
+                item.appId ||
+                item.title;
+
+            return (
+                itemId === id
+            );
+
+        }
+    );
+
+}
+
+
+// ----------------------------------------
+// Third-party Module一覧
+// ----------------------------------------
+
+function winconGetInstalledModules() {
+
+    return menuItems
+
+        .map(
+            winconAPIFormatApp
+        )
+
+        .filter(
+            app =>
+                app.thirdParty === true
+        );
+
+}
+
+
+// ----------------------------------------
+// Wincon Module API
+// ----------------------------------------
+//
+// 既存の window.WinconAPI は触らない
+// ----------------------------------------
+
+window.WinconModuleAPI = {
+
+    // UAC
+    requestUAC:
+        requestWinconUAC,
+
+    // Module
+    installModule:
+        winconInstallModule,
+
+    isModuleInstalled:
+        winconIsModuleInstalled,
+
+    getInstalledModules:
+        winconGetInstalledModules
+
+};
+
+
+console.log(
+    "[Wincon Module API] Ready"
+);
 </script>
 </body>
 </html>
