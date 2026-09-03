@@ -514,29 +514,71 @@ opacity:.8;
 
 #winconUACDialog {
 
-    position: relative !important;
+    position:relative !important;
 
-    width: 520px;
+    width:560px !important;
+    height:360px !important;
 
-    max-width:
-        calc(100vw - 40px);
+    max-width:calc(100vw - 40px);
+    max-height:calc(100vh - 40px);
 
-    min-height: 260px;
+    min-width:0;
+    min-height:0;
 
-    padding: 30px;
+    box-sizing:border-box;
 
-    box-sizing:
-        border-box;
+}
+#winconUACDialog .content{
+    display:flex;
+    flex-direction:column;
+    padding:28px;
+    box-sizing:border-box;
+    gap:16px;
+}
 
-    background: white;
 
-    border-radius: 16px;
+#winconUACIcon{
+    font-size:42px;
+    line-height:1;
+}
 
-    color: black;
 
-    z-index: 2147483647 !important;
+#winconUACTitle{
+    font-size:22px;
+    font-weight:600;
+    margin-bottom:12px;
+}
 
-    transform: none !important;
+
+#winconUACAppName{
+    font-size:16px;
+    font-weight:600;
+    margin-bottom:8px;
+}
+
+
+#winconUACDescription{
+    font-size:14px;
+    opacity:.8;
+    line-height:1.5;
+}
+
+
+#winconUACButtons{
+
+    margin-top:auto;
+
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+
+}
+
+
+#winconUACButtons .action{
+
+    min-width:100px;
+    height:40px;
 
 }
 </style>
@@ -593,30 +635,86 @@ Menu
 </div>
 
 <div id="winconUACOverlay">
-    <div id="winconUACDialog">
 
-        <div id="winconUACIcon">🛡️</div>
+    <div id="winconUACDialog" class="window">
 
-        <div id="winconUACMessage">
-            <div id="winconUACTitle">
-                このWinconデバイスに変更を許可しますか？
+        <div class="titlebar">
+
+            <div class="title-left">
+
+                <div id="winconUACTitleIcon">
+                    🛡️
+                </div>
+
+                <div>
+                    ユーザー アカウント制御
+                </div>
+
             </div>
 
-            <div id="winconUACAppName">
-                不明なアプリ
+            <div class="window-controls">
+
+                <button
+                    class="win-btn"
+                    id="winconUACClose"
+                    title="閉じる"
+                >
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
             </div>
 
-            <div id="winconUACDescription">
-                このアプリはWinconに変更を加えようとしています。
-            </div>
         </div>
 
-        <div id="winconUACButtons">
-            <button id="winconUACDeny">いいえ</button>
-            <button id="winconUACAllow">はい</button>
+
+        <div class="content">
+
+            <div id="winconUACIcon">
+                🛡️
+            </div>
+
+
+            <div id="winconUACMessage">
+
+                <div id="winconUACTitle">
+                    このWinconデバイスに変更を許可しますか？
+                </div>
+
+
+                <div id="winconUACAppName">
+                    不明なアプリ
+                </div>
+
+
+                <div id="winconUACDescription">
+                    このアプリはWinconに変更を加えようとしています。
+                </div>
+
+            </div>
+
+
+            <div id="winconUACButtons">
+
+                <button
+                    id="winconUACDeny"
+                    class="action"
+                >
+                    いいえ
+                </button>
+
+                <button
+                    id="winconUACAllow"
+                    class="action"
+                >
+                    はい
+                </button>
+
+            </div>
+
         </div>
 
     </div>
+
 </div>
 <div id="controlCenter">
 
@@ -1160,8 +1258,8 @@ const win=document.createElement("div");
 
 win.className="window";
 
-win.style.width=(popup?420:width)+"px";
-win.style.height=(popup?240:height)+"px";
+win.style.width=(popup?560:width)+"px";
+win.style.height=(popup?360:height)+"px";
 
 win.style.left=
 Math.random()*240+80+"px";
@@ -4772,7 +4870,308 @@ function winconAPIForgetWindow(
 
 }
 
+// ========================================
+// Wincon Module API
+// ========================================
+// Third-party Module Installer
+//
+// 既存のExternal App APIとは分離
+// インストールを伴う操作は必ずUACを通す
+// ========================================
 
+
+// ----------------------------------------
+// Moduleインストール
+// ----------------------------------------
+
+async function winconInstallModule(
+    module
+) {
+
+    // ------------------------------------
+    // モジュール情報チェック
+    // ------------------------------------
+
+    if (
+        !module ||
+        typeof module !== "object"
+    ) {
+
+        return {
+            success: false,
+            reason: "invalid-module"
+        };
+
+    }
+
+
+    if (!module.id) {
+
+        return {
+            success: false,
+            reason: "missing-id"
+        };
+
+    }
+
+
+    // ------------------------------------
+    // 既にインストールされているか確認
+    // ------------------------------------
+
+    const alreadyInstalled =
+        menuItems.some(
+            item => {
+
+                const id =
+                    item.id ||
+                    item.appId ||
+                    item.title;
+
+                return (
+                    id === module.id
+                );
+
+            }
+        );
+
+
+    if (alreadyInstalled) {
+
+        return {
+            success: false,
+            reason: "already-installed"
+        };
+
+    }
+
+
+    // ------------------------------------
+    // UAC
+    // ------------------------------------
+
+    const allowed =
+        await requestWinconUAC({
+
+            title:
+                module.title ||
+                module.name ||
+                "不明なアプリ",
+
+            icon:
+                module.icon ||
+                "📦",
+
+            description:
+                module.description ||
+                "このモジュールをWinconにインストールします。"
+
+        });
+
+
+    // ------------------------------------
+    // UAC拒否
+    // ------------------------------------
+
+    if (!allowed) {
+
+        return {
+            success: false,
+            reason: "uac-denied"
+        };
+
+    }
+
+
+    // ------------------------------------
+    // Module作成
+    // ------------------------------------
+
+    const newModule = {
+
+        id:
+            module.id,
+
+        title:
+            module.title ||
+            module.name ||
+            "名称未設定",
+
+        icon:
+            module.icon ||
+            "📦",
+
+        type:
+            module.type ||
+            "window",
+
+        content:
+            module.content ||
+            "",
+
+        source:
+            module.source ||
+            "",
+
+        version:
+            module.version ||
+            "1.0.0",
+
+        description:
+            module.description ||
+            "",
+
+        system:
+            false,
+
+        thirdParty:
+            true
+
+    };
+
+
+    // ------------------------------------
+    // menuItemsへ追加
+    // ------------------------------------
+
+    menuItems.push(
+        newModule
+    );
+
+
+    // ------------------------------------
+    // 保存
+    // ------------------------------------
+
+    localStorage.setItem(
+        "winconMenuItems",
+        JSON.stringify(
+            menuItems
+        )
+    );
+
+
+    saveState();
+
+
+    // ------------------------------------
+    // メニュー更新
+    // ------------------------------------
+
+    if (
+        typeof renderMenu ===
+        "function"
+    ) {
+
+        renderMenu();
+
+    }
+
+
+    console.log(
+        "[Wincon Module API] Module installed:",
+        newModule.id
+    );
+
+
+    return {
+
+        success:
+            true,
+
+        module:
+            winconAPIFormatApp(
+                newModule,
+                menuItems.length - 1
+            )
+
+    };
+
+}
+
+
+// ----------------------------------------
+// Moduleインストール確認
+// ----------------------------------------
+
+function winconIsModuleInstalled(
+    id
+) {
+
+    if (!id) {
+
+        return false;
+
+    }
+
+
+    return menuItems.some(
+        item => {
+
+            const itemId =
+                item.id ||
+                item.appId ||
+                item.title;
+
+            return (
+                itemId === id
+            );
+
+        }
+    );
+
+}
+
+
+// ----------------------------------------
+// Third-party Module一覧
+// ----------------------------------------
+
+function winconGetInstalledModules() {
+
+    return menuItems
+
+        .map(
+            winconAPIFormatApp
+        )
+
+        .filter(
+            app =>
+                app.thirdParty === true
+        );
+
+}
+
+
+// ----------------------------------------
+// Wincon Module API
+// ----------------------------------------
+//
+// 既存の window.WinconAPI は触らない
+// ----------------------------------------
+
+window.WinconModuleAPI = {
+
+    // UAC
+    requestUAC:
+        requestWinconUAC,
+
+    // Module
+    installModule:
+        winconInstallModule,
+
+    isModuleInstalled:
+        winconIsModuleInstalled,
+
+    getInstalledModules:
+        winconGetInstalledModules
+
+};
+
+
+console.log(
+    "[Wincon Module API] Ready"
+);
 // ----------------------------------------
 // API開始
 // ----------------------------------------
@@ -5728,7 +6127,11 @@ function setupWinconUAC() {
             "winconUACDeny"
         );
 
-
+    const close =
+    document.getElementById(
+        "winconUACClose"
+    );
+    
     if (allow) {
 
         allow.addEventListener(
@@ -5759,6 +6162,18 @@ function setupWinconUAC() {
         );
 
     }
+    if (close) {
+
+    close.addEventListener(
+        "click",
+        () => {
+
+            closeWinconUAC(false);
+
+        }
+    );
+
+}
 
 }
 
@@ -5779,6 +6194,9 @@ document.addEventListener(
 
     }
 );
+
+// ========================================
+
 </script>
 </body>
 </html>
