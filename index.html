@@ -5169,18 +5169,9 @@ function winconIsModuleInstalled(
 // ----------------------------------------
 
 function winconGetInstalledModules() {
-
     return menuItems
-
-        .map(
-            winconAPIFormatApp
-        )
-
-        .filter(
-            app =>
-                app.thirdParty === true
-        );
-
+        .filter(item => item.thirdParty === true)
+        .map((item, index) => winconAPIFormatApp(item, index));
 }
 
 
