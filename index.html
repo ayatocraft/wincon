@@ -528,12 +528,37 @@ opacity:.8;
     box-sizing:border-box;
 
 }
-#winconUACDialog .content{
-    display:flex;
-    flex-direction:column;
-    padding:28px;
-    box-sizing:border-box;
-    gap:16px;
+#winconUACDialog {
+
+    position: relative !important;
+
+    left: auto !important;
+    top: auto !important;
+
+    width: 560px !important;
+    height: 360px !important;
+
+    max-width: calc(100vw - 40px) !important;
+    max-height: calc(100vh - 40px) !important;
+
+    min-width: 0 !important;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    box-sizing: border-box !important;
+
+    z-index: 2147483647 !important;
+
+    transform: none !important;
+
+    opacity: 1 !important;
+    visibility: visible !important;
+
+    pointer-events: auto !important;
 }
 
 
@@ -580,6 +605,181 @@ opacity:.8;
     min-width:100px;
     height:40px;
 
+}
+
+/* ========================================
+   Wincon UAC - Absolute Top Layer
+   ======================================== */
+
+#winconUACOverlay {
+
+    position: fixed !important;
+
+    inset: 0 !important;
+
+    width: 100vw !important;
+    height: 100vh !important;
+
+    display: none !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    background:
+        rgba(0, 0, 0, .70) !important;
+
+    z-index: 2147483647 !important;
+
+    transform: none !important;
+
+    isolation: isolate !important;
+
+    pointer-events: auto !important;
+}
+
+#winconUACOverlay.show {
+
+    display: flex !important;
+
+}
+
+#winconUACOverlay
+#winconUACDialog {
+
+    flex: 0 0 auto !important;
+
+    opacity: 1 !important;
+    visibility: visible !important;
+
+    pointer-events: auto !important;
+
+    z-index: 2147483647 !important;
+
+    animation: none !important;
+}
+
+#winconUACOverlay
+#winconUACDialog .titlebar {
+
+    flex-shrink: 0 !important;
+
+}
+
+#winconUACOverlay
+#winconUACDialog .content {
+
+    flex: 1 !important;
+
+    min-height: 0 !important;
+
+    display: flex !important;
+
+    flex-direction: column !important;
+
+    padding: 28px !important;
+
+    box-sizing: border-box !important;
+
+    gap: 16px !important;
+
+    overflow: auto !important;
+}
+
+#winconNotificationLayer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2147483647;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+
+    padding: 20px;
+    gap: 10px;
+
+    box-sizing: border-box;
+}
+
+#winconNotificationLayer {
+    position: fixed !important;
+
+    top: 20px !important;
+    right: 20px !important;
+
+    width: 380px;
+    max-width: calc(100vw - 40px);
+
+    display: flex;
+
+    flex-direction: column;
+    align-items: flex-end;
+
+    gap: 10px;
+
+    pointer-events: none;
+
+    z-index: 2147483647 !important;
+
+    isolation: isolate;
+}
+
+.wincon-notification {
+    position: relative;
+
+    pointer-events: auto;
+
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 14px 16px;
+
+    border-radius: 12px;
+
+    background: rgba(32, 32, 32, 0.96);
+
+    color: white;
+
+    border: 1px solid rgba(255, 255, 255, 0.15);
+
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.45);
+
+    opacity: 0;
+
+    transform: translateX(40px);
+
+    transition:
+        opacity .25s ease,
+        transform .25s ease;
+}
+
+.wincon-notification.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.wincon-notification.removing {
+    opacity: 0;
+    transform: translateX(40px);
+}
+
+.wincon-notification-title {
+    font-size: 14px;
+    font-weight: 600;
+
+    margin-bottom: 5px;
+}
+
+.wincon-notification-message {
+    font-size: 13px;
+    line-height: 1.5;
+
+    white-space: pre-line;
 }
 </style>
 </head>
@@ -716,6 +916,10 @@ Menu
     </div>
 
 </div>
+
+<!-- Wincon Global Notification Layer -->
+<div id="winconNotificationLayer"></div>
+
 <div id="controlCenter">
 
 <h2>Wincon Control Center</h2>
@@ -1026,7 +1230,7 @@ hidden:true
   icon:"⚙️",
   type:"coreservice",
   system:true,
-  hidden:true
+  hidden:false
 },
 
 {
@@ -1177,7 +1381,9 @@ switch(item.type){
 case "window":
 openTestWindow();
 break;
-
+case "coreservice":
+openCoreService();
+break;
 case "popup":
 openTestPopup();
 break;
@@ -1255,7 +1461,7 @@ safe=false
 }=options;
 
 const win=document.createElement("div");
-
+win.dataset.popup = popup ? "true" : "false";
 win.className="window";
 
 win.style.width=(popup?560:width)+"px";
@@ -2427,7 +2633,7 @@ width:900,
 height:650,
 content:`
 
-<h1>Wincon Enterprise 3.1</h1>
+<h1>Wincon 10.0 Asteria</h1>
 
 <div class="badge">
 SYSTEM PROCESS
@@ -2441,19 +2647,19 @@ SYSTEM PROCESS
 
 <b>Product Name</b>
 <br>
-Wincon Enterprise 3.2
+Wincon 10.0 Asteria
 
 <br><br>
 
 <b>Version</b>
 <br>
-Beta 3.2.2
+Beta 10.0
 
 <br><br>
 
 <b>Core Service Version</b>
 <br>
-1.6
+10.0
 
 <br><br>
 
@@ -2518,7 +2724,7 @@ JSON.stringify(localStorage).length/1024
 
 <h2>Build Information</h2>
 
-Build: 2026.09
+Build: 2026.11
 <br>
 
 Channel: Beta
@@ -5944,7 +6150,7 @@ function moveWinconUACToBody() {
 
 }
 
-moveWinconUACToBody();
+
 let winconUACResolve = null;
 let winconUACActive = false;
 
@@ -6156,7 +6362,21 @@ document.addEventListener(
     "DOMContentLoaded",
     () => {
 
+        moveWinconUACToBody();
+
         setupWinconUAC();
+
+        const overlay =
+            document.getElementById(
+                "winconUACOverlay"
+            );
+
+        if (overlay) {
+
+            overlay.style.zIndex =
+                "2147483647";
+
+        }
 
         console.log(
             "[Wincon UAC] Stable Ready"
@@ -6459,6 +6679,7677 @@ window.WinconModuleAPI = {
 console.log(
     "[Wincon Module API] Ready"
 );
+
+(function WinconTVSystem() {
+
+    "use strict";
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+    /* =====================================================
+       Storage
+    ===================================================== */
+
+    const TV_KEYMAP_STORAGE = "winconTVKeyMap";
+
+    const DEFAULT_KEYMAP = {
+        up: "ArrowUp",
+        down: "ArrowDown",
+        left: "ArrowLeft",
+        right: "ArrowRight",
+        select: "Enter",
+        back: "Backspace"
+    };
+
+    let tvKeyMap = loadKeyMap();
+
+    function loadKeyMap() {
+        try {
+            const saved = localStorage.getItem(TV_KEYMAP_STORAGE);
+
+            if (!saved) {
+                return { ...DEFAULT_KEYMAP };
+            }
+
+            return {
+                ...DEFAULT_KEYMAP,
+                ...JSON.parse(saved)
+            };
+
+        } catch (e) {
+            console.warn(
+                "[Wincon TV] キーマップ読み込み失敗",
+                e
+            );
+
+            return { ...DEFAULT_KEYMAP };
+        }
+    }
+
+    function saveKeyMap() {
+        try {
+            localStorage.setItem(
+                TV_KEYMAP_STORAGE,
+                JSON.stringify(tvKeyMap)
+            );
+        } catch (e) {
+            console.warn(
+                "[Wincon TV] キーマップ保存失敗",
+                e
+            );
+        }
+    }
+
+
+    /* =====================================================
+       State
+    ===================================================== */
+
+    const tvState = {
+    active: false,
+    page: "home",
+    selectedIndex: 0,
+    currentAppTitle: null,
+    selectedKeyAction: null,
+    waitingForKey: false,
+    hidDevices: [],
+
+    /*
+     * 現在のTVセッションで
+     * 起動できなかったアプリ。
+     *
+     * menuItems自体は変更しない。
+     */
+    failedApps: new Set()
+};
+
+
+    /* =====================================================
+       CSS
+    ===================================================== */
+
+    function installCSS() {
+
+        if (document.getElementById("winconTVSystemCSS")) {
+            return;
+        }
+
+        const style = document.createElement("style");
+
+        style.id = "winconTVSystemCSS";
+
+        style.textContent = `
+
+        /* =================================================
+           TV ROOT
+        ================================================= */
+
+        #winconTVRoot {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483000;
+            display: none;
+
+            background:
+                radial-gradient(
+                    circle at 75% 15%,
+                    rgba(80,110,160,.28),
+                    transparent 40%
+                ),
+                linear-gradient(
+                    135deg,
+                    #111419,
+                    #181c22 55%,
+                    #0c0f13
+                );
+
+            color: #fff;
+
+            font-family:
+                "Segoe UI",
+                "Yu Gothic UI",
+                sans-serif;
+
+            overflow: hidden;
+
+            user-select: none;
+        }
+
+        #winconTVRoot.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+
+        /* =================================================
+           TV HEADER
+        ================================================= */
+
+        .wincon-tv-header {
+            height: 78px;
+            min-height: 78px;
+
+            padding: 0 44px;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            box-sizing: border-box;
+        }
+
+        .wincon-tv-logo {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+
+            font-size: 25px;
+            font-weight: 600;
+        }
+
+        .wincon-tv-logo-icon {
+            font-size: 30px;
+        }
+
+        .wincon-tv-clock {
+            font-size: 20px;
+            opacity: .8;
+        }
+
+
+        /* =================================================
+           TV CONTENT
+        ================================================= */
+
+        #winconTVPage {
+            flex: 1;
+            min-height: 0;
+
+            overflow: auto;
+
+            padding: 24px 52px 40px;
+
+            box-sizing: border-box;
+        }
+
+
+        /* =================================================
+           HOME
+        ================================================= */
+
+        .wincon-tv-heading-small {
+            font-size: 13px;
+            letter-spacing: 4px;
+            opacity: .5;
+        }
+
+        .wincon-tv-heading {
+            margin: 4px 0 30px;
+
+            font-size: 42px;
+            font-weight: 600;
+        }
+
+        .wincon-tv-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    auto-fill,
+                    minmax(190px, 1fr)
+                );
+
+            gap: 22px;
+
+            max-width: 1400px;
+        }
+
+        .wincon-tv-card {
+            min-height: 175px;
+
+            border-radius: 18px;
+
+            border: 2px solid transparent;
+
+            background:
+                rgba(255,255,255,.075);
+
+            display: flex;
+            flex-direction: column;
+
+            justify-content: center;
+            align-items: center;
+
+            gap: 15px;
+
+            box-sizing: border-box;
+
+            transition:
+                transform .12s ease,
+                background .12s ease,
+                border-color .12s ease;
+        }
+
+        .wincon-tv-card.selected {
+            border-color:
+                rgba(255,255,255,.95);
+
+            background:
+                rgba(255,255,255,.17);
+
+            transform: scale(1.045);
+
+            box-shadow:
+                0 14px 40px rgba(0,0,0,.35);
+        }
+
+        .wincon-tv-card-icon {
+            font-size: 50px;
+            line-height: 1;
+        }
+
+        .wincon-tv-card-title {
+            font-size: 19px;
+            text-align: center;
+        }
+
+
+        /* =================================================
+           EXIT CARD
+        ================================================= */
+
+        .wincon-tv-exit-card {
+            cursor: pointer;
+        }
+
+        .wincon-tv-exit-card .wincon-tv-card-icon {
+            font-size: 43px;
+        }
+
+
+        /* =================================================
+           FOOTER
+        ================================================= */
+
+        .wincon-tv-footer {
+            min-height: 58px;
+            height: 58px;
+
+            padding: 0 44px;
+
+            display: flex;
+            align-items: center;
+
+            gap: 28px;
+
+            font-size: 14px;
+
+            opacity: .65;
+
+            box-sizing: border-box;
+        }
+
+        .wincon-tv-footer b {
+            color: #fff;
+            opacity: 1;
+        }
+
+
+        /* =================================================
+           TV APP WINDOW
+        ================================================= */
+
+        body.wincon-tv-active {
+            overflow: hidden;
+        }
+
+        /*
+         * 重要:
+         * TV RootよりアプリWindowを前面に出す。
+         */
+
+        body.wincon-tv-app-active
+        #desktop {
+            position: relative;
+            z-index: 2147483100 !important;
+        }
+
+        body.wincon-tv-app-active
+        .window.wincon-tv-app-window {
+
+            position: fixed !important;
+
+            left: 0 !important;
+            top: 0 !important;
+
+            width: 100vw !important;
+            height: 100vh !important;
+
+            max-width: none !important;
+            max-height: none !important;
+
+            margin: 0 !important;
+
+            z-index: 2147483200 !important;
+
+            border-radius: 0 !important;
+        }
+
+        .window.wincon-tv-app-window
+        .min-btn,
+        .window.wincon-tv-app-window
+        .max-btn {
+            display: none !important;
+        }
+
+        .window.wincon-tv-app-window
+        .titlebar {
+            height: 62px;
+        }
+
+        .window.wincon-tv-app-window
+        .content {
+            height: calc(100% - 62px);
+            box-sizing: border-box;
+        }
+
+
+        /* =================================================
+           KEYMAP
+        ================================================= */
+
+        .wincon-keymap-page {
+            max-width: 1000px;
+        }
+
+        .wincon-keymap-description {
+            opacity: .7;
+            margin-bottom: 25px;
+            line-height: 1.7;
+        }
+
+        .wincon-keymap-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .wincon-keymap-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            min-height: 70px;
+
+            padding: 0 20px;
+
+            border-radius: 12px;
+
+            background:
+                rgba(255,255,255,.07);
+
+            border:
+                1px solid rgba(255,255,255,.08);
+        }
+
+        .wincon-keymap-label {
+            font-size: 18px;
+        }
+
+        .wincon-keymap-key {
+            min-width: 170px;
+
+            padding: 11px 16px;
+
+            border-radius: 9px;
+
+            border:
+                1px solid rgba(255,255,255,.15);
+
+            background:
+                rgba(0,0,0,.25);
+
+            color: #fff;
+
+            font-size: 16px;
+
+            text-align: center;
+
+            cursor: pointer;
+        }
+
+        .wincon-keymap-key:hover {
+            background:
+                rgba(255,255,255,.12);
+        }
+
+        .wincon-keymap-key.waiting {
+            border-color: #fff;
+
+            background:
+                rgba(255,255,255,.16);
+
+            animation:
+                winconKeyWaiting 1s infinite alternate;
+        }
+
+        @keyframes winconKeyWaiting {
+            from {
+                opacity: .55;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .wincon-keymap-actions {
+            margin-top: 25px;
+
+            display: flex;
+            gap: 12px;
+        }
+
+        .wincon-keymap-button {
+            padding: 11px 18px;
+
+            border: 0;
+            border-radius: 9px;
+
+            background:
+                rgba(255,255,255,.1);
+
+            color: white;
+
+            cursor: pointer;
+
+            font-size: 15px;
+        }
+
+        .wincon-keymap-button:hover {
+            background:
+                rgba(255,255,255,.17);
+        }
+
+        .wincon-keymap-device {
+            margin-top: 28px;
+
+            padding: 18px;
+
+            border-radius: 12px;
+
+            background:
+                rgba(255,255,255,.05);
+        }
+
+        .wincon-keymap-device-title {
+            font-size: 17px;
+            margin-bottom: 10px;
+        }
+
+        .wincon-keymap-device-status {
+            opacity: .65;
+            line-height: 1.6;
+        }
+
+        `;
+
+        document.head.appendChild(style);
+    }
+
+
+    /* =====================================================
+       TV ROOT
+    ===================================================== */
+
+    function createTVRoot() {
+
+        if (document.getElementById("winconTVRoot")) {
+            return;
+        }
+
+        const root = document.createElement("div");
+
+        root.id = "winconTVRoot";
+
+        root.innerHTML = `
+
+            <header class="wincon-tv-header">
+
+                <div class="wincon-tv-logo">
+
+                    <span class="wincon-tv-logo-icon">
+                        ▣
+                    </span>
+
+                    <span>
+                        Wincon TV
+                    </span>
+
+                </div>
+
+                <div
+                    class="wincon-tv-clock"
+                    id="winconTVClock"
+                ></div>
+
+            </header>
+
+            <main id="winconTVPage"></main>
+
+            <footer class="wincon-tv-footer">
+
+                <span>
+                    <b>↑ ↓ ← →</b>
+                    選択
+                </span>
+
+                <span>
+                    <b>Enter</b>
+                    決定
+                </span>
+
+                <span>
+                    <b>Back</b>
+                    戻る
+                </span>
+
+            </footer>
+
+        `;
+
+        document.body.appendChild(root);
+
+        updateClock();
+    }
+
+
+    /* =====================================================
+       Clock
+    ===================================================== */
+
+    function updateClock() {
+
+        const clock =
+            document.getElementById("winconTVClock");
+
+        if (!clock) return;
+
+        const now = new Date();
+
+        clock.textContent =
+            now.toLocaleTimeString(
+                "ja-JP",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                }
+            );
+    }
+
+    setInterval(updateClock, 1000);
+
+
+    /* =====================================================
+       TV APP LIST
+    ===================================================== */
+
+   /* =====================================================
+   TV APP LIST
+===================================================== */
+
+function getTVApps() {
+
+    return menuItems.filter(item => {
+
+        if (!item) {
+            return false;
+        }
+
+        /* 非表示項目 */
+        if (item.hidden) {
+            return false;
+        }
+
+        /* TV自身はTVアプリ一覧に出さない */
+        if (item.type === "tv") {
+            return false;
+        }
+
+        /* PopupはTVアプリ一覧に出さない */
+        if (
+            item.type === "popup" ||
+            item.popup === true
+        ) {
+            return false;
+        }
+
+        /* shutdownはTVモードでは利用不可 */
+        if (item.type === "shutdown") {
+            return false;
+        }
+
+        /*
+         * TV起動テストで失敗したアプリは
+         * 現在のTVセッション中だけ除外
+         */
+        if (
+            tvState.failedApps &&
+            tvState.failedApps.has(item.title)
+        ) {
+            return false;
+        }
+
+        return true;
+    });
+}
+
+/* =====================================================
+   TV APP EXCLUSION NOTICE
+===================================================== */
+
+function notifyTVAppExcluded(appTitle, reason) {
+
+    const name = appTitle || "このアプリ";
+
+    const message =
+        name +
+        "はTVモードでは利用できないため、除外されました。" +
+        (reason ? "\n" + reason : "");
+
+    console.warn(
+        "[Wincon TV] " + message
+    );
+
+    /*
+     * Wincon標準通知がある場合はそれを優先
+     */
+    if (
+        typeof window.showWinconNotification ===
+        "function"
+    ) {
+        try {
+            window.showWinconNotification(
+                "Wincon TV",
+                message
+            );
+            return;
+        } catch (e) {
+            console.warn(
+                "[Wincon TV] 通知表示失敗",
+                e
+            );
+        }
+    }
+
+    /*
+     * 標準通知がない場合
+     * TV画面内に一時表示
+     */
+    const page =
+        document.getElementById("winconTVPage");
+
+    if (!page) {
+        return;
+    }
+
+    const notice =
+        document.createElement("div");
+
+    notice.className =
+        "wincon-tv-exclusion-notice";
+
+    notice.textContent =
+        "⚠ " + message;
+
+    page.prepend(notice);
+
+    setTimeout(() => {
+
+        if (notice.parentNode) {
+            notice.remove();
+        }
+
+    }, 3000);
+}
+
+
+    /* =====================================================
+       Open TV
+    ===================================================== */
+
+    function openTVMode() {
+
+    if (tvState.active) {
+        return;
+    }
+
+    installCSS();
+    createTVRoot();
+
+    tvState.active = true;
+    tvState.page = "home";
+    tvState.selectedIndex = 0;
+    tvState.currentAppTitle = null;
+
+    document.body.classList.add(
+        "wincon-tv-active"
+    );
+
+    /*
+     * 通常UIを隠す
+     */
+    const taskbar =
+        document.getElementById("taskbar");
+
+    if (taskbar) {
+        taskbar.style.display = "none";
+    }
+
+    const menuElement =
+        document.getElementById("menu");
+
+    if (menuElement) {
+        menuElement.style.display = "none";
+    }
+
+    /*
+     * 既存WindowをTV開始時点で隠す。
+     *
+     * Popupは完全除外。
+     * PopupはTVモード中でも常に表示する。
+     */
+    document
+        .querySelectorAll(".window")
+        .forEach(win => {
+
+            /*
+             * UACは絶対に触らない
+             */
+            if (
+                win.id ===
+                "winconUACDialog"
+            ) {
+                return;
+            }
+
+            /*
+             * PopupはTV管理対象外
+             */
+            if (
+                win.dataset.popup === "true"
+            ) {
+                win.style.display = "flex";
+                win.style.zIndex =
+                    "2147483646";
+                return;
+            }
+
+            /*
+             * TV開始前の状態を保存
+             */
+            if (
+                !Object.prototype.hasOwnProperty.call(
+                    win.dataset,
+                    "winconTVOriginalDisplay"
+                )
+            ) {
+                win.dataset.winconTVOriginalDisplay =
+                    win.style.display || "";
+            }
+
+            win.style.display = "none";
+
+        });
+
+    /*
+     * タスクアイコンも隠す
+     */
+    const taskIcons =
+        document.getElementById("taskIcons");
+
+    if (taskIcons) {
+        taskIcons.style.display = "none";
+    }
+
+    /*
+     * TV UI
+     */
+    const root =
+        document.getElementById(
+            "winconTVRoot"
+        );
+
+    if (root) {
+        root.classList.add("active");
+    }
+
+    renderTVHome();
+}
+
+
+    /* =====================================================
+       Close TV
+       ※ Backspaceでは呼ばない
+    ===================================================== */
+
+    function closeTVMode() {
+
+        if (!tvState.active) {
+            return;
+        }
+
+        closeCurrentTVApp();
+
+        tvState.active = false;
+        tvState.page = "home";
+        tvState.currentAppTitle = null;
+		if (tvState.failedApps) {
+    tvState.failedApps.clear();
+}
+
+        const root =
+            document.getElementById("winconTVRoot");
+
+        if (root) {
+            root.classList.remove("active");
+        }
+
+        document.body.classList.remove(
+            "wincon-tv-active"
+        );
+
+        document.body.classList.remove(
+            "wincon-tv-app-active"
+        );
+
+        /*
+         * 通常UI復帰
+         */
+
+        const taskbar =
+            document.getElementById("taskbar");
+
+        if (taskbar) {
+            taskbar.style.display = "";
+        }
+
+        const taskIcons =
+            document.getElementById("taskIcons");
+
+        if (taskIcons) {
+            taskIcons.style.display = "";
+        }
+
+        /*
+         * TV開始前に存在していたWindowを戻す
+         */
+
+        document
+            .querySelectorAll(
+                ".window[data-wincon-tv-original-display]"
+            )
+            .forEach(win => {
+
+                win.style.display =
+                    win.dataset.winconTVOriginalDisplay;
+
+                delete win.dataset
+                    .winconTVOriginalDisplay;
+
+            });
+    }
+
+
+    /* =====================================================
+       TV Home
+    ===================================================== */
+
+    function renderTVHome() {
+
+        const page =
+            document.getElementById("winconTVPage");
+
+        if (!page) return;
+
+        tvState.page = "home";
+
+        document.body.classList.remove(
+            "wincon-tv-app-active"
+        );
+
+        const apps = getTVApps();
+
+        if (
+            tvState.selectedIndex >=
+            apps.length
+        ) {
+            tvState.selectedIndex =
+                Math.max(0, apps.length - 1);
+        }
+
+        page.innerHTML = `
+
+            <div class="wincon-tv-heading-small">
+                WINCON
+            </div>
+
+            <div class="wincon-tv-heading">
+                アプリ
+            </div>
+
+            <div
+                class="wincon-tv-grid"
+                id="winconTVGrid"
+            ></div>
+
+        `;
+
+        const grid =
+            document.getElementById(
+                "winconTVGrid"
+            );
+
+        apps.forEach((app, index) => {
+
+            const card =
+                document.createElement("div");
+
+            card.className =
+                "wincon-tv-card" +
+                (
+                    index === tvState.selectedIndex
+                        ? " selected"
+                        : ""
+                );
+
+            card.dataset.index = index;
+
+            card.innerHTML = `
+
+                <div class="wincon-tv-card-icon">
+                    ${escapeHTML(
+                        app.icon || "🪟"
+                    )}
+                </div>
+
+                <div class="wincon-tv-card-title">
+                    ${escapeHTML(
+                        app.title || "アプリ"
+                    )}
+                </div>
+
+            `;
+
+            card.addEventListener(
+                "click",
+                () => {
+
+                    tvState.selectedIndex =
+                        index;
+
+                    renderTVHome();
+
+                    launchSelectedTVApp();
+
+                }
+            );
+
+            grid.appendChild(card);
+
+        });
+
+
+        /*
+         * TVモード終了ボタン
+         *
+         * Backspaceではなく、このボタンのみ。
+         */
+
+        const exitCard =
+            document.createElement("div");
+
+        exitCard.className =
+            "wincon-tv-card " +
+            "wincon-tv-exit-card";
+
+        exitCard.innerHTML = `
+
+            <div class="wincon-tv-card-icon">
+                ⏻
+            </div>
+
+            <div class="wincon-tv-card-title">
+                TVモードを終了
+            </div>
+
+        `;
+
+        exitCard.addEventListener(
+            "click",
+            () => {
+                closeTVMode();
+            }
+        );
+
+        grid.appendChild(exitCard);
+
+    }
+
+
+    /* =====================================================
+       Launch selected app
+    ===================================================== */
+
+   function launchSelectedTVApp() {
+
+    const apps = getTVApps();
+
+    const app =
+        apps[tvState.selectedIndex];
+
+    if (!app) {
+        return;
+    }
+ if (app.type === "shutdown") {
+
+        notifyTVAppExcluded(
+            app.title,
+            "シャットダウンはTVモードから実行できません。"
+        );
+
+        renderTVHome();
+
+        return;
+    }
+    /*
+     * 現在のTVアプリを閉じる。
+     * Popup / UACには触れない。
+     */
+    closeCurrentTVApp();
+
+    tvState.currentAppTitle =
+        app.title;
+
+    tvState.page = "app";
+
+    /*
+     * shutdownはWindowを生成しない。
+     *
+     * そのためWindow待ちをせず、
+     * そのまま通常のopenAppCommandへ渡す。
+     */
+    if (app.type === "shutdown") {
+
+        try {
+
+            openAppCommand(
+                ["openapp", app.title],
+                console.log
+            );
+
+        } catch (e) {
+
+            console.error(
+                "[Wincon TV] shutdown起動失敗",
+                e
+            );
+
+        }
+
+        return;
+    }
+
+    /*
+     * 起動前のWindowを記録
+     */
+    const beforeWindows =
+        [
+            ...document.querySelectorAll(
+                ".window"
+            )
+        ];
+
+    let launchFailed = false;
+
+    try {
+
+        openAppCommand(
+            ["openapp", app.title],
+            console.log
+        );
+
+    } catch (e) {
+
+        console.error(
+            "[Wincon TV] アプリ起動失敗:",
+            app.title,
+            e
+        );
+
+        launchFailed = true;
+
+    }
+
+    /*
+     * 同期的に例外が発生した場合
+     */
+    if (launchFailed) {
+
+        markTVAppFailed(
+            app.title
+        );
+
+        return;
+    }
+
+    /*
+     * Window生成待ち
+     *
+     * 50ms × 60回
+     * = 最大3秒
+     */
+    let attempts = 0;
+
+    const maxAttempts = 60;
+
+    const waitForWindow =
+        setInterval(() => {
+
+            /*
+             * TVモード自体が終了していたら
+             * 待機を終了。
+             */
+            if (!tvState.active) {
+
+                clearInterval(
+                    waitForWindow
+                );
+
+                return;
+            }
+
+            const windows =
+                [
+                    ...document.querySelectorAll(
+                        ".window"
+                    )
+                ];
+
+            /*
+             * 起動前には存在しなかったWindow
+             */
+            const newWindows =
+                windows.filter(
+                    win =>
+                        !beforeWindows.includes(
+                            win
+                        )
+                );
+
+            /*
+             * PopupはTV対象外
+             */
+            const tvWindows =
+                newWindows.filter(
+                    win =>
+                        win.dataset.popup !==
+                        "true"
+                );
+
+            /*
+             * 通常Windowが生成された
+             */
+            if (tvWindows.length) {
+
+                clearInterval(
+                    waitForWindow
+                );
+
+                const target =
+                    tvWindows[
+                        tvWindows.length - 1
+                    ];
+
+                promoteWindowToTV(
+                    target
+                );
+
+                return;
+            }
+
+            /*
+             * Popupだけ生成された場合
+             *
+             * Popupは正常なので、
+             * 起動失敗にはしない。
+             */
+            if (
+                newWindows.length &&
+                newWindows.every(
+                    win =>
+                        win.dataset.popup ===
+                        "true"
+                )
+            ) {
+
+                clearInterval(
+                    waitForWindow
+                );
+
+                newWindows.forEach(
+                    win => {
+
+                        win.style.display =
+                            "flex";
+
+                        win.style.zIndex =
+                            "2147483646";
+
+                    }
+                );
+
+                /*
+                 * Popupを開いただけなので
+                 * TVアプリ画面としては終了。
+                 */
+                tvState.page = "home";
+                tvState.currentAppTitle =
+                    null;
+
+                renderTVHome();
+
+                return;
+            }
+
+            attempts++;
+
+            /*
+             * 3秒経過
+             */
+           if (attempts >= 20) {
+
+    clearInterval(
+        waitForWindow
+    );
+
+    console.warn(
+        "[Wincon TV] Window生成待ちがタイムアウト:",
+        app.title
+    );
+
+    if (!tvState.failedApps) {
+        tvState.failedApps = new Set();
+    }
+
+    tvState.failedApps.add(
+        app.title
+    );
+
+    showWinconNotification(
+        "Wincon TV",
+        `「${app.title}」はTVモードでは利用できないため、除外されました。`
+    );
+
+    tvState.currentAppTitle = null;
+    tvState.page = "home";
+
+    document.body.classList.remove(
+        "wincon-tv-app-active"
+    );
+
+    setTimeout(() => {
+        renderTVHome();
+    }, 1200);
+}
+
+        }, 50);
+}
+
+function markTVAppFailed(appTitle) {
+
+    if (!appTitle) {
+        return;
+    }
+
+    if (!tvState.failedApps) {
+        tvState.failedApps =
+            new Set();
+    }
+
+    tvState.failedApps.add(
+        appTitle
+    );
+
+    console.warn(
+        "[Wincon TV] TVでは利用できないアプリとして一時除外:",
+        appTitle
+    );
+
+    tvState.currentAppTitle =
+        null;
+
+    tvState.page =
+        "home";
+
+    document.body.classList.remove(
+        "wincon-tv-app-active"
+    );
+
+    /*
+     * 一覧を再生成。
+     * failedAppsに入ったアプリは消える。
+     */
+    renderTVHome();
+
+}
+
+
+    /* =====================================================
+       TV Window
+    ===================================================== */
+
+    function promoteWindowToTV(current) {
+
+    if (!current) {
+        return;
+    }
+
+    /*
+     * Popupは絶対にTV化しない
+     */
+    if (
+        current.dataset.popup === "true"
+    ) {
+
+        current.classList.remove(
+            "wincon-tv-app-window"
+        );
+
+        current.style.display =
+            "flex";
+
+        current.style.zIndex =
+            "2147483646";
+
+        return;
+    }
+
+    /*
+     * 他の通常Windowを非表示
+     *
+     * PopupとUACは除外。
+     */
+    document
+        .querySelectorAll(".window")
+        .forEach(win => {
+
+            if (win === current) {
+                return;
+            }
+
+            /*
+             * Popup
+             */
+            if (
+                win.dataset.popup ===
+                "true"
+            ) {
+
+                win.style.display =
+                    "flex";
+
+                win.style.zIndex =
+                    "2147483646";
+
+                return;
+            }
+
+            /*
+             * UAC
+             */
+            if (
+                win.id ===
+                "winconUACDialog"
+            ) {
+                return;
+            }
+
+            win.style.display =
+                "none";
+        });
+
+    current.style.display =
+        "flex";
+
+    current.classList.add(
+        "wincon-tv-app-window"
+    );
+
+    current.style.zIndex =
+        "2147483200";
+
+    document.body.classList.add(
+        "wincon-tv-app-active"
+    );
+
+    /*
+     * 最小化・最大化ボタンを隠す
+     */
+    const min =
+        current.querySelector(
+            ".min-btn"
+        );
+
+    const max =
+        current.querySelector(
+            ".max-btn"
+        );
+
+    if (min) {
+        min.style.display =
+            "none";
+    }
+
+    if (max) {
+        max.style.display =
+            "none";
+    }
+
+    /*
+     * 閉じるボタン
+     */
+    const close =
+        current.querySelector(
+            ".close-btn"
+        );
+
+    if (close) {
+
+        close.style.display = "";
+
+        close.addEventListener(
+            "click",
+            () => {
+
+                setTimeout(() => {
+
+                    if (
+                        tvState.active
+                    ) {
+                        renderTVHome();
+                    }
+
+                }, 0);
+
+            },
+            {
+                once: true
+            }
+        );
+    }
+}
+
+
+    /* =====================================================
+       Close current TV app
+    ===================================================== */
+
+    function closeCurrentTVApp() {
+
+    const tvWindow =
+        document.querySelector(
+            ".window.wincon-tv-app-window"
+        );
+
+    if (tvWindow) {
+
+        const close =
+            tvWindow.querySelector(
+                ".close-btn"
+            );
+
+        if (close) {
+
+            try {
+
+                close.click();
+
+            } catch (e) {
+
+                tvWindow.remove();
+
+            }
+
+        } else {
+
+            tvWindow.remove();
+
+        }
+
+    }
+
+    /*
+     * 通常WindowだけTV用に隠す。
+     *
+     * Popupは絶対に隠さない。
+     * UACも絶対に触らない。
+     */
+    document
+        .querySelectorAll(".window")
+        .forEach(win => {
+
+            /*
+             * UAC
+             */
+            if (
+                win.id ===
+                "winconUACDialog"
+            ) {
+                return;
+            }
+
+            /*
+             * Popup
+             */
+            if (
+                win.dataset.popup ===
+                "true"
+            ) {
+
+                win.style.display =
+                    "flex";
+
+                win.style.zIndex =
+                    "2147483646";
+
+                return;
+            }
+
+            /*
+             * TVアプリ自身
+             */
+            if (
+                win.classList.contains(
+                    "wincon-tv-app-window"
+                )
+            ) {
+                return;
+            }
+
+            /*
+             * 通常Window
+             */
+            if (tvState.active) {
+                win.style.display =
+                    "none";
+            }
+
+        });
+
+    tvState.currentAppTitle =
+        null;
+
+    document.body.classList.remove(
+        "wincon-tv-app-active"
+    );
+}
+
+
+    /* =====================================================
+       TV Back
+       ===================================================== */
+
+    function tvBack() {
+
+        /*
+         * アプリ → TVホーム
+         */
+
+        if (tvState.page === "app") {
+
+            closeCurrentTVApp();
+
+            renderTVHome();
+
+            return;
+        }
+
+        /*
+         * TVホームではBackしても
+         * TVモードを終了しない。
+         *
+         * 終了は画面上のボタンのみ。
+         */
+
+    }
+
+
+    /* =====================================================
+       Selection
+    ===================================================== */
+
+    function moveSelection(dx, dy) {
+
+        if (tvState.page !== "home") {
+            return;
+        }
+
+        const apps = getTVApps();
+
+        if (!apps.length) return;
+
+        const grid =
+            document.getElementById(
+                "winconTVGrid"
+            );
+
+        if (!grid) return;
+
+        const cards =
+            [
+                ...grid.querySelectorAll(
+                    ".wincon-tv-card"
+                )
+            ];
+
+        /*
+         * 最後のカードはTV終了。
+         */
+
+        const total = cards.length;
+
+        /*
+         * 実際のグリッド列数を取得
+         */
+
+        let columns = 1;
+
+        if (cards.length > 1) {
+
+            const firstTop =
+                cards[0]
+                    .getBoundingClientRect()
+                    .top;
+
+            for (
+                let i = 0;
+                i < cards.length;
+                i++
+            ) {
+
+                const top =
+                    cards[i]
+                        .getBoundingClientRect()
+                        .top;
+
+                if (
+                    Math.abs(
+                        top - firstTop
+                    ) < 5
+                ) {
+                    columns++;
+                } else {
+                    break;
+                }
+
+            }
+
+        }
+
+        columns = Math.max(
+            1,
+            columns - 1
+        );
+
+        let next =
+            tvState.selectedIndex;
+
+        if (dx !== 0) {
+            next += dx;
+        }
+
+        if (dy !== 0) {
+            next += dy * columns;
+        }
+
+        next = Math.max(
+            0,
+            Math.min(
+                total - 1,
+                next
+            )
+        );
+
+        if (
+            next ===
+            tvState.selectedIndex
+        ) {
+            return;
+        }
+
+        tvState.selectedIndex = next;
+
+        renderTVHome();
+
+        const selected =
+            document.querySelector(
+                `.wincon-tv-card[data-index="${next}"]`
+            );
+
+        if (selected) {
+
+            selected.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest"
+            });
+
+        }
+
+    }
+
+
+    /* =====================================================
+       Key Handling
+    ===================================================== */
+
+    function handleTVKey(event) {
+
+        if (!tvState.active) {
+            return;
+        }
+
+        /*
+         * キーマップ設定中は
+         * キーマップモジュール側へ渡す。
+         */
+
+        if (tvState.waitingForKey) {
+            return;
+        }
+
+        const key = event.key;
+
+        if (key === tvKeyMap.up) {
+
+            event.preventDefault();
+
+            moveSelection(0, -1);
+
+            return;
+        }
+
+        if (key === tvKeyMap.down) {
+
+            event.preventDefault();
+
+            moveSelection(0, 1);
+
+            return;
+        }
+
+        if (key === tvKeyMap.left) {
+
+            event.preventDefault();
+
+            moveSelection(-1, 0);
+
+            return;
+        }
+
+        if (key === tvKeyMap.right) {
+
+            event.preventDefault();
+
+            moveSelection(1, 0);
+
+            return;
+        }
+
+        if (key === tvKeyMap.select) {
+
+            event.preventDefault();
+
+            if (
+                tvState.page === "home"
+            ) {
+
+                const apps =
+                    getTVApps();
+
+                /*
+                 * TV終了カード
+                 */
+
+                const grid =
+                    document.getElementById(
+                        "winconTVGrid"
+                    );
+
+                const cards =
+                    grid
+                        ? [
+                            ...grid.querySelectorAll(
+                                ".wincon-tv-card"
+                            )
+                        ]
+                        : [];
+
+                if (
+                    tvState.selectedIndex >=
+                    apps.length
+                ) {
+
+                    closeTVMode();
+
+                    return;
+                }
+
+                launchSelectedTVApp();
+            }
+
+            return;
+        }
+
+        if (key === tvKeyMap.back) {
+
+            event.preventDefault();
+
+            /*
+             * BackspaceはTVモード終了ではない。
+             *
+             * アプリ → ホーム
+             */
+
+            tvBack();
+
+            return;
+        }
+
+    }
+
+    document.addEventListener(
+        "keydown",
+        handleTVKey,
+        true
+    );
+
+
+    /* =====================================================
+       KEY MAP MODULE
+    ===================================================== */
+
+    function openTVKeyMapModule() {
+
+        const content = `
+            <div class="wincon-keymap-page">
+
+                <h2>TVモード キーマップ</h2>
+
+                <div class="wincon-keymap-description">
+
+                    TVモードで使用する操作キーを設定できます。<br>
+
+                    Bluetoothキーボードや、
+                    キーボードとして認識されるリモコンなどの
+                    入力にも対応します。
+
+                </div>
+
+                <div
+                    class="wincon-keymap-list"
+                    id="winconKeyMapList"
+                ></div>
+
+                <div class="wincon-keymap-actions">
+
+                    <button
+                        class="wincon-keymap-button"
+                        id="winconKeyMapReset"
+                    >
+                        初期設定に戻す
+                    </button>
+
+                </div>
+
+                <div class="wincon-keymap-device">
+
+                    <div class="wincon-keymap-device-title">
+                        Bluetooth / HIDデバイス
+                    </div>
+
+                    <div
+                        class="wincon-keymap-device-status"
+                        id="winconHIDStatus"
+                    >
+                        接続状態を確認しています...
+                    </div>
+
+                    <div
+                        class="wincon-keymap-actions"
+                    >
+
+                        <button
+                            class="wincon-keymap-button"
+                            id="winconHIDConnect"
+                        >
+                            HIDデバイスを接続
+                        </button>
+
+                        <button
+                            class="wincon-keymap-button"
+                            id="winconHIDRefresh"
+                        >
+                            接続状態を更新
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+        `;
+
+        const win =
+            createWindow({
+                title: "キーマップ",
+                icon: "🎮",
+                content,
+                width: 760,
+                height: 650
+            });
+
+        setTimeout(
+            () => {
+
+                renderKeyMapList();
+                setupHIDControls();
+
+            },
+            0
+        );
+
+        return win;
+    }
+
+
+    /* =====================================================
+       Key Map List
+    ===================================================== */
+
+    const KEYMAP_LABELS = {
+        up: "上",
+        down: "下",
+        left: "左",
+        right: "右",
+        select: "決定",
+        back: "戻る"
+    };
+
+
+    function renderKeyMapList() {
+
+        const list =
+            document.getElementById(
+                "winconKeyMapList"
+            );
+
+        if (!list) return;
+
+        list.innerHTML = "";
+
+        Object.keys(KEYMAP_LABELS)
+            .forEach(action => {
+
+                const row =
+                    document.createElement("div");
+
+                row.className =
+                    "wincon-keymap-row";
+
+                const label =
+                    document.createElement("div");
+
+                label.className =
+                    "wincon-keymap-label";
+
+                label.textContent =
+                    KEYMAP_LABELS[action];
+
+                const button =
+                    document.createElement("button");
+
+                button.className =
+                    "wincon-keymap-key";
+
+                button.dataset.action =
+                    action;
+
+                button.textContent =
+                    formatKeyName(
+                        tvKeyMap[action]
+                    );
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        beginKeyCapture(
+                            action,
+                            button
+                        );
+
+                    }
+                );
+
+                row.appendChild(label);
+                row.appendChild(button);
+
+                list.appendChild(row);
+
+            });
+
+
+        const reset =
+            document.getElementById(
+                "winconKeyMapReset"
+            );
+
+        if (reset) {
+
+            reset.onclick = () => {
+
+                tvKeyMap = {
+                    ...DEFAULT_KEYMAP
+                };
+
+                saveKeyMap();
+
+                renderKeyMapList();
+
+            };
+
+        }
+
+    }
+
+
+    /* =====================================================
+       Key Capture
+    ===================================================== */
+
+    function beginKeyCapture(
+        action,
+        button
+    ) {
+
+        if (tvState.waitingForKey) {
+            return;
+        }
+
+        tvState.waitingForKey = true;
+        tvState.selectedKeyAction = action;
+
+        button.classList.add(
+            "waiting"
+        );
+
+        button.textContent =
+            "ボタンを押してください…";
+
+        function capture(event) {
+
+            /*
+             * キーマップ画面自身を操作するための
+             * Escapeなども登録可能にする。
+             */
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const key = event.key;
+
+            tvKeyMap[action] = key;
+
+            saveKeyMap();
+
+            tvState.waitingForKey = false;
+            tvState.selectedKeyAction = null;
+
+            document.removeEventListener(
+                "keydown",
+                capture,
+                true
+            );
+
+            renderKeyMapList();
+        }
+
+        document.addEventListener(
+            "keydown",
+            capture,
+            true
+        );
+
+    }
+
+
+    /* =====================================================
+       Key Name
+    ===================================================== */
+
+    function formatKeyName(key) {
+
+        const names = {
+
+            ArrowUp: "↑ 上",
+            ArrowDown: "↓ 下",
+            ArrowLeft: "← 左",
+            ArrowRight: "→ 右",
+
+            Enter: "Enter",
+
+            Backspace: "Backspace",
+
+            Escape: "Esc",
+
+            " ": "Space"
+
+        };
+
+        return names[key] || key;
+
+    }
+
+
+    /* =====================================================
+       WebHID
+    ===================================================== */
+
+    async function refreshHIDDevices() {
+
+        const status =
+            document.getElementById(
+                "winconHIDStatus"
+            );
+
+        if (!status) return;
+
+        if (!("hid" in navigator)) {
+
+            status.textContent =
+                "このブラウザはWebHIDに対応していません。キーボードとして認識されたBluetooth機器は通常のキー入力として利用できます。";
+
+            return;
+
+        }
+
+        try {
+
+            const devices =
+                await navigator.hid.getDevices();
+
+            tvState.hidDevices =
+                devices;
+
+            if (!devices.length) {
+
+                status.textContent =
+                    "登録済みのHIDデバイスはありません。";
+
+                return;
+            }
+
+            status.textContent =
+                devices
+                    .map(device => {
+
+                        return (
+                            device.productName ||
+                            "名称不明のHIDデバイス"
+                        );
+
+                    })
+                    .join(" / ");
+
+        } catch (e) {
+
+            console.error(
+                "[Wincon TV] HID取得失敗",
+                e
+            );
+
+            status.textContent =
+                "HIDデバイス情報を取得できませんでした。";
+
+        }
+
+    }
+
+
+    /* =====================================================
+       Connect HID
+    ===================================================== */
+
+    async function connectHIDDevice() {
+
+        if (!("hid" in navigator)) {
+
+            alert(
+                "このブラウザはWebHIDに対応していません。"
+            );
+
+            return;
+        }
+
+        try {
+
+            const devices =
+                await navigator.hid.requestDevice({
+                    filters: []
+                });
+
+            tvState.hidDevices =
+                devices;
+
+            await refreshHIDDevices();
+
+        } catch (e) {
+
+            if (
+                e.name !==
+                "NotFoundError"
+            ) {
+
+                console.error(
+                    "[Wincon TV] HID接続失敗",
+                    e
+                );
+
+            }
+
+        }
+
+    }
+
+
+    function setupHIDControls() {
+
+        const connect =
+            document.getElementById(
+                "winconHIDConnect"
+            );
+
+        const refresh =
+            document.getElementById(
+                "winconHIDRefresh"
+            );
+
+        if (connect) {
+
+            connect.onclick =
+                connectHIDDevice;
+
+        }
+
+        if (refresh) {
+
+            refresh.onclick =
+                refreshHIDDevices;
+
+        }
+
+        refreshHIDDevices();
+
+    }
+
+
+    /* =====================================================
+       Wincon Module Registration
+    ===================================================== */
+
+    function registerKeyMapModule() {
+
+        /*
+         * 既に存在するなら追加しない
+         */
+
+        const exists =
+            menuItems.some(
+                item =>
+                    item &&
+                    (
+                        item.title ===
+                        "キーマップ"
+                    )
+            );
+
+        if (exists) {
+            return;
+        }
+
+        menuItems.push({
+
+            title: "キーマップ",
+
+            icon: "🎮",
+
+            type: "keymap",
+
+            system: true
+
+        });
+
+    }
+
+
+    /* =====================================================
+       TV Mode Menu Registration
+    ===================================================== */
+
+    function registerTVModule() {
+
+        const exists =
+            menuItems.some(
+                item =>
+                    item &&
+                    item.type === "tv"
+            );
+
+        if (exists) {
+            return;
+        }
+
+        /*
+         * TVモードは通常メニューに表示。
+         */
+
+        menuItems.push({
+
+            title: "TVモード",
+
+            icon: "📺",
+
+            type: "tv",
+
+            system: true
+
+        });
+
+    }
+
+
+    /* =====================================================
+       renderMenu Hook
+    ===================================================== */
+
+    function installMenuSupport() {
+
+        /*
+         * 既存renderMenuを置き換えず、
+         * menuItemsのtypeを既存switchへ追加できる
+         * ようにクリックイベントを後付けする。
+         */
+
+        const originalRender =
+            window.renderMenu;
+
+        if (
+            typeof originalRender !==
+            "function"
+        ) {
+            console.warn(
+                "[Wincon TV] renderMenuが見つかりません"
+            );
+
+            return;
+        }
+
+        window.renderMenu =
+            function() {
+
+                originalRender();
+
+                const elements =
+                    document.querySelectorAll(
+                        "#menu .menu-item"
+                    );
+
+                elements.forEach(element => {
+
+                    const title =
+                        element.textContent.trim();
+
+                    if (
+                        title.includes(
+                            "TVモード"
+                        )
+                    ) {
+
+                        element.onclick = null;
+
+                        element.addEventListener(
+                            "click",
+                            () => {
+
+                                const menu =
+                                    document.getElementById(
+                                        "menu"
+                                    );
+
+                                if (menu) {
+                                    menu.style.display =
+                                        "none";
+                                }
+
+                                openTVMode();
+
+                            }
+                        );
+
+                    }
+
+                    if (
+                        title.includes(
+                            "キーマップ"
+                        )
+                    ) {
+
+                        element.onclick = null;
+
+                        element.addEventListener(
+                            "click",
+                            () => {
+
+                                openTVKeyMapModule();
+
+                            }
+                        );
+
+                    }
+
+                });
+
+            };
+
+    }
+
+
+    /* =====================================================
+       openAppCommand Support
+    ===================================================== */
+
+    /*
+     * 既存openAppCommandに
+     * TV / keymapを認識させる。
+     */
+
+    function installCommandSupport() {
+
+        if (
+            typeof window.openAppCommand !==
+            "function"
+        ) {
+            return;
+        }
+
+        const original =
+            window.openAppCommand;
+
+        window.openAppCommand =
+            function(
+                appName,
+                popupOverride
+            ) {
+
+                const item =
+                    menuItems.find(
+                        x =>
+                            x &&
+                            x.title ===
+                            appName
+                    );
+
+                if (item) {
+
+                    if (
+                        item.type === "tv"
+                    ) {
+
+                        openTVMode();
+                        return;
+                    }
+
+                    if (
+                        item.type === "keymap"
+                    ) {
+
+                        openTVKeyMapModule();
+                        return;
+                    }
+
+                }
+
+                return original.apply(
+                    this,
+                    arguments
+                );
+
+            };
+
+    }
+
+
+    /* =====================================================
+       Public API
+    ===================================================== */
+
+    window.WinconTV = {
+
+        open() {
+            openTVMode();
+        },
+
+        close() {
+            closeTVMode();
+        },
+
+        isActive() {
+            return tvState.active;
+        },
+
+        getKeyMap() {
+            return {
+                ...tvKeyMap
+            };
+        },
+
+        setKeyMap(action, key) {
+
+            if (
+                !Object.prototype.hasOwnProperty.call(
+                    DEFAULT_KEYMAP,
+                    action
+                )
+            ) {
+                return false;
+            }
+
+            tvKeyMap[action] = key;
+
+            saveKeyMap();
+
+            return true;
+        },
+
+        resetKeyMap() {
+
+            tvKeyMap = {
+                ...DEFAULT_KEYMAP
+            };
+
+            saveKeyMap();
+
+        }
+
+    };
+
+
+    /* =====================================================
+       Init
+    ===================================================== */
+
+    installCSS();
+
+    registerKeyMapModule();
+
+    registerTVModule();
+
+    installMenuSupport();
+
+    installCommandSupport();
+
+    /*
+     * menuItems追加後に既存Menuを再描画
+     */
+
+    if (
+        typeof window.renderMenu ===
+        "function"
+    ) {
+        window.renderMenu();
+    }
+
+    console.log(
+        "[Wincon TV] TV Mode / Key Map initialized"
+    );
+
+})();
+
+
+
+
+function showWinconNotification(title, message, duration = 3500) {
+
+    let layer =
+        document.getElementById(
+            "winconNotificationLayer"
+        );
+
+    if (!layer) {
+
+        layer = document.createElement("div");
+
+        layer.id =
+            "winconNotificationLayer";
+
+        document.body.appendChild(layer);
+    }
+
+    /*
+     * TVモードなどで別のコンテナの中に
+     * 入ってしまっていても、必ずbody直下へ戻す
+     */
+    if (layer.parentElement !== document.body) {
+        document.body.appendChild(layer);
+    }
+
+    /*
+     * 念のためDOM上でも最後尾へ移動
+     */
+    document.body.appendChild(layer);
+
+    const notification =
+        document.createElement("div");
+
+    notification.className =
+        "wincon-notification";
+
+    const titleElement =
+        document.createElement("div");
+
+    titleElement.className =
+        "wincon-notification-title";
+
+    titleElement.textContent =
+        title || "Wincon";
+
+    const messageElement =
+        document.createElement("div");
+
+    messageElement.className =
+        "wincon-notification-message";
+
+    messageElement.textContent =
+        message || "";
+
+    notification.appendChild(
+        titleElement
+    );
+
+    notification.appendChild(
+        messageElement
+    );
+
+    layer.appendChild(
+        notification
+    );
+
+    requestAnimationFrame(() => {
+        notification.classList.add(
+            "visible"
+        );
+    });
+
+    setTimeout(() => {
+
+        notification.classList.add(
+            "removing"
+        );
+
+        setTimeout(() => {
+
+            if (notification.parentNode) {
+                notification.remove();
+            }
+
+        }, 250);
+
+    }, duration);
+}
+
+
+
+/* =========================================================
+   WINCON 10 ASTERIA
+   既存BootScreenとの競合を防止
+========================================================= */
+
+(function removeLegacyBootScreen(){
+
+    const legacyBoot = document.getElementById("bootScreen");
+
+    if(legacyBoot){
+        legacyBoot.remove();
+    }
+
+})();
+
+
+/* =========================================================
+   WINCON 10 ASTERIA
+   OOBE / LOGIN / BOOT REDESIGN
+   ---------------------------------------------------------
+   TV Mode       : existing implementation
+   Key Map       : existing implementation
+   Transfer      : existing implementation
+   Core          : do not replace
+========================================================= */
+
+(function Wincon10AsteriaLayer(){
+
+"use strict";
+
+
+/* =========================================================
+   VERSION
+========================================================= */
+
+const WINCON10_VERSION = "10";
+const WINCON10_CODENAME = "Asteria";
+
+window.Wincon10 =
+    window.Wincon10 || {};
+
+window.Wincon10.version =
+    WINCON10_VERSION;
+
+window.Wincon10.codename =
+    WINCON10_CODENAME;
+
+
+/* =========================================================
+   STORAGE
+========================================================= */
+
+const ASTERIA_KEYS = {
+
+    oobeCompleted:
+        "wincon10_oobe_completed",
+
+    user:
+        "wincon10_user",
+
+    session:
+        "wincon10_session",
+
+    settings:
+        "wincon10_settings"
+
+};
+
+
+const DEFAULT_ASTERIA_SETTINGS = {
+
+    language:
+        "ja-JP",
+
+    notifications:
+        true,
+
+    startupMode:
+        "desktop"
+
+};
+
+
+/* =========================================================
+   SAFE STORAGE
+========================================================= */
+
+function astRead(
+    key,
+    fallback = null
+){
+
+    try{
+
+        const raw =
+            localStorage.getItem(
+                key
+            );
+
+        if(
+            raw === null ||
+            raw === ""
+        ){
+
+            return fallback;
+
+        }
+
+        return JSON.parse(
+            raw
+        );
+
+    }catch(e){
+
+        console.warn(
+            "[Asteria] storage read failed",
+            key,
+            e
+        );
+
+        return fallback;
+
+    }
+
+}
+
+
+function astWrite(
+    key,
+    value
+){
+
+    try{
+
+        localStorage.setItem(
+            key,
+            JSON.stringify(
+                value
+            )
+        );
+
+        return true;
+
+    }catch(e){
+
+        console.error(
+            "[Asteria] storage write failed",
+            key,
+            e
+        );
+
+        return false;
+
+    }
+
+}
+
+
+/* =========================================================
+   SETTINGS
+========================================================= */
+
+function getAsteriaSettings(){
+
+    const saved =
+        astRead(
+            ASTERIA_KEYS.settings,
+            null
+        );
+
+    if(
+        !saved ||
+        typeof saved !==
+        "object"
+    ){
+
+        astWrite(
+            ASTERIA_KEYS.settings,
+            {
+                ...DEFAULT_ASTERIA_SETTINGS
+            }
+        );
+
+        return {
+            ...DEFAULT_ASTERIA_SETTINGS
+        };
+
+    }
+
+    return {
+
+        ...DEFAULT_ASTERIA_SETTINGS,
+
+        ...saved
+
+    };
+
+}
+
+
+function saveAsteriaSettings(
+    settings
+){
+
+    astWrite(
+        ASTERIA_KEYS.settings,
+        {
+            ...DEFAULT_ASTERIA_SETTINGS,
+            ...(settings || {})
+        }
+    );
+
+}
+
+
+/* =========================================================
+   USER / SESSION
+========================================================= */
+
+function getAsteriaUser(){
+
+    return astRead(
+        ASTERIA_KEYS.user,
+        null
+    );
+
+}
+
+
+function getAsteriaSession(){
+
+    return astRead(
+        ASTERIA_KEYS.session,
+        null
+    );
+
+}
+
+
+function isAsteriaLoggedIn(){
+
+    const session =
+        getAsteriaSession();
+
+    const user =
+        getAsteriaUser();
+
+    return !!(
+        session &&
+        user &&
+        session.userId ===
+        user.id
+    );
+
+}
+
+
+function createAsteriaUser(
+    username,
+    passwordHash
+){
+
+    const user = {
+
+        id:
+            "usr_" +
+            Date.now().toString(36) +
+            "_" +
+            Math.random()
+                .toString(36)
+                .slice(2,8),
+
+        name:
+            username,
+
+        passwordHash:
+            passwordHash,
+
+        createdAt:
+            new Date()
+                .toISOString(),
+
+        version:
+            1
+
+    };
+
+    astWrite(
+        ASTERIA_KEYS.user,
+        user
+    );
+
+    return user;
+
+}
+
+
+function updateAsteriaUser(
+    patch
+){
+
+    const user =
+        getAsteriaUser();
+
+    if(!user){
+        return null;
+    }
+
+    const updated = {
+
+        ...user,
+
+        ...(patch || {})
+
+    };
+
+    astWrite(
+        ASTERIA_KEYS.user,
+        updated
+    );
+
+    return updated;
+
+}
+
+
+function loginAsteria(
+    user
+){
+
+    if(!user){
+        return false;
+    }
+
+    astWrite(
+        ASTERIA_KEYS.session,
+        {
+
+            userId:
+                user.id,
+
+            loginAt:
+                new Date()
+                    .toISOString()
+
+        }
+    );
+
+    return true;
+
+}
+
+
+function logoutAsteria(){
+
+    try{
+
+        localStorage.removeItem(
+            ASTERIA_KEYS.session
+        );
+
+    }catch(e){
+
+        console.warn(
+            "[Asteria] logout failed",
+            e
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   PASSWORD HASH
+========================================================= */
+
+function bytesToHex(
+    bytes
+){
+
+    return Array
+        .from(bytes)
+        .map(
+            b =>
+                b.toString(16)
+                    .padStart(
+                        2,
+                        "0"
+                    )
+        )
+        .join("");
+
+}
+
+
+function hexToBytes(
+    hex
+){
+
+    const result =
+        new Uint8Array(
+            hex.length / 2
+        );
+
+    for(
+        let i = 0;
+        i < hex.length;
+        i += 2
+    ){
+
+        result[i / 2] =
+            parseInt(
+                hex.slice(
+                    i,
+                    i + 2
+                ),
+                16
+            );
+
+    }
+
+    return result;
+
+}
+
+
+async function hashPassword(
+    password,
+    salt
+){
+
+    const encoder =
+        new TextEncoder();
+
+    const passwordBytes =
+        encoder.encode(
+            password
+        );
+
+    const key =
+        await crypto.subtle.importKey(
+            "raw",
+            passwordBytes,
+            {
+                name:
+                    "PBKDF2"
+            },
+            false,
+            [
+                "deriveBits"
+            ]
+        );
+
+    const bits =
+        await crypto.subtle.deriveBits(
+            {
+
+                name:
+                    "PBKDF2",
+
+                salt:
+                    salt,
+
+                iterations:
+                    120000,
+
+                hash:
+                    "SHA-256"
+
+            },
+            key,
+            256
+        );
+
+    return bytesToHex(
+        new Uint8Array(
+            bits
+        )
+    );
+
+}
+
+
+async function createPasswordRecord(
+    password
+){
+
+    if(
+        !password
+    ){
+
+        return null;
+
+    }
+
+    const salt =
+        crypto.getRandomValues(
+            new Uint8Array(
+                16
+            )
+        );
+
+    const hash =
+        await hashPassword(
+            password,
+            salt
+        );
+
+    return {
+
+        algorithm:
+            "PBKDF2-SHA256",
+
+        iterations:
+            120000,
+
+        salt:
+            bytesToHex(
+                salt
+            ),
+
+        hash:
+            hash
+
+    };
+
+}
+
+
+async function verifyPassword(
+    password,
+    record
+){
+
+    if(
+        !record ||
+        !record.salt ||
+        !record.hash
+    ){
+
+        return false;
+
+    }
+
+    try{
+
+        const salt =
+            hexToBytes(
+                record.salt
+            );
+
+        const hash =
+            await hashPassword(
+                password,
+                salt
+            );
+
+        return (
+            hash ===
+            record.hash
+        );
+
+    }catch(e){
+
+        console.error(
+            "[Asteria] password verification failed",
+            e
+        );
+
+        return false;
+
+    }
+
+}
+
+
+/* =========================================================
+   HTML ESCAPE
+========================================================= */
+
+function escapeAsteriaHTML(
+    value
+){
+
+    return String(
+        value
+    )
+    .replace(
+        /&/g,
+        "&amp;"
+    )
+    .replace(
+        /</g,
+        "&lt;"
+    )
+    .replace(
+        />/g,
+        "&gt;"
+    )
+    .replace(
+        /"/g,
+        "&quot;"
+    )
+    .replace(
+        /'/g,
+        "&#039;"
+    );
+
+}
+
+
+/* =========================================================
+   CSS
+========================================================= */
+
+function installAsteriaCSS(){
+
+    if(
+        document.getElementById(
+            "wincon10AsteriaCSS"
+        )
+    ){
+
+        return;
+
+    }
+
+
+    const style =
+        document.createElement(
+            "style"
+        );
+
+    style.id =
+        "wincon10AsteriaCSS";
+
+
+    style.textContent = `
+
+/* =====================================================
+   ASTERIA BOOT
+===================================================== */
+
+#wincon10BootOverlay{
+
+    position:fixed;
+
+    inset:0;
+
+    z-index:2147483000;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    flex-direction:column;
+
+    background:
+        radial-gradient(
+            circle at 50% 35%,
+            #27303d 0%,
+            #15191f 42%,
+            #0b0d10 100%
+        );
+
+    color:white;
+
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+    user-select:none;
+
+}
+
+
+.wincon10-boot-inner{
+
+    width:min(
+        420px,
+        calc(100vw - 50px)
+    );
+
+    text-align:center;
+
+}
+
+
+.wincon10-boot-logo{
+
+    width:110px;
+
+    height:110px;
+
+    object-fit:contain;
+
+    display:block;
+
+    margin:0 auto 26px;
+
+    filter:
+        drop-shadow(
+            0 12px 30px
+            rgba(0,0,0,.38)
+        );
+
+}
+
+
+.wincon10-boot-brand{
+
+    font-size:30px;
+
+    font-weight:600;
+
+    letter-spacing:.04em;
+
+}
+
+
+.wincon10-boot-version{
+
+    margin-top:7px;
+
+    font-size:14px;
+
+    color:#aeb7c4;
+
+    letter-spacing:.12em;
+
+}
+
+
+.wincon10-boot-track{
+
+    width:100%;
+
+    height:5px;
+
+    margin-top:34px;
+
+    border-radius:999px;
+
+    overflow:hidden;
+
+    background:
+        rgba(255,255,255,.12);
+
+}
+
+
+.wincon10-boot-progress{
+
+    width:0%;
+
+    height:100%;
+
+    border-radius:999px;
+
+    background:
+        linear-gradient(
+            90deg,
+            #ffffff,
+            #cdd7e4
+        );
+
+    transition:
+        width .35s ease;
+
+}
+
+
+.wincon10-boot-status{
+
+    margin-top:15px;
+
+    font-size:12px;
+
+    color:#8f9aaa;
+
+}
+
+
+.wincon10-boot-small{
+
+    margin-top:42px;
+
+    font-size:11px;
+
+    color:#596372;
+
+}
+
+
+/* =====================================================
+   LOGIN
+===================================================== */
+
+#wincon10LoginOverlay{
+
+    position:fixed;
+
+    inset:0;
+
+    z-index:2147483001;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    background:
+        radial-gradient(
+            circle at 50% 32%,
+            #303844 0%,
+            #15191f 45%,
+            #090a0c 100%
+        );
+
+    color:white;
+
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+}
+
+
+.wincon10-login-card{
+
+    width:420px;
+
+    max-width:
+        calc(100vw - 40px);
+
+    padding:38px;
+
+    border-radius:22px;
+
+    background:
+        rgba(
+            35,
+            39,
+            47,
+            .88
+        );
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            .09
+        );
+
+    box-shadow:
+        0 30px 90px
+        rgba(0,0,0,.55);
+
+    backdrop-filter:
+        blur(22px);
+
+}
+
+
+.wincon10-login-avatar{
+
+    width:96px;
+
+    height:96px;
+
+    margin:
+        0 auto 20px;
+
+    border-radius:50%;
+
+    overflow:hidden;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    background:
+        #3b4350;
+
+    font-size:42px;
+
+}
+
+
+.wincon10-login-avatar img{
+
+    width:100%;
+
+    height:100%;
+
+    object-fit:cover;
+
+}
+
+
+.wincon10-login-name{
+
+    text-align:center;
+
+    font-size:24px;
+
+    font-weight:600;
+
+}
+
+
+.wincon10-login-input{
+
+    width:100%;
+
+    height:46px;
+
+    margin-top:18px;
+
+    padding:
+        0 14px;
+
+    border:none;
+
+    outline:none;
+
+    border-radius:12px;
+
+    background:
+        #4a5464;
+
+    color:white;
+
+}
+
+
+.wincon10-login-input:focus{
+
+    box-shadow:
+        0 0 0 2px
+        rgba(
+            255,
+            255,
+            255,
+            .2
+        );
+
+}
+
+
+.wincon10-login-button{
+
+    width:100%;
+
+    height:46px;
+
+    margin-top:14px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:#2563eb;
+
+    color:white;
+
+    cursor:pointer;
+
+    font-size:15px;
+
+}
+
+
+.wincon10-login-button:hover{
+
+    background:#3575f0;
+
+}
+
+
+.wincon10-login-error{
+
+    min-height:20px;
+
+    margin-top:12px;
+
+    color:#ff8b8b;
+
+    text-align:center;
+
+    font-size:13px;
+
+}
+
+
+/* =====================================================
+   OOBE
+===================================================== */
+
+.wincon10-oobe-window{
+
+    background:
+        #20242b !important;
+
+}
+
+
+.wincon10-oobe{
+
+    height:100%;
+
+    display:flex;
+
+    flex-direction:column;
+
+    color:white;
+
+}
+
+
+.wincon10-oobe-main{
+
+    flex:1;
+
+    overflow:auto;
+
+    padding:34px;
+
+}
+
+
+.wincon10-oobe-title{
+
+    font-size:30px;
+
+    font-weight:600;
+
+    margin-bottom:10px;
+
+}
+
+
+.wincon10-oobe-description{
+
+    color:#aeb7c4;
+
+    line-height:1.6;
+
+    margin-bottom:24px;
+
+}
+
+
+.wincon10-oobe-label{
+
+    display:block;
+
+    margin-top:16px;
+
+    margin-bottom:6px;
+
+    font-size:13px;
+
+    color:#cbd5e1;
+
+}
+
+
+.wincon10-oobe-input{
+
+    width:100%;
+
+    height:44px;
+
+    margin:0;
+
+    border:none;
+
+    border-radius:10px;
+
+    padding:
+        0 12px;
+
+    background:#4b5563;
+
+    color:white;
+
+}
+
+
+.wincon10-oobe-select{
+
+    width:100%;
+
+    height:44px;
+
+    margin:0;
+
+    border:none;
+
+    border-radius:10px;
+
+    padding:
+        0 12px;
+
+    background:#4b5563;
+
+    color:white;
+
+}
+
+
+.wincon10-oobe-check{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:9px;
+
+    margin-top:15px;
+
+    color:#dbe4ef;
+
+    font-size:13px;
+
+}
+
+
+.wincon10-oobe-check input{
+
+    width:18px;
+
+    height:18px;
+
+    margin:0;
+
+}
+
+
+.wincon10-oobe-footer{
+
+    flex-shrink:0;
+
+    padding:
+        16px 28px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    border-top:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            .08
+        );
+
+}
+
+
+.wincon10-oobe-progress-text{
+
+    font-size:12px;
+
+    opacity:.6;
+
+}
+
+
+.wincon10-oobe-button{
+
+    min-width:130px;
+
+    height:42px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#2563eb;
+
+    color:white;
+
+    cursor:pointer;
+
+}
+
+
+.wincon10-oobe-button:hover{
+
+    background:#3575f0;
+
+}
+
+
+.wincon10-oobe-button.secondary{
+
+    background:#4b5563;
+
+}
+
+
+.wincon10-oobe-avatar-preview{
+
+    width:100px;
+
+    height:100px;
+
+    border-radius:50%;
+
+    background:#3f4856;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    overflow:hidden;
+
+    font-size:40px;
+
+    margin-bottom:14px;
+
+}
+
+
+.wincon10-oobe-avatar-preview img{
+
+    width:100%;
+
+    height:100%;
+
+    object-fit:cover;
+
+}
+
+
+.wincon10-oobe-option{
+
+    padding:16px;
+
+    border-radius:14px;
+
+    background:#343b46;
+
+    margin-bottom:12px;
+
+    cursor:pointer;
+
+    border:
+        1px solid
+        transparent;
+
+}
+
+
+.wincon10-oobe-option:hover{
+
+    background:#3d4653;
+
+}
+
+
+.wincon10-oobe-option.selected{
+
+    border-color:
+        rgba(
+            255,
+            255,
+            255,
+            .65
+        );
+
+}
+
+
+.wincon10-oobe-choice-title{
+
+    font-size:15px;
+
+    font-weight:600;
+
+}
+
+
+.wincon10-oobe-choice-description{
+
+    margin-top:5px;
+
+    font-size:12px;
+
+    color:#9ca8b8;
+
+}
+
+
+body.wincon10-oobe-isolated{
+
+    overflow:hidden !important;
+
+}
+
+
+body.wincon10-oobe-isolated
+#taskbar{
+
+    pointer-events:none !important;
+
+    opacity:0 !important;
+
+}
+
+
+body.wincon10-oobe-isolated
+#menu{
+
+    display:none !important;
+
+}
+
+
+body.wincon10-oobe-isolated
+.window:not(
+    .wincon10-oobe-window
+){
+
+    pointer-events:none !important;
+
+    opacity:0 !important;
+
+}
+
+
+body.wincon10-oobe-isolated
+.wincon10-oobe-window{
+
+    pointer-events:auto !important;
+
+}
+
+
+body.wincon10-oobe-isolated
+.wincon10-oobe-window
+.min-btn{
+
+    display:none !important;
+
+}
+
+`;
+
+    document.head.appendChild(
+        style
+    );
+
+}
+
+
+/* =========================================================
+   OOBE STATE
+========================================================= */
+
+let oobeWindow =
+    null;
+
+let oobeStep =
+    0;
+
+const OOBE_TOTAL_STEPS =
+    7;
+
+
+let oobeData = {
+
+    language:
+        "ja-JP",
+
+    notifications:
+        true,
+
+    startupMode:
+        "desktop",
+
+    username:
+        "",
+
+    password:
+        "",
+
+    passkey:
+        false,
+
+    passwordSkip:
+        false,
+
+    icon:
+        null
+
+};
+
+
+/* =========================================================
+   OOBE ISOLATION
+========================================================= */
+
+function enterAsteriaIsolation(){
+
+    document.body.classList.add(
+        "wincon10-oobe-isolated"
+    );
+
+}
+
+
+function leaveAsteriaIsolation(){
+
+    document.body.classList.remove(
+        "wincon10-oobe-isolated"
+    );
+
+}
+
+
+/* =========================================================
+   OOBE WINDOW
+========================================================= */
+
+function openAsteriaOOBE(
+    isolated = false
+){
+
+    installAsteriaCSS();
+
+
+    if(isolated){
+
+        enterAsteriaIsolation();
+
+    }
+
+
+    oobeStep =
+        0;
+
+
+    const settings =
+        getAsteriaSettings();
+
+
+    oobeData = {
+
+        language:
+            settings.language ||
+            "ja-JP",
+
+        notifications:
+            settings.notifications !== false,
+
+        startupMode:
+            settings.startupMode ||
+            "desktop",
+
+        username:
+            "",
+
+        password:
+            "",
+
+        passkey:
+            false,
+
+        passwordSkip:
+            false,
+
+        icon:
+            null
+
+    };
+
+
+    const content = `
+
+<div
+    class="wincon10-oobe"
+    id="wincon10OOBE"
+>
+
+    <div
+        class="wincon10-oobe-main"
+        id="wincon10OOBEMain"
+    ></div>
+
+    <div
+        class="wincon10-oobe-footer"
+    >
+
+        <div
+            class="wincon10-oobe-progress-text"
+            id="wincon10OOBEProgress"
+        >
+            1 / ${OOBE_TOTAL_STEPS}
+        </div>
+
+        <div
+            style="
+                display:flex;
+                gap:8px;
+            "
+        >
+
+            <button
+                class="wincon10-oobe-button secondary"
+                id="wincon10OOBEBack"
+            >
+                戻る
+            </button>
+
+            <button
+                class="wincon10-oobe-button"
+                id="wincon10OOBENext"
+            >
+                次へ
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+`;
+
+
+    oobeWindow =
+        createWindow({
+
+            title:
+                "Wincon 10 Asteria",
+
+            icon:
+                "🪟",
+
+            content:
+                content,
+
+            width:
+                850,
+
+            height:
+                620,
+
+            safe:
+                isolated
+
+        });
+
+
+    if(oobeWindow){
+
+        oobeWindow.classList.add(
+            "wincon10-oobe-window"
+        );
+
+
+        if(isolated){
+
+            oobeWindow.style.left =
+                "50%";
+
+            oobeWindow.style.top =
+                "50%";
+
+            oobeWindow.style.transform =
+                "translate(-50%,-50%)";
+
+            oobeWindow.style.width =
+                "850px";
+
+            oobeWindow.style.height =
+                "620px";
+
+            oobeWindow.style.zIndex =
+                "2147483100";
+
+        }
+
+    }
+
+
+    setTimeout(
+        setupAsteriaOOBEEvents,
+        50
+    );
+
+
+    return oobeWindow;
+
+}
+
+
+/* =========================================================
+   OOBE RENDER
+========================================================= */
+
+function renderAsteriaOOBEStep(){
+
+    const main =
+        document.getElementById(
+            "wincon10OOBEMain"
+        );
+
+    const progress =
+        document.getElementById(
+            "wincon10OOBEProgress"
+        );
+
+    const back =
+        document.getElementById(
+            "wincon10OOBEBack"
+        );
+
+    const next =
+        document.getElementById(
+            "wincon10OOBENext"
+        );
+
+
+    if(!main){
+        return;
+    }
+
+
+    if(progress){
+
+        progress.textContent =
+            (
+                oobeStep + 1
+            ) +
+            " / " +
+            OOBE_TOTAL_STEPS;
+
+    }
+
+
+    if(back){
+
+        back.style.visibility =
+            oobeStep === 0
+            ? "hidden"
+            : "visible";
+
+    }
+
+
+    if(next){
+
+        next.textContent =
+            oobeStep ===
+            OOBE_TOTAL_STEPS - 1
+            ? "さあ始めよう"
+            : "次へ";
+
+    }
+
+
+    let html = "";
+
+
+    switch(
+        oobeStep
+    ){
+
+        case 0:
+
+            html = `
+
+<h1
+    class="wincon10-oobe-title"
+>
+    Wincon 10 Asteriaへようこそ
+</h1>
+
+<p
+    class="wincon10-oobe-description"
+>
+    Winconを使用するための初期設定を行います。
+    いくつかの項目を設定すると、
+    あなた専用のWincon環境が準備されます。
+</p>
+
+<div
+    class="wincon10-oobe-option selected"
+>
+    <div
+        class="wincon10-oobe-choice-title"
+    >
+        🪟 Wincon 10 Asteria
+    </div>
+
+    <div
+        class="wincon10-oobe-choice-description"
+    >
+        新しいWinconの初回セットアップです。
+    </div>
+</div>
+
+`;
+
+            break;
+
+
+        case 1:
+
+            html = `
+
+<h1
+    class="wincon10-oobe-title"
+>
+    言語
+</h1>
+
+<p
+    class="wincon10-oobe-description"
+>
+    Winconで使用する言語を選択してください。
+</p>
+
+<label
+    class="wincon10-oobe-label"
+>
+    言語
+</label>
+
+<select
+    id="wincon10Language"
+    class="wincon10-oobe-select"
+>
+
+    <option
+        value="ja-JP"
+        ${
+            oobeData.language ===
+            "ja-JP"
+            ? "selected"
+            : ""
+        }
+    >
+        日本語
+    </option>
+
+    <option
+        value="en-US"
+        ${
+            oobeData.language ===
+            "en-US"
+            ? "selected"
+            : ""
+        }
+    hidden>
+        English
+    </option>
+
+</select>
+
+`;
+
+            break;
+
+
+        case 2:
+
+            html = `
+
+<h1
+    class="wincon10-oobe-title"
+>
+    通知
+</h1>
+
+<p
+    class="wincon10-oobe-description"
+>
+    Winconからの通知を表示するか設定できます。
+</p>
+
+<label
+    class="wincon10-oobe-check"
+>
+
+    <input
+        type="checkbox"
+        id="wincon10Notifications"
+        ${
+            oobeData.notifications
+            ? "checked"
+            : ""
+        }
+    >
+
+    <span>
+        Winconの通知を有効にする
+    </span>
+
+</label>
+
+`;
+
+            break;
+
+
+        case 3:
+
+            html = `
+
+<h1
+    class="wincon10-oobe-title"
+>
+    起動モード
+</h1>
+
+<p
+    class="wincon10-oobe-description"
+>
+    Wincon起動後に表示する画面を選択します。
+</p>
+
+<div
+    class="
+        wincon10-oobe-option
+        ${
+            oobeData.startupMode ===
+            "desktop"
+            ? "selected"
+            : ""
+        }
+    "
+    data-startup-mode="desktop"
+>
+
+    <div
+        class="wincon10-oobe-choice-title"
+    >
+        🖥️ デスクトップ
+    </div>
+
+    <div
+        class="wincon10-oobe-choice-description"
+    >
+        通常のWinconデスクトップを表示します。
+    </div>
+
+</div>
+
+
+<div
+    class="
+        wincon10-oobe-option
+        ${
+            oobeData.startupMode ===
+            "tv"
+            ? "selected"
+            : ""
+        }
+    "
+    data-startup-mode="tv"
+>
+
+    <div
+        class="wincon10-oobe-choice-title"
+    >
+        📺 TVモード
+    </div>
+
+    <div
+        class="wincon10-oobe-choice-description"
+    >
+        既存のWincon TVモードを起動します。
+    </div>
+
+</div>
+
+`;
+
+            break;
+
+
+        case 4:
+
+            html = `
+
+<h1
+    class="wincon10-oobe-title"
+>
+    ユーザーを作成
+</h1>
+
+<p
+    class="wincon10-oobe-description"
+>
+    Winconで使用するユーザー名とアイコンを設定します。
+</p>
+
+<div
+    class="wincon10-oobe-avatar-preview"
+    id="wincon10OOBEAvatarPreview"
+>
+    ${
+        oobeData.icon
+        ?
+        `
+        <img
+            src="${oobeData.icon}"
+            alt=""
+        >
+        `
+        :
+        "👤"
+    }
+</div>
+
+<label
+    class="wincon10-oobe-label"
+>
+    アイコン
+</label>
+
+<input
+    type="file"
+    id="wincon10Icon"
+    accept="
+        image/png,
+        image/jpeg,
+        image/webp,
+        image/gif
+    "
+>
+
+<label
+    class="wincon10-oobe-label"
+>
+    ユーザー名
+</label>
+
+<input
+    id="wincon10Username"
+    class="wincon10-oobe-input"
+    autocomplete="username"
+    placeholder="ユーザー名"
+    value="${
+        escapeAsteriaHTML(
+            oobeData.username
+        )
+    }"
+>
+
+`;
+
+            break;
+
+
+        case 5:
+
+            html = `
+
+<h1
+    class="wincon10-oobe-title"
+>
+    セキュリティ
+</h1>
+
+<p
+    class="wincon10-oobe-description"
+>
+    Winconアカウントのパスワードを設定します。
+    パスワードを設定しないこともできます。
+</p>
+
+<label
+    class="wincon10-oobe-label"
+>
+    パスワード
+</label>
+
+<input
+    id="wincon10Password"
+    class="wincon10-oobe-input"
+    type="password"
+    autocomplete="new-password"
+    placeholder="パスワード"
+>
+
+<label
+    class="wincon10-oobe-label"
+>
+    パスワード（確認）
+</label>
+
+<input
+    id="wincon10PasswordConfirm"
+    class="wincon10-oobe-input"
+    type="password"
+    autocomplete="new-password"
+    placeholder="もう一度入力"
+>
+
+<label
+    class="wincon10-oobe-check"
+>
+
+    <input
+        id="wincon10PasswordSkip"
+        type="checkbox"
+        ${
+            oobeData.passwordSkip
+            ? "checked"
+            : ""
+        }
+    >
+
+    <span>
+        パスワードを設定しない
+    </span>
+
+</label>
+
+
+<label
+    class="wincon10-oobe-check"
+>
+
+    <input
+        id="wincon10Passkey"
+        type="checkbox"
+        ${
+            oobeData.passkey
+            ? "checked"
+            : ""
+        }
+    >
+
+    <span>
+        Passkeyを設定する
+    </span>
+
+</label>
+
+`;
+
+            break;
+
+
+        case 6:
+
+            html = `
+
+<h1
+    class="wincon10-oobe-title"
+>
+    再起動します
+</h1>
+
+<p
+    class="wincon10-oobe-description"
+>
+    Wincon 10 Asteriaの初期設定を保存するために、再起動します。再起動後、Winconをご利用いただけます。
+</p>
+
+<div
+    style="
+        width:100%;
+        height:7px;
+        border-radius:999px;
+        background:rgba(255,255,255,.1);
+        overflow:hidden;
+    "
+>
+
+    <div
+        id="wincon10OOBEApplyBar"
+        style="
+            width:0%;
+            height:100%;
+            background:white;
+            border-radius:999px;
+            transition:width .2s ease;
+        "
+    ></div>
+
+</div>
+
+<p
+    id="wincon10OOBEApplyText"
+    style="
+        margin-top:15px;
+        opacity:.65;
+        font-size:12px;
+    "
+>
+    「さあ、始めよう」ボタンを押してください。
+</p>
+
+`;
+
+            break;
+
+    }
+
+
+    main.innerHTML =
+        html;
+
+
+    setupAsteriaOOBEStepEvents();
+
+}
+
+
+/* =========================================================
+   OOBE STEP EVENTS
+========================================================= */
+
+function setupAsteriaOOBEStepEvents(){
+
+    const language =
+        document.getElementById(
+            "wincon10Language"
+        );
+
+    if(language){
+
+        language.onchange =
+            () => {
+
+                oobeData.language =
+                    language.value;
+
+            };
+
+    }
+
+
+    const notifications =
+        document.getElementById(
+            "wincon10Notifications"
+        );
+
+    if(notifications){
+
+        notifications.onchange =
+            () => {
+
+                oobeData.notifications =
+                    notifications.checked;
+
+            };
+
+    }
+
+
+    document
+        .querySelectorAll(
+            "[data-startup-mode]"
+        )
+        .forEach(
+            element => {
+
+                element.onclick =
+                    () => {
+
+                        oobeData.startupMode =
+                            element.dataset
+                                .startupMode;
+
+                        document
+                            .querySelectorAll(
+                                "[data-startup-mode]"
+                            )
+                            .forEach(
+                                item => {
+
+                                    item.classList.toggle(
+                                        "selected",
+                                        item ===
+                                        element
+                                    );
+
+                                }
+                            );
+
+                    };
+
+            }
+        );
+
+
+    const username =
+        document.getElementById(
+            "wincon10Username"
+        );
+
+    if(username){
+
+        username.oninput =
+            () => {
+
+                oobeData.username =
+                    username.value.trim();
+
+            };
+
+    }
+
+
+    const icon =
+        document.getElementById(
+            "wincon10Icon"
+        );
+
+    if(icon){
+
+        icon.onchange =
+            () => {
+
+                const file =
+                    icon.files &&
+                    icon.files[0];
+
+                if(!file){
+                    return;
+                }
+
+                if(
+                    !file.type.startsWith(
+                        "image/"
+                    )
+                ){
+
+                    return;
+
+                }
+
+
+                const reader =
+                    new FileReader();
+
+                reader.onload =
+                    event => {
+
+                        oobeData.icon =
+                            event.target.result;
+
+                        const preview =
+                            document.getElementById(
+                                "wincon10OOBEAvatarPreview"
+                            );
+
+                        if(preview){
+
+                            preview.innerHTML =
+                                `
+                                <img
+                                    src="${oobeData.icon}"
+                                    alt=""
+                                >
+                                `;
+
+                        }
+
+                    };
+
+                reader.readAsDataURL(
+                    file
+                );
+
+            };
+
+    }
+
+
+    const password =
+        document.getElementById(
+            "wincon10Password"
+        );
+
+    const passwordConfirm =
+        document.getElementById(
+            "wincon10PasswordConfirm"
+        );
+
+    const passwordSkip =
+        document.getElementById(
+            "wincon10PasswordSkip"
+        );
+
+
+    function updatePasswordState(){
+
+        if(!passwordSkip){
+            return;
+        }
+
+        const disabled =
+            passwordSkip.checked;
+
+        if(password){
+
+            password.disabled =
+                disabled;
+
+            if(disabled){
+                password.value = "";
+            }
+
+        }
+
+        if(passwordConfirm){
+
+            passwordConfirm.disabled =
+                disabled;
+
+            if(disabled){
+                passwordConfirm.value = "";
+            }
+
+        }
+
+        oobeData.passwordSkip =
+            disabled;
+
+    }
+
+
+    if(passwordSkip){
+
+        passwordSkip.onchange =
+            updatePasswordState;
+
+        updatePasswordState();
+
+    }
+
+
+    const passkey =
+        document.getElementById(
+            "wincon10Passkey"
+        );
+
+    if(passkey){
+
+        passkey.onchange =
+            () => {
+
+                oobeData.passkey =
+                    passkey.checked;
+
+            };
+
+    }
+
+}
+
+
+/* =========================================================
+   OOBE VALIDATION
+========================================================= */
+
+function validateAsteriaOOBEStep(){
+
+    if(
+        oobeStep ===
+        4
+    ){
+
+        const username =
+            String(
+                oobeData.username ||
+                ""
+            ).trim();
+
+        if(!username){
+
+            alert(
+                "ユーザー名を入力してください。"
+            );
+
+            return false;
+
+        }
+
+        if(
+            username.length >
+            32
+        ){
+
+            alert(
+                "ユーザー名は32文字以内にしてください。"
+            );
+
+            return false;
+
+        }
+
+    }
+
+
+    if(
+        oobeStep ===
+        5
+    ){
+
+        if(
+            oobeData.passwordSkip
+        ){
+
+            oobeData.password =
+                "";
+
+            return true;
+
+        }
+
+
+        const password =
+            document.getElementById(
+                "wincon10Password"
+            );
+
+        const confirm =
+            document.getElementById(
+                "wincon10PasswordConfirm"
+            );
+
+
+        const p =
+            password
+            ? password.value
+            : "";
+
+        const c =
+            confirm
+            ? confirm.value
+            : "";
+
+
+        if(!p){
+
+            alert(
+                "パスワードを入力してください。"
+            );
+
+            return false;
+
+        }
+
+
+        if(
+            p !== c
+        ){
+
+            alert(
+                "パスワードが一致しません。"
+            );
+
+            return false;
+
+        }
+
+
+        if(
+            p.length <
+            4
+        ){
+
+            alert(
+                "パスワードは4文字以上にしてください。"
+            );
+
+            return false;
+
+        }
+
+
+        oobeData.password =
+            p;
+
+    }
+
+
+    return true;
+
+}
+
+
+/* =========================================================
+   OOBE EVENTS
+========================================================= */
+
+function setupAsteriaOOBEEvents(){
+
+    renderAsteriaOOBEStep();
+
+
+    const back =
+        document.getElementById(
+            "wincon10OOBEBack"
+        );
+
+    const next =
+        document.getElementById(
+            "wincon10OOBENext"
+        );
+
+
+    if(back){
+
+        back.onclick =
+            () => {
+
+                if(
+                    oobeStep <= 0
+                ){
+                    return;
+                }
+
+                oobeStep--;
+
+                renderAsteriaOOBEStep();
+
+            };
+
+    }
+
+
+    if(next){
+
+        next.onclick =
+            async () => {
+
+                if(
+                    !validateAsteriaOOBEStep()
+                ){
+
+                    return;
+
+                }
+
+
+                if(
+                    oobeStep <
+                    OOBE_TOTAL_STEPS - 1
+                ){
+
+                    oobeStep++;
+
+                    renderAsteriaOOBEStep();
+
+                    return;
+
+                }
+
+
+                await finishAsteriaOOBE();
+
+            };
+
+    }
+
+}
+
+
+/* =========================================================
+   PASSKEY
+========================================================= */
+
+async function tryCreateAsteriaPasskey(
+    user
+){
+
+    if(
+        !window.PublicKeyCredential
+    ){
+
+        return false;
+
+    }
+
+
+    try{
+
+        const challenge =
+            crypto.getRandomValues(
+                new Uint8Array(
+                    32
+                )
+            );
+
+
+        const userId =
+            new TextEncoder().encode(
+                user.id
+            );
+
+
+        const credential =
+            await navigator.credentials.create({
+
+                publicKey: {
+
+                    challenge:
+
+                        challenge,
+
+                    rp: {
+
+                        name:
+                            "Wincon 10 Asteria"
+
+                    },
+
+                    user: {
+
+                        id:
+                            userId,
+
+                        name:
+                            user.name,
+
+                        displayName:
+                            user.name
+
+                    },
+
+                    pubKeyCredParams: [
+
+                        {
+                            type:
+                                "public-key",
+
+                            alg:
+                                -7
+
+                        },
+
+                        {
+                            type:
+                                "public-key",
+
+                            alg:
+                                -257
+
+                        }
+
+                    ],
+
+                    authenticatorSelection: {
+
+                        residentKey:
+                            "preferred",
+
+                        userVerification:
+                            "preferred"
+
+                    },
+
+                    timeout:
+                        60000,
+
+                    attestation:
+                        "none"
+
+                }
+
+            });
+
+
+        if(!credential){
+
+            return false;
+
+        }
+
+
+        const updated =
+            updateAsteriaUser({
+
+                passkey:
+                    true,
+
+                passkeyCredentialId:
+                    btoa(
+                        String.fromCharCode(
+                            ...new Uint8Array(
+                                credential.rawId
+                            )
+                        )
+                    )
+
+            });
+
+
+        return !!updated;
+
+    }catch(e){
+
+        console.warn(
+            "[Asteria] Passkey setup unavailable or cancelled",
+            e
+        );
+
+        return false;
+
+    }
+
+}
+
+
+/* =========================================================
+   OOBE FINISH
+========================================================= */
+
+async function finishAsteriaOOBE(){
+
+    if(
+        !validateAsteriaOOBEStep()
+    ){
+
+        return;
+
+    }
+
+
+    const main =
+        document.getElementById(
+            "wincon10OOBEMain"
+        );
+
+    if(main){
+
+        main.innerHTML = `
+
+<div
+    style="
+        height:100%;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        text-align:center;
+    "
+>
+
+    <div
+        style="
+            width:90px;
+            height:90px;
+            border-radius:50%;
+            border:5px solid rgba(255,255,255,.15);
+            border-top-color:white;
+            animation:spin 1s linear infinite;
+        "
+    ></div>
+
+    <h2
+        style="
+            margin-top:25px;
+        "
+    >
+        設定を保存しています
+    </h2>
+
+    <p
+        style="
+            margin-top:10px;
+            opacity:.6;
+            font-size:13px;
+        "
+    >
+        Wincon 10 Asteria
+    </p>
+
+</div>
+
+`;
+
+    }
+
+
+    const bar =
+        document.getElementById(
+            "wincon10OOBEApplyBar"
+        );
+
+    const text =
+        document.getElementById(
+            "wincon10OOBEApplyText"
+        );
+
+
+    let progress =
+        0;
+
+
+    const steps = [
+
+        "ユーザー情報を準備しています...",
+
+        "セキュリティ設定を準備しています...",
+
+        "Wincon設定を保存しています...",
+
+        "起動設定を保存しています...",
+
+        "セットアップを完了しています..."
+
+    ];
+
+
+    for(
+        let i = 0;
+        i < steps.length;
+        i++
+    ){
+
+        if(text){
+
+            text.textContent =
+                steps[i];
+
+        }
+
+
+        await new Promise(
+            resolve =>
+                setTimeout(
+                    resolve,
+                    4000
+                )
+        );
+
+
+        progress =
+            Math.round(
+                (
+                    (i + 1) /
+                    steps.length
+                ) *
+                100
+            );
+
+
+        if(bar){
+
+            bar.style.width =
+                progress + "%";
+
+        }
+
+    }
+
+
+    let passwordHash =
+        null;
+
+
+    if(
+        !oobeData.passwordSkip &&
+        oobeData.password
+    ){
+
+        passwordHash =
+            await createPasswordRecord(
+                oobeData.password
+            );
+
+    }
+
+
+    let user =
+        getAsteriaUser();
+
+
+    if(!user){
+
+        user =
+            createAsteriaUser(
+                oobeData.username,
+                passwordHash
+            );
+
+    }else{
+
+        user =
+            updateAsteriaUser({
+
+                name:
+                    oobeData.username,
+
+                passwordHash:
+                    passwordHash
+
+            });
+
+    }
+
+
+    if(
+        oobeData.icon
+    ){
+
+        user =
+            updateAsteriaUser({
+
+                icon:
+                    oobeData.icon
+
+            });
+
+    }
+
+
+    if(
+        oobeData.passkey
+    ){
+
+        await tryCreateAsteriaPasskey(
+            user
+        );
+
+        user =
+            getAsteriaUser();
+
+    }
+
+
+    saveAsteriaSettings({
+
+        language:
+            oobeData.language,
+
+        notifications:
+            oobeData.notifications,
+
+        startupMode:
+            oobeData.startupMode
+
+    });
+
+
+    astWrite(
+        ASTERIA_KEYS.oobeCompleted,
+        true
+    );
+
+
+    loginAsteria(
+        user
+    );
+
+
+    leaveAsteriaIsolation();
+
+
+    if(oobeWindow){
+
+        oobeWindow.remove();
+
+        oobeWindow =
+            null;
+
+    }
+
+
+    startAsteriaDesktop();
+
+}
+
+
+/* =========================================================
+   LOGIN
+========================================================= */
+
+function showAsteriaLogin(){
+
+    installAsteriaCSS();
+
+
+    const old =
+        document.getElementById(
+            "wincon10LoginOverlay"
+        );
+
+    if(old){
+
+        old.remove();
+
+    }
+
+
+    const user =
+        getAsteriaUser();
+
+
+    if(!user){
+
+        startAsteriaDesktop();
+
+        return;
+
+    }
+
+
+    const overlay =
+        document.createElement(
+            "div"
+        );
+
+    overlay.id =
+        "wincon10LoginOverlay";
+
+
+    const avatar =
+        user.icon
+        ?
+        `
+        <img
+            src="${user.icon}"
+            alt=""
+        >
+        `
+        :
+        "👤";
+
+
+    overlay.innerHTML = `
+
+<div
+    class="wincon10-login-card"
+>
+
+    <div
+        class="wincon10-login-avatar"
+    >
+        ${avatar}
+    </div>
+
+    <div
+        class="wincon10-login-name"
+    >
+        ${escapeAsteriaHTML(
+            user.name
+        )}
+    </div>
+
+    ${
+        user.passwordHash
+        ?
+        `
+        <input
+            id="wincon10LoginPassword"
+            class="wincon10-login-input"
+            type="password"
+            placeholder="パスワード"
+            autocomplete="current-password"
+        >
+        `
+        :
+        ""
+    }
+
+    <button
+        id="wincon10LoginButton"
+        class="wincon10-login-button"
+    >
+        ログイン
+    </button>
+
+    <div
+        id="wincon10LoginError"
+        class="wincon10-login-error"
+    ></div>
+
+</div>
+
+`;
+
+
+    document.body.appendChild(
+        overlay
+    );
+
+
+    const button =
+        document.getElementById(
+            "wincon10LoginButton"
+        );
+
+    const password =
+        document.getElementById(
+            "wincon10LoginPassword"
+        );
+
+    const error =
+        document.getElementById(
+            "wincon10LoginError"
+        );
+
+
+    async function doLogin(){
+
+        if(
+            user.passwordHash
+        ){
+
+            const valid =
+                await verifyPassword(
+                    password
+                    ? password.value
+                    : "",
+                    user.passwordHash
+                );
+
+            if(!valid){
+
+                if(error){
+
+                    error.textContent =
+                        "パスワードが正しくありません。";
+
+                }
+
+                return;
+
+            }
+
+        }
+
+
+        loginAsteria(
+            user
+        );
+
+
+        continueAsteriaAfterLogin();
+
+    }
+
+
+    if(button){
+
+        button.onclick =
+            doLogin;
+
+    }
+
+
+    if(password){
+
+        password.addEventListener(
+            "keydown",
+            event => {
+
+                if(
+                    event.key ===
+                    "Enter"
+                ){
+
+                    event.preventDefault();
+
+                    doLogin();
+
+                }
+
+            }
+        );
+
+        setTimeout(
+            () => password.focus(),
+            100
+        );
+
+    }else if(button){
+
+        setTimeout(
+            () => button.focus(),
+            100
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   DESKTOP
+========================================================= */
+
+function continueAsteriaAfterLogin(){
+
+    const overlay =
+        document.getElementById(
+            "wincon10LoginOverlay"
+        );
+
+    if(overlay){
+
+        overlay.remove();
+
+    }
+
+
+    startAsteriaDesktop();
+
+}
+
+
+function startAsteriaDesktop(){
+
+    const settings =
+        getAsteriaSettings();
+
+
+    if(
+        settings.startupMode ===
+        "tv"
+    ){
+
+        setTimeout(
+            () => {
+
+                if(
+                    typeof window.openTVMode ===
+                    "function"
+                ){
+
+                    window.openTVMode();
+
+                }else if(
+                    window.WinconTV &&
+                    typeof
+                    window.WinconTV.open ===
+                    "function"
+                ){
+
+                    window.WinconTV.open();
+
+                }
+
+            },
+            200
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   OOBE MODULE REGISTRATION
+========================================================= */
+
+function registerAsteriaOOBEModule(){
+
+    if(
+        typeof menuItems ===
+        "undefined"
+    ){
+
+        return;
+
+    }
+
+
+    const exists =
+        menuItems.some(
+            item =>
+                item &&
+                item.title ===
+                "OOBE"
+        );
+
+
+    if(exists){
+
+        return;
+
+    }
+
+
+    menuItems.push({
+
+        title:
+            "OOBE",
+
+        icon:
+            "✨",
+
+        type:
+            "oobe",
+
+        hidden:
+            true,
+
+        system:
+            true
+
+    });
+
+
+    if(
+        typeof window.renderMenu ===
+        "function"
+    ){
+
+        window.renderMenu();
+
+    }
+
+}
+
+
+/* =========================================================
+   OPENAPP HOOK
+========================================================= */
+
+function installAsteriaCommandHook(){
+
+    if(
+        window.__WINCON10_OOBE_COMMAND_HOOK__
+    ){
+
+        return;
+
+    }
+
+
+    if(
+        typeof window.openAppCommand !==
+        "function"
+    ){
+
+        return;
+
+    }
+
+
+    const original =
+        window.openAppCommand;
+
+
+    window.openAppCommand =
+        function(
+            args,
+            print
+        ){
+
+            let appArgs =
+                args;
+
+
+            if(
+                typeof args ===
+                "string"
+            ){
+
+                appArgs =
+                    args
+                        .trim()
+                        .split(/\s+/);
+
+            }
+
+
+            if(
+                Array.isArray(
+                    appArgs
+                )
+            ){
+
+                const name =
+                    appArgs
+                        .slice(1)
+                        .filter(
+                            a =>
+                                !a.startsWith(
+                                    "type="
+                                )
+                        )
+                        .join(" ");
+
+
+                if(
+                    name ===
+                    "OOBE"
+                ){
+
+                    openAsteriaOOBE(
+                        false
+                    );
+
+
+                    if(
+                        typeof print ===
+                        "function"
+                    ){
+
+                        print(
+                            "OOBE を起動"
+                        );
+
+                    }
+
+                    return;
+
+                }
+
+            }
+
+
+            return original.apply(
+                this,
+                arguments
+            );
+
+        };
+
+
+    window.__WINCON10_OOBE_COMMAND_HOOK__ =
+        true;
+
+}
+
+
+/* =========================================================
+   PROCESS SCREEN
+========================================================= */
+
+function createAsteriaProcessScreen(
+    options = {}
+){
+
+    const {
+
+        status:
+            statusText =
+                "Winconを起動しています...",
+
+        substatus:
+            substatusText =
+                "",
+
+        duration:
+            durationValue =
+                10000,
+
+        onComplete:
+            complete =
+                null,
+
+        minimumProgress:
+            minimum =
+                0,
+
+        maximumProgress:
+            maximum =
+                100
+
+    } = options;
+
+
+    const oldProcess =
+        document.getElementById(
+            "wincon10AsteriaProcess"
+        );
+
+
+    if(oldProcess){
+
+        oldProcess.remove();
+
+    }
+
+
+    const legacyBoot =
+        document.getElementById(
+            "bootScreen"
+        );
+
+
+    if(legacyBoot){
+
+        legacyBoot.remove();
+
+    }
+
+
+    const screen =
+        document.createElement(
+            "div"
+        );
+
+
+    screen.id =
+        "wincon10AsteriaProcess";
+
+
+    screen.innerHTML = `
+
+<div
+    class="wincon10-asteria-process-inner"
+>
+
+    <img
+        src="wincon.png"
+        class="wincon10-asteria-logo"
+        draggable="false"
+        onerror="
+            this.style.display='none';
+        "
+    >
+
+    <div
+        class="wincon10-asteria-brand"
+    >
+        Wincon
+    </div>
+
+    <div
+        class="wincon10-asteria-version"
+    >
+        10 ASTERIA
+    </div>
+
+    <div
+        class="wincon10-asteria-progress"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+    >
+
+        <div
+            class="wincon10-asteria-progress-bar"
+            id="wincon10AsteriaProgressBar"
+        ></div>
+
+    </div>
+
+    <div
+        class="wincon10-asteria-status"
+        id="wincon10AsteriaStatus"
+    >
+        ${escapeAsteriaHTML(
+            statusText
+        )}
+    </div>
+
+    ${
+        substatusText
+        ?
+        `
+        <div
+            class="wincon10-asteria-substatus"
+        >
+            ${escapeAsteriaHTML(
+                substatusText
+            )}
+        </div>
+        `
+        :
+        ""
+    }
+
+</div>
+
+`;
+
+
+    document.body.appendChild(
+        screen
+    );
+
+
+    const bar =
+        document.getElementById(
+            "wincon10AsteriaProgressBar"
+        );
+
+
+    const progressRoot =
+        screen.querySelector(
+            ".wincon10-asteria-progress"
+        );
+
+
+    const safeDuration =
+        Math.max(
+            1,
+            Number(
+                durationValue
+            ) || 1
+        );
+
+
+    const min =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                Number(
+                    minimum
+                ) || 0
+            )
+        );
+
+
+    const max =
+        Math.max(
+            min,
+            Math.min(
+                100,
+                Number(
+                    maximum
+                ) || 100
+            )
+        );
+
+
+    const start =
+        performance.now();
+
+
+    let completed =
+        false;
+
+
+    let frameId =
+        null;
+
+
+    function finish(){
+
+        if(completed){
+
+            return;
+
+        }
+
+
+        completed =
+            true;
+
+
+        if(
+            frameId !== null
+        ){
+
+            cancelAnimationFrame(
+                frameId
+            );
+
+        }
+
+
+        if(bar){
+
+            bar.style.width =
+                max + "%";
+
+        }
+
+
+        if(progressRoot){
+
+            progressRoot.setAttribute(
+                "aria-valuenow",
+                String(
+                    max
+                )
+            );
+
+        }
+
+
+        if(
+            typeof complete ===
+            "function"
+        ){
+
+            complete();
+
+        }
+
+    }
+
+
+    function update(
+        now
+    ){
+
+        if(completed){
+
+            return;
+
+        }
+
+
+        if(
+            !screen.isConnected
+        ){
+
+            return;
+
+        }
+
+
+        const elapsed =
+            Math.max(
+                0,
+                now - start
+            );
+
+
+        const ratio =
+            Math.min(
+                elapsed /
+                safeDuration,
+                1
+            );
+
+
+        const eased =
+            ratio < 1
+            ?
+            1 -
+            Math.pow(
+                1 - ratio,
+                1.05
+            )
+            :
+            1;
+
+
+        const value =
+            min +
+            (
+                max - min
+            ) *
+            eased;
+
+
+        if(bar){
+
+            bar.style.width =
+                value + "%";
+
+        }
+
+
+        if(progressRoot){
+
+            progressRoot.setAttribute(
+                "aria-valuenow",
+                String(
+                    Math.round(
+                        value
+                    )
+                )
+            );
+
+        }
+
+
+        if(
+            ratio < 1
+        ){
+
+            frameId =
+                requestAnimationFrame(
+                    update
+                );
+
+        }else{
+
+            finish();
+
+        }
+
+    }
+
+
+    frameId =
+        requestAnimationFrame(
+            update
+        );
+
+
+    return screen;
+
+}
+
+
+/* =========================================================
+   PROCESS SCREEN CSS
+========================================================= */
+
+function installAsteriaProcessCSS(){
+
+    if(
+        document.getElementById(
+            "wincon10AsteriaProcessCSS"
+        )
+    ){
+
+        return;
+
+    }
+
+
+    const style =
+        document.createElement(
+            "style"
+        );
+
+
+    style.id =
+        "wincon10AsteriaProcessCSS";
+
+
+    style.textContent = `
+
+#wincon10AsteriaProcess{
+
+    position:fixed;
+
+    inset:0;
+
+    z-index:2147483647;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    background:
+        radial-gradient(
+            circle at center,
+            #20242c 0%,
+            #111318 45%,
+            #08090b 100%
+        );
+
+    color:white;
+
+    font-family:
+        "Segoe UI",
+        system-ui,
+        sans-serif;
+
+    user-select:none;
+
+}
+
+
+.wincon10-asteria-process-inner{
+
+    width:420px;
+
+    max-width:80vw;
+
+    text-align:center;
+
+    display:flex;
+
+    flex-direction:column;
+
+    align-items:center;
+
+}
+
+
+.wincon10-asteria-logo{
+
+    width:110px;
+
+    height:110px;
+
+    object-fit:contain;
+
+    margin-bottom:22px;
+
+    filter:
+        drop-shadow(
+            0 8px 30px
+            rgba(0,0,0,.45)
+        );
+
+}
+
+
+.wincon10-asteria-brand{
+
+    font-size:30px;
+
+    font-weight:600;
+
+    letter-spacing:.04em;
+
+}
+
+
+.wincon10-asteria-version{
+
+    margin-top:4px;
+
+    font-size:13px;
+
+    letter-spacing:.24em;
+
+    opacity:.62;
+
+}
+
+
+.wincon10-asteria-progress{
+
+    width:260px;
+
+    height:5px;
+
+    margin-top:42px;
+
+    border-radius:999px;
+
+    overflow:hidden;
+
+    background:
+        rgba(255,255,255,.12);
+
+    box-shadow:
+        inset 0 1px 2px
+        rgba(0,0,0,.35);
+
+}
+
+
+.wincon10-asteria-progress-bar{
+
+    width:0%;
+
+    height:100%;
+
+    border-radius:999px;
+
+    background:white;
+
+    box-shadow:
+        0 0 12px
+        rgba(255,255,255,.35);
+
+    will-change:width;
+
+}
+
+
+.wincon10-asteria-status{
+
+    margin-top:18px;
+
+    font-size:13px;
+
+    opacity:.72;
+
+}
+
+
+.wincon10-asteria-substatus{
+
+    margin-top:7px;
+
+    font-size:11px;
+
+    opacity:.42;
+
+}
+
+
+body.wincon10-oobe-isolated
+.wincon10-oobe-window
+.min-btn{
+
+    display:none !important;
+
+}
+
+`;
+
+    document.head.appendChild(
+        style
+    );
+
+}
+
+
+/* =========================================================
+   CORE BOOT GUARD
+========================================================= */
+
+function installAsteriaCoreBootGuard(){
+
+    if(
+        window.__WINCON10_CORE_BOOT_GUARD__
+    ){
+
+        return;
+
+    }
+
+
+    if(
+        typeof window.boot !==
+        "function"
+    ){
+
+        return;
+
+    }
+
+
+    const originalBoot =
+        window.boot;
+
+
+    window.__WINCON10_ORIGINAL_BOOT__ =
+        originalBoot;
+
+
+    window.boot =
+        function(){
+
+            if(
+                window.__WINCON10_CORE_BOOT_DONE__
+            ){
+
+                return;
+
+            }
+
+
+            window.__WINCON10_CORE_BOOT_DONE__ =
+                true;
+
+
+            return originalBoot.apply(
+                this,
+                arguments
+            );
+
+        };
+
+
+    window.__WINCON10_CORE_BOOT_GUARD__ =
+        true;
+
+}
+
+
+/* =========================================================
+   CORE BOOT
+========================================================= */
+
+function runWinconCoreBootOnce(){
+
+    installAsteriaCoreBootGuard();
+
+
+    const legacyBoot =
+        document.getElementById(
+            "bootScreen"
+        );
+
+
+    if(legacyBoot){
+
+        legacyBoot.remove();
+
+    }
+
+
+    if(
+        window.__WINCON10_CORE_BOOT_DONE__
+    ){
+
+        return;
+
+    }
+
+
+    if(
+        typeof window.boot ===
+        "function"
+    ){
+
+        window.boot();
+
+    }
+
+}
+
+
+/* =========================================================
+   FIRST BOOT OOBE BRIDGE
+========================================================= */
+
+function launchAsteriaFirstBootOOBE(){
+
+    if(
+        window.__WINCON10_OOBE_REBUILT_RUNNING__
+    ){
+
+        return;
+
+    }
+
+
+    window.__WINCON10_OOBE_REBUILT_RUNNING__ =
+        true;
+
+
+    openAsteriaOOBE(
+        true
+    );
+
+}
+
+
+/* =========================================================
+   MANUAL OOBE API
+========================================================= */
+
+window.Wincon10.openOOBE =
+    function(){
+
+        openAsteriaOOBE(
+            false
+        );
+
+    };
+
+
+/* =========================================================
+   BOOT FLOW
+========================================================= */
+
+function startAsteriaBootFlow(){
+
+    if(
+        window.__WINCON10_BOOT_RUNNING__
+    ){
+
+        return;
+
+    }
+
+
+    window.__WINCON10_BOOT_RUNNING__ =
+        true;
+
+
+    installAsteriaCSS();
+    installAsteriaProcessCSS();
+
+    runWinconCoreBootOnce();
+
+    registerAsteriaOOBEModule();
+    installAsteriaCommandHook();
+
+
+    const completed =
+        astRead(
+            ASTERIA_KEYS.oobeCompleted,
+            false
+        );
+
+
+    const user =
+        getAsteriaUser();
+
+
+    if(
+        !completed ||
+        !user
+    ){
+
+        createAsteriaProcessScreen({
+
+            status:
+                "Wincon 10 Asteria を準備しています...",
+
+            substatus:
+                "初回セットアップ",
+
+            duration:
+                10000,
+
+            onComplete(){
+
+                const screen =
+                    document.getElementById(
+                        "wincon10AsteriaProcess"
+                    );
+
+                if(screen){
+
+                    screen.remove();
+
+                }
+
+
+                launchAsteriaFirstBootOOBE();
+
+            }
+
+        });
+
+        return;
+
+    }
+
+
+    createAsteriaProcessScreen({
+
+        status:
+            "Winconを起動しています...",
+
+        substatus:
+            "Wincon 10 Asteria",
+
+        duration:
+            10000,
+
+        onComplete(){
+
+            const screen =
+                document.getElementById(
+                    "wincon10AsteriaProcess"
+                );
+
+            if(screen){
+
+                screen.remove();
+
+            }
+
+
+            showAsteriaLogin();
+
+        }
+
+    });
+
+}
+
+
+/* =========================================================
+   SHUTDOWN
+========================================================= */
+
+window.Wincon10AsteriaShutdown =
+    function(){
+
+        if(
+            window.__WINCON10_POWER_RUNNING__
+        ){
+
+            return;
+
+        }
+
+
+        window.__WINCON10_POWER_RUNNING__ =
+            true;
+
+
+        try{
+
+            if(
+                typeof saveEnterpriseApps ===
+                "function"
+            ){
+
+                saveEnterpriseApps();
+
+            }
+
+        }catch(e){
+
+            console.warn(
+                "[Asteria] saveEnterpriseApps failed during shutdown",
+                e
+            );
+
+        }
+
+
+        createAsteriaProcessScreen({
+
+            status:
+                "シャットダウンしています...",
+
+            substatus:
+                "Wincon 10 Asteria",
+
+            duration:
+                5000,
+
+            onComplete(){
+
+                window.__WINCON10_POWER_INTERNAL__ =
+                    true;
+
+
+                try{
+
+                    window.close();
+
+                }catch(e){
+
+                    console.log(
+                        "[Asteria] shutdown complete"
+                    );
+
+                }
+
+            }
+
+        });
+
+    };
+
+
+/* =========================================================
+   RESTART
+========================================================= */
+
+window.Wincon10AsteriaRestart =
+    function(){
+
+        if(
+            window.__WINCON10_POWER_RUNNING__
+        ){
+
+            return;
+
+        }
+
+
+        window.__WINCON10_POWER_RUNNING__ =
+            true;
+
+
+        try{
+
+            if(
+                typeof saveEnterpriseApps ===
+                "function"
+            ){
+
+                saveEnterpriseApps();
+
+            }
+
+        }catch(e){
+
+            console.warn(
+                "[Asteria] saveEnterpriseApps failed during restart",
+                e
+            );
+
+        }
+
+
+        createAsteriaProcessScreen({
+
+            status:
+                "再起動しています...",
+
+            substatus:
+                "Wincon 10 Asteria",
+
+            duration:
+                5000,
+
+            onComplete(){
+
+                window.__WINCON10_POWER_INTERNAL__ =
+                    true;
+
+
+                location.reload();
+
+            }
+
+        });
+
+    };
+
+
+/* =========================================================
+   RECOVERY
+========================================================= */
+
+window.Wincon10AsteriaRecovery =
+    function(){
+
+        if(
+            window.__WINCON10_RECOVERY_RUNNING__
+        ){
+
+            return;
+
+        }
+
+
+        window.__WINCON10_RECOVERY_RUNNING__ =
+            true;
+
+
+        createAsteriaProcessScreen({
+
+            status:
+                "Recoveryを起動しています...",
+
+            substatus:
+                "Wincon 10 Asteria",
+
+            duration:
+                6000,
+
+            onComplete(){
+
+                const screen =
+                    document.getElementById(
+                        "wincon10AsteriaProcess"
+                    );
+
+                if(screen){
+
+                    screen.remove();
+
+                }
+
+
+                window.__WINCON10_RECOVERY_INTERNAL__ =
+                    true;
+
+
+                try{
+
+                    const originalRecovery =
+                        window.__WINCON10_ORIGINAL_RECOVERY__;
+
+
+                    if(
+                        typeof originalRecovery ===
+                        "function"
+                    ){
+
+                        originalRecovery();
+
+                    }
+
+                }finally{
+
+                    window.__WINCON10_RECOVERY_INTERNAL__ =
+                        false;
+
+                }
+
+            }
+
+        });
+
+    };
+
+
+/* =========================================================
+   FACTORY RESET
+========================================================= */
+
+window.Wincon10AsteriaFactoryReset =
+    function(){
+
+        if(
+            window.__WINCON10_FACTORY_RUNNING__
+        ){
+
+            return;
+
+        }
+
+
+        const ok =
+            confirm(
+                "Winconを完全初期化しますか？"
+            );
+
+
+        if(!ok){
+
+            return;
+
+        }
+
+
+        window.__WINCON10_FACTORY_RUNNING__ =
+            true;
+
+
+        createAsteriaProcessScreen({
+
+            status:
+                "初期化しています...",
+
+            substatus:
+                "Wincon 10 Asteria",
+
+            duration:
+                5000,
+
+            onComplete(){
+
+                window.__WINCON10_FACTORY_INTERNAL__ =
+                    true;
+
+
+                try{
+
+                    localStorage.clear();
+
+                    location.reload();
+
+                }finally{
+
+                    window.__WINCON10_FACTORY_INTERNAL__ =
+                        false;
+
+                }
+
+            }
+
+        });
+
+    };
+
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+window.Wincon10.logout =
+    function(){
+
+        logoutAsteria();
+
+
+        const windows =
+            document.querySelectorAll(
+                ".window"
+            );
+
+
+        windows.forEach(
+            win => {
+
+                if(
+                    !win.classList.contains(
+                        "wincon10-oobe-window"
+                    )
+                ){
+
+                    win.remove();
+
+                }
+
+            }
+        );
+
+
+        createAsteriaProcessScreen({
+
+            status:
+                "ログアウトしています...",
+
+            substatus:
+                "Wincon 10 Asteria",
+
+            duration:
+                5000,
+
+            onComplete(){
+
+                const screen =
+                    document.getElementById(
+                        "wincon10AsteriaProcess"
+                    );
+
+                if(screen){
+
+                    screen.remove();
+
+                }
+
+
+                showAsteriaLogin();
+
+            }
+
+        });
+
+    };
+
+
+/* =========================================================
+   LEGACY POWER COMMAND BRIDGE
+========================================================= */
+
+function installAsteriaPowerCommandBridge(){
+
+    if(
+        window.__WINCON10_POWER_COMMAND_BRIDGE__
+    ){
+
+        return;
+
+    }
+
+
+    const originalShutdown =
+        typeof window.shutdownSystem ===
+        "function"
+        ?
+        window.shutdownSystem
+        :
+        null;
+
+
+    const originalRestart =
+        typeof window.restartSystem ===
+        "function"
+        ?
+        window.restartSystem
+        :
+        null;
+
+
+    const originalRecovery =
+        typeof window.openRecovery ===
+        "function"
+        ?
+        window.openRecovery
+        :
+        null;
+
+
+    const originalReset =
+        typeof window.resetSystem ===
+        "function"
+        ?
+        window.resetSystem
+        :
+        null;
+
+
+    window.__WINCON10_ORIGINAL_SHUTDOWN__ =
+        originalShutdown;
+
+
+    window.__WINCON10_ORIGINAL_RESTART__ =
+        originalRestart;
+
+
+    window.__WINCON10_ORIGINAL_RECOVERY__ =
+        originalRecovery;
+
+
+    window.__WINCON10_ORIGINAL_RESET__ =
+        originalReset;
+
+
+    window.shutdownSystem =
+        function(){
+
+            return window.Wincon10AsteriaShutdown();
+
+        };
+
+
+    window.restartSystem =
+        function(){
+
+            return window.Wincon10AsteriaRestart();
+
+        };
+
+
+    window.openRecovery =
+        function(){
+
+            if(
+                window.__WINCON10_RECOVERY_INTERNAL__
+            ){
+
+                if(
+                    originalRecovery
+                ){
+
+                    return originalRecovery.apply(
+                        this,
+                        arguments
+                    );
+
+                }
+
+                return;
+
+            }
+
+
+            return window.Wincon10AsteriaRecovery();
+
+        };
+
+
+    window.resetSystem =
+        function(){
+
+            return window.Wincon10AsteriaFactoryReset();
+
+        };
+
+
+    window.__WINCON10_POWER_COMMAND_BRIDGE__ =
+        true;
+
+}
+
+
+installAsteriaPowerCommandBridge();
+
+
+/* =========================================================
+   LEGACY BOOTSCREEN SUPPRESSION
+========================================================= */
+
+if(
+    !window.__WINCON10_ASTERIA_BOOT_OBSERVER__
+){
+
+    const observer =
+        new MutationObserver(
+            mutations => {
+
+                const process =
+                    document.getElementById(
+                        "wincon10AsteriaProcess"
+                    );
+
+
+                if(!process){
+
+                    return;
+
+                }
+
+
+                mutations.forEach(
+                    mutation => {
+
+                        mutation.addedNodes.forEach(
+                            node => {
+
+                                if(
+                                    node.nodeType !==
+                                    Node.ELEMENT_NODE
+                                ){
+
+                                    return;
+
+                                }
+
+
+                                if(
+                                    node.id ===
+                                    "bootScreen"
+                                ){
+
+                                    node.remove();
+
+                                }
+
+
+                                if(
+                                    typeof node.querySelector ===
+                                    "function"
+                                ){
+
+                                    const nested =
+                                        node.querySelector(
+                                            "#bootScreen"
+                                        );
+
+
+                                    if(nested){
+
+                                        nested.remove();
+
+                                    }
+
+                                }
+
+                            }
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+    observer.observe(
+        document.body,
+        {
+            childList:
+                true,
+
+            subtree:
+                true
+        }
+    );
+
+
+    window.__WINCON10_ASTERIA_BOOT_OBSERVER__ =
+        observer;
+
+}
+
+
+/* =========================================================
+   INITIALIZE
+========================================================= */
+
+installAsteriaCSS();
+installAsteriaProcessCSS();
+
+
+function initializeAsteriaBoot(){
+
+    if(
+        window.__WINCON10_BOOT_INIT_SCHEDULED__
+    ){
+
+        return;
+
+    }
+
+
+    window.__WINCON10_BOOT_INIT_SCHEDULED__ =
+        true;
+
+
+    startAsteriaBootFlow();
+
+}
+
+
+if(
+    document.readyState ===
+    "loading"
+){
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeAsteriaBoot,
+        {
+            once:
+                true
+        }
+    );
+
+}else{
+
+    initializeAsteriaBoot();
+
+}
+
+
+console.log(
+    "[Wincon 10 Asteria] Unified Boot/OOBE/Power layer loaded"
+);
+
+
+/* =========================================================
+   END ASTERIA INTEGRATION
+========================================================= */
+
+})();
 </script>
 </body>
 </html>
