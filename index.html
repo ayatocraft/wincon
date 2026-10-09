@@ -5,7 +5,7 @@
 <script defer src="https://cloud.umami.is/script.js" data-website-id="91b385cc-f385-40f6-919f-2cd4e6d7e2c7"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Wincon Enterprise</title>
-
+<script src="./coi-serviceworker.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
 <style>
@@ -1021,7 +1021,7 @@ onclick="openTerminal()">
 class="action"
 onclick="openBrowser()">
 
-🌐 Sail Browser Beta
+🌐 Sail Browser
 
 </button>
 
@@ -1155,7 +1155,7 @@ icon:"⚠️",
 type:"popup"
 },
 {
-  title:"Sail Browser Beta",
+  title:"Sail Browser",
   icon:"🌐",
   type:"browser",
   system:true
@@ -2072,7 +2072,7 @@ function startFactoryReset(){
 function openBrowser(){
 
 createWindow({
-title:"Sail Browser Beta",
+title:"Sail Browser",
 icon:"🌐",
 width:1100,
 height:750,
@@ -2794,25 +2794,47 @@ location.reload();
 
 function shutdownSystem(){
 
-saveEnterpriseApps();
+    // 二重実行防止
+    if(window.__WINCON_SHUTTING_DOWN__){
+        return;
+    }
 
-document.body.innerHTML=`
+    window.__WINCON_SHUTTING_DOWN__ = true;
 
-<div id='bootScreen'>
+    // 保存処理
+    try{
+        saveEnterpriseApps();
+    }catch(e){
+        console.error(
+            "[Wincon] シャットダウン前の保存に失敗:",
+            e
+        );
+    }
 
-<div class='spinner'></div>
+    // 画面をシャットダウン専用画面へ
+    document.body.innerHTML = `
+        <div id="bootScreen">
+            <div class="spinner"></div>
+            <h1>シャットダウン中...</h1>
+        </div>
+    `;
 
-<h1>シャットダウン中...</h1>
+    // 操作不能化
+    document.body.style.pointerEvents = "none";
 
-</div>
+    // ブラウザのタブを閉じる
+    setTimeout(()=>{
 
-`;
+        try{
+            window.close();
+        }catch(e){
+            console.warn(
+                "[Wincon] ブラウザによってタブを閉じられませんでした。",
+                e
+            );
+        }
 
-setTimeout(()=>{
-
-window.close();
-
-},2000);
+    },2000);
 
 }
 
@@ -4266,42 +4288,44 @@ box.style.display =
 }
 function cancelPower(){
 
+    pendingPowerAction = null;
 
-pendingPowerAction=null;
+    const box =
+        document.getElementById("powerConfirm");
 
+    if(!box){
+        return;
+    }
 
-document.getElementById(
-"powerConfirm"
-).style.display =
-"none";
-
+    box.style.display = "none";
 
 }
 function executePower(){
 
+    const action = pendingPowerAction;
 
-if(
-pendingPowerAction==="shutdown"
-){
+    // 先に状態を解除
+    pendingPowerAction = null;
 
-shutdownSystem();
+    if(action === "shutdown"){
 
-}
+        shutdownSystem();
 
+        // shutdownSystem() 後はDOMが全置換されるので
+        // cancelPower() を絶対に呼ばない
+        return;
 
+    }
 
-if(
-pendingPowerAction==="restart"
-){
+    if(action === "restart"){
 
-restartSystem();
+        restartSystem();
 
-}
+        return;
 
+    }
 
-
-cancelPower();
-
+    cancelPower();
 
 }
 // ========================================
@@ -5726,6 +5750,282 @@ function winconGetInstalledModules() {
           title="送信"
         >➤</button>
       </div>
+	  
+	  /* =====================================================
+   Wincon Appearance - Actual UI Scaling
+   ===================================================== */
+
+body{
+
+    --wincon-aa-ui-scale: 1;
+
+    --wincon-aa-font-scale: 1;
+
+    --wincon-aa-icon-scale: 1;
+
+}
+
+
+/* =====================================================
+   フォントサイズ
+   ===================================================== */
+
+body .window{
+
+    font-size:
+        calc(
+            1em *
+            var(--wincon-aa-font-scale)
+        );
+
+}
+
+
+/* =====================================================
+   メニュー
+   ===================================================== */
+
+body .menu-item{
+
+    font-size:
+        calc(
+            1em *
+            var(--wincon-aa-font-scale)
+        );
+
+}
+
+
+/* =====================================================
+   設定系ボタン
+   ===================================================== */
+
+body .action{
+
+    font-size:
+        calc(
+            1em *
+            var(--wincon-aa-font-scale)
+        );
+
+}
+
+
+/* =====================================================
+   アイコン
+   ===================================================== */
+
+body .title-left > div:first-child{
+
+    font-size:
+        calc(
+            1em *
+            var(--wincon-aa-icon-scale)
+        );
+
+}
+
+
+/* =====================================================
+   大きな文字
+   ===================================================== */
+
+body.wincon-aa-large-text .window,
+body.wincon-aa-large-text .menu-item,
+body.wincon-aa-large-text .action{
+
+    font-size:
+        calc(
+            1em *
+            var(--wincon-aa-font-scale) *
+            1.15
+        ) !important;
+
+}
+
+
+/* =====================================================
+   大きな操作部品
+   ===================================================== */
+
+body.wincon-aa-large-controls
+button{
+
+    min-height:
+        42px;
+
+    padding-left:
+        14px;
+
+    padding-right:
+        14px;
+
+}
+
+
+/* =====================================================
+   高コントラスト
+   ===================================================== */
+
+body.wincon-aa-high-contrast
+button:focus-visible,
+body.wincon-aa-high-contrast
+input:focus-visible,
+body.wincon-aa-high-contrast
+select:focus-visible,
+body.wincon-aa-high-contrast
+textarea:focus-visible{
+
+    outline:
+        3px solid currentColor !important;
+
+    outline-offset:
+        3px !important;
+
+}
+
+
+/* =====================================================
+   フォーカス強調
+   ===================================================== */
+
+body.wincon-aa-focus
+button:focus-visible,
+body.wincon-aa-focus
+input:focus-visible,
+body.wincon-aa-focus
+select:focus-visible,
+body.wincon-aa-focus
+textarea:focus-visible{
+
+    outline:
+        2px solid currentColor !important;
+
+    outline-offset:
+        2px !important;
+
+}
+
+
+/* =====================================================
+   太字
+   ===================================================== */
+
+body.wincon-aa-bold
+.window,
+body.wincon-aa-bold
+.menu-item,
+body.wincon-aa-bold
+.action{
+
+    font-weight:
+        700 !important;
+
+}
+
+
+/* =====================================================
+   角四角
+   ===================================================== */
+
+body.wincon-aa-square
+.window,
+body.wincon-aa-square
+.titlebar,
+body.wincon-aa-square
+button,
+body.wincon-aa-square
+input,
+body.wincon-aa-square
+select,
+body.wincon-aa-square
+textarea,
+body.wincon-aa-square
+#menu,
+body.wincon-aa-square
+#contextMenu{
+
+    border-radius:
+        0 !important;
+
+}
+
+
+/* =====================================================
+   透明効果 OFF
+   ===================================================== */
+
+body.wincon-aa-no-transparency
+.window,
+body.wincon-aa-no-transparency
+#menu,
+body.wincon-aa-no-transparency
+#contextMenu{
+
+    opacity:
+        1 !important;
+
+}
+
+
+/* =====================================================
+   Blur OFF
+   ===================================================== */
+
+body.wincon-aa-no-blur
+.window,
+body.wincon-aa-no-blur
+#menu,
+body.wincon-aa-no-blur
+#contextMenu{
+
+    backdrop-filter:
+        none !important;
+
+    -webkit-backdrop-filter:
+        none !important;
+
+}
+
+
+/* =====================================================
+   Shadow OFF
+   ===================================================== */
+
+body.wincon-aa-no-shadow
+.window,
+body.wincon-aa-no-shadow
+#menu,
+body.wincon-aa-no-shadow
+#contextMenu{
+
+    box-shadow:
+        none !important;
+
+}
+
+
+/* =====================================================
+   アニメーション軽減
+   ===================================================== */
+
+body.wincon-aa-reduced-motion *,
+body.wincon-aa-reduced-motion *::before,
+body.wincon-aa-reduced-motion *::after{
+
+    animation-duration:
+        0.001ms !important;
+
+    animation-iteration-count:
+        1 !important;
+
+    transition-duration:
+        0.001ms !important;
+
+    scroll-behavior:
+        auto !important;
+
+}
     `;
 
     document.body.appendChild(assistant);
@@ -14349,6 +14649,1098 @@ console.log(
    END ASTERIA INTEGRATION
 ========================================================= */
 
+})();
+
+
+/* =========================================================
+   Wincon 10 Asteria
+   Accessibility & Appearance Module
+   FIXED VERSION
+   ========================================================= */
+
+/* ==========================================================
+   Wincon - アクセシビリティと外観
+   既存HTMLの末尾、</body>の直前に追加
+   ========================================================== */
+(() => {
+  'use strict';
+
+  if (window.__WINCON_AA_V2__) return;
+  window.__WINCON_AA_V2__ = true;
+
+  const STORAGE_KEY = 'winconAccessibilityAppearance';
+  const IMAGE_DB = 'WinconAppearanceDB';
+  const IMAGE_STORE = 'backgroundImages';
+  const MODULE_TITLE = 'アクセシビリティと外観';
+  const MODULE_TYPE = 'winconAppearance';
+
+  const defaults = {
+    cornerMode: 'original',
+    fontScale: 100,
+    iconScale: 100,
+    boldText: false,
+    highContrast: false,
+    focusIndicator: true,
+    reduceMotion: false,
+    transparency: true,
+    blur: true,
+    shadows: true,
+    backgroundMode: 'original',
+    backgroundColor: '#17191f',
+    backgroundBlur: 0,
+    backgroundOverlay: 0
+  };
+
+  let settings = loadSettings();
+  let backgroundObjectURL = null;
+  let imageDatabase = null;
+  let menuObserver = null;
+  let applyObserver = null;
+  let originalRenderMenu = null;
+
+  /* ------------------------------
+     設定の読み書き
+  ------------------------------ */
+
+  function loadSettings() {
+    try {
+      return {
+        ...defaults,
+        ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
+      };
+    } catch {
+      return { ...defaults };
+    }
+  }
+
+  function saveSettings() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    } catch (error) {
+      console.error('[Wincon Appearance] 設定保存エラー:', error);
+    }
+  }
+
+  /* ------------------------------
+     IndexedDB：画像保存
+  ------------------------------ */
+
+  function openImageDB() {
+    if (imageDatabase) {
+      return Promise.resolve(imageDatabase);
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(IMAGE_DB, 1);
+
+      request.onupgradeneeded = () => {
+        const db = request.result;
+
+        if (!db.objectStoreNames.contains(IMAGE_STORE)) {
+          db.createObjectStore(IMAGE_STORE);
+        }
+      };
+
+      request.onsuccess = () => {
+        imageDatabase = request.result;
+        resolve(imageDatabase);
+      };
+
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function saveBackgroundImage(blob) {
+    const db = await openImageDB();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(IMAGE_STORE, 'readwrite');
+
+      transaction.objectStore(IMAGE_STORE).put(blob, 'desktop');
+
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  }
+
+  async function loadBackgroundImage() {
+    try {
+      const db = await openImageDB();
+
+      const blob = await new Promise((resolve, reject) => {
+        const transaction = db.transaction(IMAGE_STORE, 'readonly');
+        const request = transaction.objectStore(IMAGE_STORE).get('desktop');
+
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+
+      if (!blob) return;
+
+      if (backgroundObjectURL) {
+        URL.revokeObjectURL(backgroundObjectURL);
+      }
+
+      backgroundObjectURL = URL.createObjectURL(blob);
+
+      applyBackground();
+    } catch (error) {
+      console.error('[Wincon Appearance] 背景画像の読み込みエラー:', error);
+    }
+  }
+
+  async function deleteBackgroundImage() {
+    try {
+      const db = await openImageDB();
+
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction(IMAGE_STORE, 'readwrite');
+
+        transaction.objectStore(IMAGE_STORE).delete('desktop');
+
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+      });
+
+      if (backgroundObjectURL) {
+        URL.revokeObjectURL(backgroundObjectURL);
+        backgroundObjectURL = null;
+      }
+
+      applyBackground();
+    } catch (error) {
+      console.error('[Wincon Appearance] 背景画像の削除エラー:', error);
+    }
+  }
+
+  /* ------------------------------
+     CSS
+  ------------------------------ */
+
+  function installCSS() {
+    if (document.getElementById('wincon-aa-v2-css')) return;
+
+    const style = document.createElement('style');
+    style.id = 'wincon-aa-v2-css';
+
+    style.textContent = `
+      /* ウィンドウの角 */
+      body.wincon-aa-square .window {
+        border-radius: 0 !important;
+      }
+
+      body.wincon-aa-square .window .titlebar {
+        border-radius: 0 !important;
+      }
+
+      body.wincon-aa-square .window button,
+      body.wincon-aa-square .window input,
+      body.wincon-aa-square .window select,
+      body.wincon-aa-square .window textarea,
+      body.wincon-aa-square #menu .menu-item {
+        border-radius: 0 !important;
+      }
+
+      /* 太字 */
+      body.wincon-aa-bold,
+      body.wincon-aa-bold button,
+      body.wincon-aa-bold input,
+      body.wincon-aa-bold select,
+      body.wincon-aa-bold textarea,
+      body.wincon-aa-bold .window,
+      body.wincon-aa-bold #menu,
+      body.wincon-aa-bold #taskbar {
+        font-weight: 700 !important;
+      }
+
+      /* コントラスト */
+      body.wincon-aa-contrast {
+        filter: contrast(1.2);
+      }
+
+      /* フォーカス */
+      body.wincon-aa-focus *:focus-visible {
+        outline: 3px solid #60a5fa !important;
+        outline-offset: 3px !important;
+      }
+
+      /* アニメーション軽減 */
+      body.wincon-aa-reduce-motion *,
+      body.wincon-aa-reduce-motion *::before,
+      body.wincon-aa-reduce-motion *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+
+      /* ぼかし無効 */
+      body.wincon-aa-no-blur #taskbar,
+      body.wincon-aa-no-blur #menu,
+      body.wincon-aa-no-blur .window,
+      body.wincon-aa-no-blur .control-center {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+
+      /* 影無効 */
+      body.wincon-aa-no-shadow .window,
+      body.wincon-aa-no-shadow #taskbar,
+      body.wincon-aa-no-shadow #menu {
+        box-shadow: none !important;
+      }
+
+      /* 透明効果無効 */
+      body.wincon-aa-no-transparency #taskbar,
+      body.wincon-aa-no-transparency #menu,
+      body.wincon-aa-no-transparency .control-center {
+        background-color: #20242c !important;
+        opacity: 1 !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+
+      /* デスクトップ背景 */
+      #wincon-aa-background {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+      }
+
+      #wincon-aa-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background: #000;
+      }
+
+      /* 既存ウィンドウの操作を妨げない */
+      #desktop > #wincon-aa-background,
+      #desktop > #wincon-aa-overlay {
+        pointer-events: none !important;
+      }
+
+      /* 設定画面 */
+      #wincon-aa-panel {
+        color: inherit;
+        font-size: 14px;
+        line-height: 1.55;
+        max-height: 100%;
+        overflow-y: auto;
+        padding: 16px;
+      }
+
+      #wincon-aa-panel * {
+        box-sizing: border-box;
+      }
+
+      #wincon-aa-panel .aa-section {
+        margin-bottom: 16px;
+        padding: 14px;
+        border: 1px solid rgba(128,128,128,.3);
+        border-radius: 12px;
+        background: rgba(128,128,128,.06);
+      }
+
+      #wincon-aa-panel h2 {
+        font-size: 17px;
+        margin: 0 0 12px;
+      }
+
+      #wincon-aa-panel .aa-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 12px 0;
+      }
+
+      #wincon-aa-panel .aa-row > label {
+        flex: 1;
+        min-width: 0;
+      }
+
+      #wincon-aa-panel input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        cursor: pointer;
+      }
+
+      #wincon-aa-panel input[type="range"] {
+        width: 140px;
+        max-width: 42%;
+        cursor: pointer;
+      }
+
+      #wincon-aa-panel input[type="color"] {
+        width: 54px;
+        height: 34px;
+        padding: 2px;
+      }
+
+      #wincon-aa-panel input[type="text"],
+      #wincon-aa-panel select {
+        max-width: 55%;
+        min-width: 100px;
+        padding: 7px;
+      }
+
+      #wincon-aa-panel .aa-value {
+        min-width: 42px;
+        text-align: right;
+        opacity: .8;
+      }
+
+      #wincon-aa-panel .aa-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      #wincon-aa-panel button {
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+
+      #wincon-aa-panel .aa-note {
+        font-size: 12px;
+        opacity: .75;
+      }
+
+      #wincon-aa-panel .aa-upload {
+        display: block;
+        width: 100%;
+        padding: 12px;
+        border: 1px dashed rgba(128,128,128,.6);
+        border-radius: 10px;
+        text-align: center;
+        cursor: pointer;
+      }
+
+      #wincon-aa-panel .aa-upload input {
+        display: block;
+        width: 100%;
+        margin-top: 8px;
+      }
+
+      #wincon-aa-panel .aa-status {
+        overflow-wrap: anywhere;
+        margin-top: 8px;
+        font-size: 12px;
+        opacity: .8;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  /* ------------------------------
+     背景の作成と適用
+  ------------------------------ */
+
+  function ensureBackgroundElements() {
+    const desktop = document.getElementById('desktop');
+    if (!desktop) return;
+
+    let background = document.getElementById('wincon-aa-background');
+
+    if (!background) {
+      background = document.createElement('div');
+      background.id = 'wincon-aa-background';
+
+      desktop.prepend(background);
+    }
+
+    let overlay = document.getElementById('wincon-aa-overlay');
+
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'wincon-aa-overlay';
+
+      background.after(overlay);
+    }
+  }
+
+  function applyBackground() {
+    ensureBackgroundElements();
+
+    const desktop = document.getElementById('desktop');
+    const background = document.getElementById('wincon-aa-background');
+    const overlay = document.getElementById('wincon-aa-overlay');
+
+    if (!desktop || !background || !overlay) return;
+
+    background.style.filter = 'none';
+    background.style.backgroundImage = 'none';
+    background.style.backgroundColor = 'transparent';
+
+    overlay.style.opacity = String(
+      Math.max(0, Math.min(80, Number(settings.backgroundOverlay) || 0)) / 100
+    );
+
+    const blur = Math.max(
+      0,
+      Math.min(20, Number(settings.backgroundBlur) || 0)
+    );
+
+    if (settings.backgroundMode === 'color') {
+      background.style.backgroundColor =
+        settings.backgroundColor || defaults.backgroundColor;
+
+      background.style.filter = blur ? `blur(${blur}px)` : 'none';
+
+    } else if (
+      settings.backgroundMode === 'image' &&
+      backgroundObjectURL
+    ) {
+      background.style.backgroundImage =
+        `url("${backgroundObjectURL}")`;
+
+      background.style.filter = blur ? `blur(${blur}px)` : 'none';
+
+    } else {
+      /*
+       * 元の背景モードでは背景レイヤーを透明にする。
+       * 元の#desktopの背景色・グラデーションを維持する。
+       */
+      background.style.backgroundColor = 'transparent';
+      background.style.backgroundImage = 'none';
+      background.style.filter = 'none';
+    }
+
+    /*
+     * 元のデスクトップ背景は変更しない。
+     * 画像・単色を選んだ場合だけ背景レイヤーを表示する。
+     */
+    background.style.visibility =
+      settings.backgroundMode === 'original' ? 'hidden' : 'visible';
+  }
+
+  /* ------------------------------
+     全設定の適用
+  ------------------------------ */
+
+  function applySettings() {
+    const body = document.body;
+
+    body.classList.toggle(
+      'wincon-aa-square',
+      settings.cornerMode === 'square'
+    );
+
+    body.classList.toggle('wincon-aa-bold', !!settings.boldText);
+    body.classList.toggle('wincon-aa-contrast', !!settings.highContrast);
+    body.classList.toggle('wincon-aa-focus', !!settings.focusIndicator);
+
+    body.classList.toggle(
+      'wincon-aa-reduce-motion',
+      !!settings.reduceMotion
+    );
+
+    body.classList.toggle('wincon-aa-no-blur', !settings.blur);
+    body.classList.toggle('wincon-aa-no-shadow', !settings.shadows);
+
+    body.classList.toggle(
+      'wincon-aa-no-transparency',
+      !settings.transparency
+    );
+
+    const fontScale = Math.max(
+      75,
+      Math.min(150, Number(settings.fontScale) || 100)
+    );
+
+    const iconScale = Math.max(
+      75,
+      Math.min(150, Number(settings.iconScale) || 100)
+    );
+
+    /*
+     * ウィンドウ・タスクバー・メニューの文字サイズを適用。
+     * inline styleで指定して既存CSSに上書きされにくくする。
+     */
+    document.querySelectorAll(
+      '#desktop .window, #menu, #taskbar, .control-center'
+    ).forEach(element => {
+      if (
+        element.id === 'wincon-aa-background' ||
+        element.id === 'wincon-aa-overlay'
+      ) return;
+
+      element.style.setProperty(
+        'font-size',
+        `${fontScale}%`,
+        'important'
+      );
+    });
+
+    /*
+     * アイコンは既存レイアウトを壊さないよう、
+     * font-sizeを使って拡大する。
+     */
+    document.querySelectorAll(
+      '#desktop .window .title-left > div:first-child, ' +
+      '#desktop .window .icon, ' +
+      '#menu .menu-item'
+    ).forEach(element => {
+      element.style.setProperty(
+        'font-size',
+        `${iconScale}%`,
+        'important'
+      );
+    });
+
+    applyBackground();
+    saveSettings();
+  }
+
+  /* ------------------------------
+     設定画面のHTML
+  ------------------------------ */
+
+  function row(label, control) {
+    return `
+      <div class="aa-row">
+        <label>${label}</label>
+        ${control}
+      </div>
+    `;
+  }
+
+  function check(id, value) {
+    return `
+      <input type="checkbox" id="${id}" ${value ? 'checked' : ''}>
+    `;
+  }
+
+  function slider(id, value, min, max, suffix = '%') {
+    return `
+      <input type="range" id="${id}"
+        min="${min}" max="${max}" value="${value}">
+      <span class="aa-value" data-value-for="${id}">
+        ${value}${suffix}
+      </span>
+    `;
+  }
+
+  function buildPanelHTML() {
+    return `
+      <div id="wincon-aa-panel">
+
+        <section class="aa-section">
+          <h2>🪟 外観</h2>
+
+          ${row('ウィンドウの角', `
+            <select id="cornerMode">
+              <option value="original">従来（変更しない）</option>
+              <option value="square">角四角</option>
+            </select>
+          `)}
+
+          ${row('文字サイズ',
+            slider('fontScale', settings.fontScale, 75, 150))}
+
+          ${row('アイコンサイズ',
+            slider('iconScale', settings.iconScale, 75, 150))}
+
+          ${row('透明効果',
+            check('transparency', settings.transparency))}
+
+          ${row('ぼかし効果',
+            check('blur', settings.blur))}
+
+          ${row('影の効果',
+            check('shadows', settings.shadows))}
+
+          ${row('アニメーションを減らす',
+            check('reduceMotion', settings.reduceMotion))}
+        </section>
+
+        <section class="aa-section">
+          <h2>🖼️ デスクトップ背景</h2>
+
+          ${row('背景の種類', `
+            <select id="backgroundMode">
+              <option value="original">元の背景</option>
+              <option value="color">単色</option>
+              <option value="image">アップロード画像</option>
+            </select>
+          `)}
+
+          ${row('背景色', `
+            <input type="color" id="backgroundColor"
+              value="${settings.backgroundColor}">
+          `)}
+
+          <label class="aa-upload">
+            📂 背景画像を選択
+            <input type="file" id="backgroundFile"
+              accept="image/*">
+          </label>
+
+          <div id="backgroundStatus" class="aa-status">
+            保存済みの背景画像は、再起動後も利用できます。
+          </div>
+
+          <div class="aa-actions">
+            <button type="button" id="removeBackgroundImage">
+              アップロード画像を削除
+            </button>
+          </div>
+
+          ${row('背景のぼかし',
+            slider('backgroundBlur', settings.backgroundBlur, 0, 20, 'px'))}
+
+          ${row('暗いオーバーレイ',
+            slider('backgroundOverlay', settings.backgroundOverlay, 0, 80))}
+
+          <p class="aa-note">
+            画像はこのブラウザー内に保存されます。
+            画像サイズによっては保存できない場合があります。
+          </p>
+        </section>
+
+        <section class="aa-section">
+          <h2>♿ アクセシビリティ</h2>
+
+          ${row('太字テキスト',
+            check('boldText', settings.boldText))}
+
+          ${row('コントラストを強める',
+            check('highContrast', settings.highContrast))}
+
+          ${row('フォーカス位置を強調',
+            check('focusIndicator', settings.focusIndicator))}
+        </section>
+
+        <div class="aa-actions">
+          <button type="button" id="aaReset">
+            初期設定に戻す
+          </button>
+        </div>
+
+        <p class="aa-note">
+          設定は変更時に自動保存されます。
+        </p>
+
+      </div>
+    `;
+  }
+
+  /* ------------------------------
+     設定画面のイベント
+  ------------------------------ */
+
+  function bindPanel(panel) {
+    if (!panel || panel.dataset.aaBound === 'true') return;
+
+    panel.dataset.aaBound = 'true';
+
+    const ids = [
+      'cornerMode',
+      'fontScale',
+      'iconScale',
+      'transparency',
+      'blur',
+      'shadows',
+      'reduceMotion',
+      'backgroundMode',
+      'backgroundColor',
+      'backgroundBlur',
+      'backgroundOverlay',
+      'boldText',
+      'highContrast',
+      'focusIndicator'
+    ];
+
+    function readFields() {
+      ids.forEach(id => {
+        const element = panel.querySelector('#' + id);
+        if (!element) return;
+
+        if (element.type === 'checkbox') {
+          settings[id] = element.checked;
+        } else if (element.type === 'range') {
+          settings[id] = Number(element.value);
+        } else {
+          settings[id] = element.value;
+        }
+      });
+    }
+
+    function update() {
+      readFields();
+      applySettings();
+    }
+
+    ids.forEach(id => {
+      const element = panel.querySelector('#' + id);
+      if (!element) return;
+
+      element.addEventListener('input', () => {
+        if (element.type === 'range') {
+          const output = panel.querySelector(
+            `[data-value-for="${id}"]`
+          );
+
+          if (output) {
+            output.textContent =
+              element.value + (id === 'backgroundBlur' ? 'px' : '%');
+          }
+        }
+
+        update();
+      });
+
+      element.addEventListener('change', update);
+    });
+
+    const fileInput = panel.querySelector('#backgroundFile');
+
+    if (fileInput) {
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+
+        const status = panel.querySelector('#backgroundStatus');
+
+        if (!file.type.startsWith('image/')) {
+          if (status) status.textContent = '画像ファイルを選択してください。';
+          fileInput.value = '';
+          return;
+        }
+
+        if (status) status.textContent = '画像を保存しています…';
+
+        try {
+          await saveBackgroundImage(file);
+
+          if (backgroundObjectURL) {
+            URL.revokeObjectURL(backgroundObjectURL);
+          }
+
+          backgroundObjectURL = URL.createObjectURL(file);
+          settings.backgroundMode = 'image';
+
+          const mode = panel.querySelector('#backgroundMode');
+          if (mode) mode.value = 'image';
+
+          applySettings();
+
+          if (status) {
+            status.textContent = `保存しました：${file.name}`;
+          }
+        } catch (error) {
+          console.error(error);
+
+          if (status) {
+            status.textContent =
+              '画像を保存できませんでした。別の画像をお試しください。';
+          }
+        }
+
+        fileInput.value = '';
+      });
+    }
+
+    const removeButton = panel.querySelector('#removeBackgroundImage');
+
+    if (removeButton) {
+      removeButton.addEventListener('click', async () => {
+        await deleteBackgroundImage();
+
+        settings.backgroundMode = 'original';
+
+        const mode = panel.querySelector('#backgroundMode');
+        if (mode) mode.value = 'original';
+
+        applySettings();
+
+        const status = panel.querySelector('#backgroundStatus');
+        if (status) status.textContent = 'アップロード画像を削除しました。';
+      });
+    }
+
+    const resetButton = panel.querySelector('#aaReset');
+
+    if (resetButton) {
+      resetButton.addEventListener('click', () => {
+        settings = { ...defaults };
+
+        /*
+         * 初期設定への復帰では画像ファイル自体は削除しない。
+         * 背景設定だけ元に戻す。
+         */
+        applySettings();
+
+        panel.querySelectorAll('input, select').forEach(element => {
+          const key = element.id;
+
+          if (!(key in settings)) return;
+
+          if (element.type === 'checkbox') {
+            element.checked = !!settings[key];
+          } else if (element.type === 'range') {
+            element.value = settings[key];
+
+            const output = panel.querySelector(
+              `[data-value-for="${key}"]`
+            );
+
+            if (output) {
+              output.textContent =
+                settings[key] + (key === 'backgroundBlur' ? 'px' : '%');
+            }
+          } else if (element.type !== 'file') {
+            element.value = settings[key];
+          }
+        });
+      });
+    }
+
+    const mode = panel.querySelector('#backgroundMode');
+    if (mode) mode.value = settings.backgroundMode;
+  }
+
+  /* ------------------------------
+     アプリを開く
+  ------------------------------ */
+
+  function openAppearanceAccessibility() {
+    if (typeof window.createWindow !== 'function') {
+      alert('Winconのウィンドウ機能がまだ起動していません。');
+      return;
+    }
+
+    const existing = [...document.querySelectorAll('#desktop .window')]
+      .find(win => win.dataset.winconAaWindow === 'true');
+
+    if (existing) {
+      existing.style.display = '';
+      existing.style.zIndex = String(Date.now());
+      return;
+    }
+
+    const before = new Set(
+      document.querySelectorAll('#desktop .window')
+    );
+
+    window.createWindow({
+      title: MODULE_TITLE,
+      icon: '🎨',
+      width: 760,
+      height: 700,
+      content: buildPanelHTML()
+    });
+
+    const created = [...document.querySelectorAll('#desktop .window')]
+      .find(win => !before.has(win));
+
+    if (!created) {
+      console.error(
+        '[Wincon Appearance] ウィンドウを作成できませんでした。'
+      );
+      return;
+    }
+
+    created.dataset.winconAaWindow = 'true';
+
+    const content = created.querySelector('.content') || created;
+
+    bindPanel(content);
+    applySettings();
+  }
+
+  /* ------------------------------
+     既存MenuItemへ登録
+  ------------------------------ */
+
+  function registerMenuItem() {
+    /*
+     * menuItemsは元HTMLで定義されている既存の配列を使用する。
+     * 別のメニューを作らず、通常のMenuItemとして登録する。
+     */
+    if (typeof menuItems === 'undefined' || !Array.isArray(menuItems)) {
+      return false;
+    }
+
+    const alreadyExists = menuItems.some(item =>
+      item.type === MODULE_TYPE || item.title === MODULE_TITLE
+    );
+
+    if (!alreadyExists) {
+      menuItems.push({
+        title: MODULE_TITLE,
+        icon: '🎨',
+        type: MODULE_TYPE,
+        system: true
+      });
+    }
+
+    /*
+     * 元のrenderMenu()を利用してボタンを描画し、
+     * 対象のボタンのクリック処理だけ差し替える。
+     */
+    if (typeof renderMenu === 'function' && !originalRenderMenu) {
+      originalRenderMenu = renderMenu;
+
+      window.renderMenu = function (...args) {
+        const result = originalRenderMenu.apply(this, args);
+
+        setTimeout(patchAppearanceMenuButton, 0);
+
+        return result;
+      };
+
+      /*
+       * グローバル関数の差し替えが反映されるよう、
+       * 元の描画関数も直接実行する。
+       */
+      try {
+        renderMenu();
+      } catch (error) {
+        console.warn('[Wincon Appearance] メニュー描画:', error);
+      }
+    }
+
+    patchAppearanceMenuButton();
+
+    return true;
+  }
+
+  function patchAppearanceMenuButton() {
+    const menu = document.getElementById('menu');
+    if (!menu) return;
+
+    const buttons = menu.querySelectorAll('.menu-item');
+
+    buttons.forEach(button => {
+      if (!button.textContent.includes(MODULE_TITLE)) return;
+
+      if (button.dataset.aaPatched === 'true') return;
+
+      button.dataset.aaPatched = 'true';
+
+      button.onclick = event => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        menu.style.display = 'none';
+
+        openAppearanceAccessibility();
+      };
+    });
+  }
+
+  /* ------------------------------
+     初期化
+  ------------------------------ */
+
+  function initialize() {
+    installCSS();
+
+    ensureBackgroundElements();
+
+    applySettings();
+
+    registerMenuItem();
+
+    patchAppearanceMenuButton();
+
+    if (!menuObserver) {
+      const menu = document.getElementById('menu');
+
+      if (menu) {
+        menuObserver = new MutationObserver(() => {
+          patchAppearanceMenuButton();
+        });
+
+        menuObserver.observe(menu, {
+          childList: true,
+          subtree: true
+        });
+      }
+    }
+
+    if (!applyObserver) {
+      const desktop = document.getElementById('desktop');
+
+      if (desktop) {
+        applyObserver = new MutationObserver(records => {
+          const newWindowAdded = records.some(record =>
+            [...record.addedNodes].some(node =>
+              node.nodeType === Node.ELEMENT_NODE &&
+              (
+                node.matches?.('.window') ||
+                node.querySelector?.('.window')
+              )
+            )
+          );
+
+          if (newWindowAdded) {
+            applySettings();
+          }
+        });
+
+        applyObserver.observe(desktop, {
+          childList: true,
+          subtree: true
+        });
+      }
+    }
+  }
+
+  window.openAppearanceAccessibility = openAppearanceAccessibility;
+
+  window.WinconAppearance = {
+    open: openAppearanceAccessibility,
+    apply: applySettings,
+    getSettings: () => ({ ...settings }),
+    reset: () => {
+      settings = { ...defaults };
+      applySettings();
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize, {
+      once: true
+    });
+  } else {
+    initialize();
+  }
+
+  /*
+   * Winconの初期化タイミングに備えて再試行。
+   */
+  let attempts = 0;
+
+  const retryTimer = setInterval(() => {
+    initialize();
+    attempts++;
+
+    if (
+      typeof menuItems !== 'undefined' &&
+      Array.isArray(menuItems) &&
+      document.getElementById('menu')
+    ) {
+      clearInterval(retryTimer);
+    }
+
+    if (attempts >= 40) {
+      clearInterval(retryTimer);
+    }
+  }, 500);
+
+  loadBackgroundImage();
 })();
 </script>
 </body>
