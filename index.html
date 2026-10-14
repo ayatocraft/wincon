@@ -2633,7 +2633,7 @@ width:900,
 height:650,
 content:`
 
-<h1>Wincon 10.0 Asteria</h1>
+<h1>Wincon 10.1.2 Asteria</h1>
 
 <div class="badge">
 SYSTEM PROCESS
@@ -2647,19 +2647,19 @@ SYSTEM PROCESS
 
 <b>Product Name</b>
 <br>
-Wincon 10.1 Asteria
+Wincon 10.1.2 Asteria
 
 <br><br>
 
 <b>Version</b>
 <br>
-Stable 10.1
+Stable 10.1.2
 
 <br><br>
 
 <b>Core Service Version</b>
 <br>
-10.0
+10.1.2
 
 <br><br>
 
@@ -15742,6 +15742,900 @@ console.log(
   }, 500);
 
   loadBackgroundImage();
+})();
+
+/* =========================================================
+   WINCON EXTENSION
+   固定アプリ / スクリーンセーバー / タブレットモード
+   既存のWincon本体・ログイン・起動処理は変更しない
+========================================================= */
+
+(function WinconExtension() {
+    "use strict";
+
+    if (window.__WINCON_EXTENSION_INSTALLED__) return;
+    window.__WINCON_EXTENSION_INSTALLED__ = true;
+
+    const STORAGE_KEY = "wincon_extension_pinned_apps";
+    const IDLE_TIME = 120000;
+
+    let pinnedApps = [];
+    let screenSaver = null;
+    let idleTimer = null;
+    let tabletMode = false;
+    let saverVisible = false;
+
+    const $ = (selector, root = document) =>
+        root.querySelector(selector);
+
+    const $$ = (selector, root = document) =>
+        [...root.querySelectorAll(selector)];
+
+    /* =====================================================
+       CSS
+    ===================================================== */
+
+    const style = document.createElement("style");
+
+    style.textContent = `
+        #winconPinnedApps {
+            display:flex;
+            align-items:center;
+            gap:5px;
+            flex:0 1 auto;
+            min-width:0;
+        }
+
+        .wincon-pinned-app {
+            position:relative;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            width:42px;
+            height:42px;
+            min-width:42px;
+            border:0;
+            border-radius:8px;
+            background:transparent;
+            color:inherit;
+            font-size:22px;
+            cursor:pointer;
+            user-select:none;
+        }
+
+        .wincon-pinned-app:hover {
+            background:rgba(128,128,128,.2);
+        }
+
+        .wincon-pinned-app:active {
+            transform:scale(.94);
+        }
+
+        .wincon-pinned-app.dragging {
+            opacity:.4;
+        }
+
+        .wincon-pinned-app.drag-over {
+            outline:2px solid #4388ff;
+        }
+
+        #winconExtensionContextMenu {
+            position:fixed;
+            z-index:2147483000;
+            display:none;
+            min-width:190px;
+            padding:5px;
+            color:var(--text-color, #222);
+            background:var(--window-bg, #fff);
+            border:1px solid rgba(128,128,128,.35);
+            border-radius:10px;
+            box-shadow:0 8px 28px rgba(0,0,0,.25);
+        }
+
+        #winconExtensionContextMenu button {
+            display:block;
+            width:100%;
+            padding:10px 12px;
+            border:0;
+            border-radius:6px;
+            background:transparent;
+            color:inherit;
+            text-align:left;
+            cursor:pointer;
+        }
+
+        #winconExtensionContextMenu button:hover {
+            background:rgba(128,128,128,.16);
+        }
+
+        #winconScreenSaver {
+            position:fixed;
+            inset:0;
+            z-index:2147482000;
+            display:none;
+            align-items:center;
+            justify-content:center;
+            flex-direction:column;
+            overflow:hidden;
+            color:white;
+            background:#101820 center/cover no-repeat;
+            font-family:system-ui,sans-serif;
+            cursor:pointer;
+            user-select:none;
+        }
+
+        #winconScreenSaver::before {
+            content:"";
+            position:absolute;
+            inset:0;
+            background:linear-gradient(
+                180deg,
+                rgba(0,0,0,.12),
+                rgba(0,0,0,.48)
+            );
+        }
+
+        #winconScreenSaverContent {
+            position:relative;
+            z-index:1;
+            padding:24px;
+            text-align:center;
+            text-shadow:0 3px 20px rgba(0,0,0,.4);
+        }
+
+        #winconScreenSaverTime {
+            font-size:clamp(64px,12vw,150px);
+            font-weight:300;
+            letter-spacing:-.045em;
+            line-height:1.1;
+        }
+
+        #winconScreenSaverDate {
+            margin-top:14px;
+            font-size:clamp(17px,3vw,28px);
+        }
+
+        #winconScreenSaverHint {
+            margin-top:36px;
+            font-size:14px;
+            opacity:.8;
+        }
+
+        body.wincon-tablet-mode #desktop .window {
+            position:fixed !important;
+            inset:0 !important;
+            width:100vw !important;
+            height:calc(100dvh - 64px) !important;
+            max-width:none !important;
+            max-height:none !important;
+            border-radius:0 !important;
+        }
+
+        body.wincon-tablet-mode #desktop .window .max-btn,
+        body.wincon-tablet-mode #desktop .window .resize-handle {
+            display:none !important;
+        }
+
+        body.wincon-tablet-mode #desktop .window .titlebar {
+            min-height:54px;
+        }
+
+        body.wincon-tablet-mode #desktop .window .win-btn {
+            min-width:44px;
+            min-height:44px;
+        }
+
+        body.wincon-tablet-mode #taskbar {
+            min-height:60px;
+        }
+
+        body.wincon-tablet-mode #taskbar button,
+        body.wincon-tablet-mode .wincon-pinned-app {
+            min-height:48px;
+        }
+
+        @media (max-width:600px) {
+            .wincon-pinned-app {
+                width:36px;
+                min-width:36px;
+                height:42px;
+            }
+
+            #winconScreenSaverHint {
+                margin-top:24px;
+            }
+        }
+    `;
+
+    document.head.appendChild(style);
+
+
+    /* =====================================================
+       固定アプリ
+       既存Menuの起動処理をそのまま利用する
+    ===================================================== */
+
+    function loadPinnedApps() {
+        try {
+            const data = JSON.parse(
+                localStorage.getItem(STORAGE_KEY) || "[]"
+            );
+
+            pinnedApps = Array.isArray(data)
+                ? data.filter(app =>
+                    app &&
+                    typeof app.title === "string" &&
+                    typeof app.type === "string"
+                )
+                : [];
+        } catch (error) {
+            pinnedApps = [];
+        }
+    }
+
+    function savePinnedApps() {
+        try {
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify(pinnedApps)
+            );
+        } catch (error) {
+            console.error(
+                "[Wincon Extension] 固定アプリの保存に失敗",
+                error
+            );
+        }
+    }
+
+    function getMenuItem(title, type) {
+        if (!Array.isArray(menuItems)) return null;
+
+        return menuItems.find(item =>
+            item &&
+            item.title === title &&
+            item.type === type &&
+            !item.hidden
+        ) || null;
+    }
+
+    function findMenuButton(app) {
+        const menu = $("#menu");
+        if (!menu) return null;
+
+        return $$(".menu-item", menu).find(button => {
+            const item = getMenuItem(app.title, app.type);
+
+            return item &&
+                button.textContent.includes(item.title);
+        }) || null;
+    }
+
+    function launchPinnedApp(app) {
+        const item = getMenuItem(app.title, app.type);
+
+        if (!item) {
+            alert(
+                "このアプリは現在のMenuに見つかりません。\n" +
+                "アプリがMenuに登録されているか確認してください。"
+            );
+            return;
+        }
+
+        const button = findMenuButton(app);
+
+        if (!button) {
+            if (typeof renderMenu === "function") {
+                renderMenu();
+            }
+        }
+
+        const currentButton = findMenuButton(app);
+
+        if (currentButton) {
+            currentButton.click();
+        } else {
+            alert("アプリの起動ボタンを取得できませんでした。");
+        }
+    }
+
+    function ensurePinnedContainer() {
+        const taskbar = $("#taskbar");
+        const taskIcons = $("#taskIcons");
+
+        if (!taskbar || !taskIcons) return null;
+
+        let container = $("#winconPinnedApps");
+
+        if (!container) {
+            container = document.createElement("div");
+            container.id = "winconPinnedApps";
+
+            taskbar.insertBefore(container, taskIcons);
+        }
+
+        return container;
+    }
+
+    function pinApp(item) {
+        if (!item || item.hidden) return;
+
+        if (pinnedApps.some(app =>
+            app.title === item.title &&
+            app.type === item.type
+        )) {
+            return;
+        }
+
+        pinnedApps.push({
+            title: item.title,
+            type: item.type,
+            icon: item.icon || "🪟"
+        });
+
+        savePinnedApps();
+        renderPinnedApps();
+    }
+
+    function unpinApp(app) {
+        pinnedApps = pinnedApps.filter(item =>
+            !(item.title === app.title && item.type === app.type)
+        );
+
+        savePinnedApps();
+        renderPinnedApps();
+    }
+
+    function renderPinnedApps() {
+        const container = ensurePinnedContainer();
+        if (!container) return;
+
+        container.replaceChildren();
+
+        pinnedApps.forEach((app, index) => {
+            const button = document.createElement("button");
+
+            button.className = "wincon-pinned-app";
+            button.type = "button";
+            button.textContent = app.icon || "🪟";
+            button.title = app.title;
+            button.draggable = true;
+            button.dataset.index = String(index);
+
+            button.setAttribute(
+                "aria-label",
+                app.title
+            );
+
+            button.addEventListener("click", () => {
+                launchPinnedApp(app);
+            });
+
+            button.addEventListener("contextmenu", event => {
+                event.preventDefault();
+                showContextMenu(event.clientX, event.clientY, [
+                    {
+                        label: "📂 開く",
+                        action: () => launchPinnedApp(app)
+                    },
+                    {
+                        label: "📌 固定を解除",
+                        action: () => unpinApp(app)
+                    }
+                ]);
+            });
+
+            button.addEventListener("dragstart", event => {
+                button.classList.add("dragging");
+
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData(
+                    "text/plain",
+                    String(index)
+                );
+            });
+
+            button.addEventListener("dragend", () => {
+                button.classList.remove("dragging");
+
+                $$(".wincon-pinned-app").forEach(element =>
+                    element.classList.remove("drag-over")
+                );
+            });
+
+            button.addEventListener("dragover", event => {
+                event.preventDefault();
+                button.classList.add("drag-over");
+            });
+
+            button.addEventListener("dragleave", () => {
+                button.classList.remove("drag-over");
+            });
+
+            button.addEventListener("drop", event => {
+                event.preventDefault();
+
+                const from = Number(
+                    event.dataTransfer.getData("text/plain")
+                );
+
+                const to = index;
+
+                if (
+                    !Number.isInteger(from) ||
+                    from < 0 ||
+                    from >= pinnedApps.length ||
+                    from === to
+                ) {
+                    return;
+                }
+
+                const moved = pinnedApps.splice(from, 1)[0];
+                pinnedApps.splice(to, 0, moved);
+
+                savePinnedApps();
+                renderPinnedApps();
+            });
+
+            container.appendChild(button);
+        });
+    }
+
+
+    /* =====================================================
+       右クリックメニュー
+    ===================================================== */
+
+    function ensureContextMenu() {
+        let menu = $("#winconExtensionContextMenu");
+
+        if (!menu) {
+            menu = document.createElement("div");
+            menu.id = "winconExtensionContextMenu";
+            menu.setAttribute("role", "menu");
+            document.body.appendChild(menu);
+        }
+
+        return menu;
+    }
+
+    function hideContextMenu() {
+        const menu = $("#winconExtensionContextMenu");
+
+        if (menu) {
+            menu.style.display = "none";
+        }
+    }
+
+    function showContextMenu(x, y, actions) {
+        const menu = ensureContextMenu();
+
+        menu.replaceChildren();
+
+        actions.forEach(entry => {
+            const button = document.createElement("button");
+
+            button.type = "button";
+            button.textContent = entry.label;
+
+            button.onclick = () => {
+                hideContextMenu();
+                entry.action();
+            };
+
+            menu.appendChild(button);
+        });
+
+        menu.style.display = "block";
+        menu.style.left = "0px";
+        menu.style.top = "0px";
+
+        const rect = menu.getBoundingClientRect();
+
+        menu.style.left = Math.max(
+            4,
+            Math.min(x, innerWidth - rect.width - 4)
+        ) + "px";
+
+        menu.style.top = Math.max(
+            4,
+            Math.min(y, innerHeight - rect.height - 4)
+        ) + "px";
+    }
+
+    document.addEventListener("pointerdown", event => {
+        const menu = $("#winconExtensionContextMenu");
+
+        if (menu && !menu.contains(event.target)) {
+            hideContextMenu();
+        }
+    });
+
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            hideContextMenu();
+
+            if (saverVisible) {
+                hideScreenSaver();
+            }
+        }
+    });
+
+    function bindMenuPinning() {
+        const menu = $("#menu");
+        if (!menu) return;
+
+        $$(".menu-item", menu).forEach(button => {
+            if (button.dataset.winconPinBound === "true") return;
+
+            button.dataset.winconPinBound = "true";
+
+            button.addEventListener("contextmenu", event => {
+                const text = button.textContent.trim();
+
+                const item = Array.isArray(menuItems)
+                    ? menuItems.find(entry =>
+                        entry &&
+                        !entry.hidden &&
+                        text.includes(entry.title)
+                    )
+                    : null;
+
+                if (!item) return;
+
+                event.preventDefault();
+
+                const pinned = pinnedApps.some(app =>
+                    app.title === item.title &&
+                    app.type === item.type
+                );
+
+                showContextMenu(event.clientX, event.clientY, [
+                    {
+                        label: "📂 開く",
+                        action: () => button.click()
+                    },
+                    ...(pinned ? [{
+                        label: "📌 固定を解除",
+                        action: () => unpinApp(item)
+                    }] : [{
+                        label: "📌 タスクバーに固定",
+                        action: () => pinApp(item)
+                    }])
+                ]);
+            });
+        });
+    }
+
+    function bindRunningTasks() {
+        const taskIcons = $("#taskIcons");
+        if (!taskIcons) return;
+
+        $$(".task-icon", taskIcons).forEach(task => {
+            if (task.dataset.winconPinBound === "true") return;
+
+            task.dataset.winconPinBound = "true";
+
+            task.addEventListener("contextmenu", event => {
+                const title = task.title;
+
+                const item = Array.isArray(menuItems)
+                    ? menuItems.find(entry =>
+                        entry &&
+                        !entry.hidden &&
+                        entry.title === title
+                    )
+                    : null;
+
+                if (!item) return;
+
+                event.preventDefault();
+
+                const pinned = pinnedApps.some(app =>
+                    app.title === item.title &&
+                    app.type === item.type
+                );
+
+                showContextMenu(event.clientX, event.clientY, [
+                    ...(pinned ? [{
+                        label: "📌 固定を解除",
+                        action: () => unpinApp(item)
+                    }] : [{
+                        label: "📌 タスクバーに固定",
+                        action: () => pinApp(item)
+                    }]),
+                    {
+                        label: "✖ 閉じる",
+                        action: () => {
+                            const win = $$(".window", $("#desktop"))
+                                .find(element =>
+                                    element.dataset.title === title
+                                );
+
+                            if (win) {
+                                const close = $(".close-btn", win);
+
+                                if (close) close.click();
+                                else win.remove();
+                            }
+
+                            task.remove();
+                        }
+                    }
+                ]);
+            });
+        });
+    }
+
+
+    /* =====================================================
+       スクリーンセーバー
+       ログイン画面が表示されている間は絶対に出さない
+    ===================================================== */
+
+    function ensureScreenSaver() {
+        if (screenSaver) return screenSaver;
+
+        screenSaver = document.createElement("div");
+        screenSaver.id = "winconScreenSaver";
+
+        screenSaver.innerHTML = `
+            <div id="winconScreenSaverContent">
+                <div id="winconScreenSaverTime">00:00</div>
+                <div id="winconScreenSaverDate"></div>
+                <div id="winconScreenSaverHint">
+                    クリック・キー入力・上スワイプで復帰
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(screenSaver);
+
+        screenSaver.addEventListener("click", hideScreenSaver);
+
+        screenSaver.addEventListener("touchstart", event => {
+            screenSaver.dataset.touchY =
+                String(event.touches[0]?.clientY ?? 0);
+        }, { passive: true });
+
+        screenSaver.addEventListener("touchend", event => {
+            const startY = Number(screenSaver.dataset.touchY || 0);
+            const endY = event.changedTouches[0]?.clientY ?? startY;
+
+            if (startY - endY > 35) {
+                hideScreenSaver();
+            }
+        }, { passive: true });
+
+        // 背景画像は外部画像サービスを使用する。
+        screenSaver.style.backgroundImage =
+            'url("https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=2400&q=85")';
+
+        updateScreenSaverClock();
+
+        setInterval(updateScreenSaverClock, 1000);
+
+        return screenSaver;
+    }
+
+    function updateScreenSaverClock() {
+        if (!screenSaver) return;
+
+        const now = new Date();
+
+        const time = $("#winconScreenSaverTime", screenSaver);
+        const date = $("#winconScreenSaverDate", screenSaver);
+
+        if (time) {
+            time.textContent = now.toLocaleTimeString("ja-JP", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+            });
+        }
+
+        if (date) {
+            date.textContent = now.toLocaleDateString("ja-JP", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                weekday: "long"
+            });
+        }
+    }
+
+    function loginScreenVisible() {
+        const overlay = $("#wincon10LoginOverlay");
+
+        return !!(
+            overlay &&
+            getComputedStyle(overlay).display !== "none" &&
+            overlay.isConnected
+        );
+    }
+
+    function showScreenSaver() {
+        if (saverVisible || loginScreenVisible()) return;
+
+        const saver = ensureScreenSaver();
+
+        saver.style.display = "flex";
+        saverVisible = true;
+    }
+
+    function hideScreenSaver() {
+        if (!saverVisible) return;
+
+        if (screenSaver) {
+            screenSaver.style.display = "none";
+        }
+
+        saverVisible = false;
+        resetIdleTimer();
+    }
+
+    function resetIdleTimer() {
+        clearTimeout(idleTimer);
+
+        if (saverVisible || loginScreenVisible()) return;
+
+        idleTimer = setTimeout(() => {
+            if (!loginScreenVisible()) {
+                showScreenSaver();
+            }
+        }, IDLE_TIME);
+    }
+
+    [
+        "pointerdown",
+        "pointermove",
+        "keydown",
+        "wheel",
+        "touchstart"
+    ].forEach(type => {
+        document.addEventListener(type, () => {
+            if (saverVisible) {
+                hideScreenSaver();
+            } else {
+                resetIdleTimer();
+            }
+        }, { passive: true });
+    });
+
+
+    /* =====================================================
+       タブレットモード
+       初期状態はOFF。設定画面は追加しない。
+    ===================================================== */
+
+    function setTabletMode(enabled) {
+        tabletMode = !!enabled;
+
+        document.body.classList.toggle(
+            "wincon-tablet-mode",
+            tabletMode
+        );
+
+        const button = $("#winconTabletToggle");
+
+        if (button) {
+            button.textContent = tabletMode
+                ? "📱 タブレットモード：オン"
+                : "📱 タブレットモード：オフ";
+
+            button.setAttribute(
+                "aria-pressed",
+                String(tabletMode)
+            );
+        }
+    }
+
+    function installControlCenterToggle() {
+        const controlCenter = $("#controlCenter");
+
+        if (!controlCenter) return;
+
+        if ($("#winconTabletToggle")) return;
+
+        const card = document.createElement("div");
+
+        card.className = "cc-card";
+        card.id = "winconTabletCard";
+
+        card.innerHTML = `
+            <h3>📱 タブレットモード</h3>
+            <p>ウィンドウを画面いっぱいに表示し、タッチ操作をしやすくします。</p>
+            <button
+                type="button"
+                class="action"
+                id="winconTabletToggle"
+                aria-pressed="false"
+            >📱 タブレットモード：オフ</button>
+        `;
+
+        controlCenter.appendChild(card);
+
+        $("#winconTabletToggle", card).addEventListener(
+            "click",
+            () => setTabletMode(!tabletMode)
+        );
+    }
+
+
+    /* =====================================================
+       初期化
+    ===================================================== */
+
+    function initialize() {
+        loadPinnedApps();
+
+        ensurePinnedContainer();
+        renderPinnedApps();
+
+        bindMenuPinning();
+        bindRunningTasks();
+
+        installControlCenterToggle();
+    }
+
+    const observer = new MutationObserver(() => {
+        bindMenuPinning();
+        bindRunningTasks();
+        installControlCenterToggle();
+    });
+
+    function start() {
+        initialize();
+
+        const menu = $("#menu");
+        const taskIcons = $("#taskIcons");
+        const controlCenter = $("#controlCenter");
+
+        [menu, taskIcons, controlCenter].forEach(element => {
+            if (element) {
+                observer.observe(element, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+        });
+
+        resetIdleTimer();
+    }
+
+    // 既存の起動・ログイン処理には介入しない。
+    // ログイン画面の存在を確認しながら初期化する。
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", start, {
+            once: true
+        });
+    } else {
+        start();
+    }
+
+    // Wincon側の遅延初期化に備えて要素を再確認する。
+    let retries = 0;
+
+    const retry = setInterval(() => {
+        initialize();
+        retries++;
+
+        if (
+            ($("#taskbar") && $("#menu") && $("#controlCenter")) ||
+            retries >= 20
+        ) {
+            clearInterval(retry);
+        }
+    }, 500);
+
+    window.WinconExtension = {
+        pin: pinApp,
+        unpin: unpinApp,
+        renderPinnedApps,
+        showScreenSaver,
+        hideScreenSaver,
+        setTabletMode
+    };
+
 })();
 </script>
 </body>
