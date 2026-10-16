@@ -1412,6 +1412,20 @@ case "assistant":
 toggleWinconAssistant();
 break;
         
+case "wincon-intelligence":
+    if (
+        window.WinconIntelligence &&
+        typeof window.WinconIntelligence.open === "function"
+    ) {
+        window.WinconIntelligence.open();
+    } else {
+        console.error(
+            "[Wincon Intelligence] 起動関数が見つかりません。"
+        );
+        alert("Wincon Intelligenceを起動できません。");
+    }
+    break;
+		
 case "externalHTML":
 openExternalHTML(item);
 break;
@@ -2633,7 +2647,7 @@ width:900,
 height:650,
 content:`
 
-<h1>Wincon 10.1.2 Asteria</h1>
+<h1>Wincon 11.0 Elysia</h1>
 
 <div class="badge">
 SYSTEM PROCESS
@@ -2647,19 +2661,19 @@ SYSTEM PROCESS
 
 <b>Product Name</b>
 <br>
-Wincon 10.1.2 Asteria
+Wincon 11.0 Elysia
 
 <br><br>
 
 <b>Version</b>
 <br>
-Stable 10.1.2
+Stable 11.0
 
 <br><br>
 
 <b>Core Service Version</b>
 <br>
-10.1.2
+11.0
 
 <br><br>
 
@@ -9725,7 +9739,7 @@ function showWinconNotification(title, message, duration = 3500) {
 
 
 /* =========================================================
-   WINCON 10 ASTERIA
+   WINCON 11 Elysia
    既存BootScreenとの競合を防止
 ========================================================= */
 
@@ -9741,7 +9755,7 @@ function showWinconNotification(title, message, duration = 3500) {
 
 
 /* =========================================================
-   WINCON 10 ASTERIA
+   WINCON 11 Elysia
    OOBE / LOGIN / BOOT REDESIGN
    ---------------------------------------------------------
    TV Mode       : existing implementation
@@ -9750,7 +9764,7 @@ function showWinconNotification(title, message, duration = 3500) {
    Core          : do not replace
 ========================================================= */
 
-(function Wincon10AsteriaLayer(){
+(function Wincon10ElysiaLayer(){
 
 "use strict";
 
@@ -9759,8 +9773,8 @@ function showWinconNotification(title, message, duration = 3500) {
    VERSION
 ========================================================= */
 
-const WINCON10_VERSION = "10";
-const WINCON10_CODENAME = "Asteria";
+const WINCON10_VERSION = "11";
+const WINCON10_CODENAME = "Elysia";
 
 window.Wincon10 =
     window.Wincon10 || {};
@@ -9776,7 +9790,7 @@ window.Wincon10.codename =
    STORAGE
 ========================================================= */
 
-const ASTERIA_KEYS = {
+const Elysia_KEYS = {
 
     oobeCompleted:
         "wincon10_oobe_completed",
@@ -9793,7 +9807,7 @@ const ASTERIA_KEYS = {
 };
 
 
-const DEFAULT_ASTERIA_SETTINGS = {
+const DEFAULT_Elysia_SETTINGS = {
 
     language:
         "ja-JP",
@@ -9839,7 +9853,7 @@ function astRead(
     }catch(e){
 
         console.warn(
-            "[Asteria] storage read failed",
+            "[Elysia] storage read failed",
             key,
             e
         );
@@ -9870,7 +9884,7 @@ function astWrite(
     }catch(e){
 
         console.error(
-            "[Asteria] storage write failed",
+            "[Elysia] storage write failed",
             key,
             e
         );
@@ -9886,11 +9900,11 @@ function astWrite(
    SETTINGS
 ========================================================= */
 
-function getAsteriaSettings(){
+function getElysiaSettings(){
 
     const saved =
         astRead(
-            ASTERIA_KEYS.settings,
+            Elysia_KEYS.settings,
             null
         );
 
@@ -9901,21 +9915,21 @@ function getAsteriaSettings(){
     ){
 
         astWrite(
-            ASTERIA_KEYS.settings,
+            Elysia_KEYS.settings,
             {
-                ...DEFAULT_ASTERIA_SETTINGS
+                ...DEFAULT_Elysia_SETTINGS
             }
         );
 
         return {
-            ...DEFAULT_ASTERIA_SETTINGS
+            ...DEFAULT_Elysia_SETTINGS
         };
 
     }
 
     return {
 
-        ...DEFAULT_ASTERIA_SETTINGS,
+        ...DEFAULT_Elysia_SETTINGS,
 
         ...saved
 
@@ -9924,14 +9938,14 @@ function getAsteriaSettings(){
 }
 
 
-function saveAsteriaSettings(
+function saveElysiaSettings(
     settings
 ){
 
     astWrite(
-        ASTERIA_KEYS.settings,
+        Elysia_KEYS.settings,
         {
-            ...DEFAULT_ASTERIA_SETTINGS,
+            ...DEFAULT_Elysia_SETTINGS,
             ...(settings || {})
         }
     );
@@ -9943,33 +9957,33 @@ function saveAsteriaSettings(
    USER / SESSION
 ========================================================= */
 
-function getAsteriaUser(){
+function getElysiaUser(){
 
     return astRead(
-        ASTERIA_KEYS.user,
+        Elysia_KEYS.user,
         null
     );
 
 }
 
 
-function getAsteriaSession(){
+function getElysiaSession(){
 
     return astRead(
-        ASTERIA_KEYS.session,
+        Elysia_KEYS.session,
         null
     );
 
 }
 
 
-function isAsteriaLoggedIn(){
+function isElysiaLoggedIn(){
 
     const session =
-        getAsteriaSession();
+        getElysiaSession();
 
     const user =
-        getAsteriaUser();
+        getElysiaUser();
 
     return !!(
         session &&
@@ -9981,7 +9995,7 @@ function isAsteriaLoggedIn(){
 }
 
 
-function createAsteriaUser(
+function createElysiaUser(
     username,
     passwordHash
 ){
@@ -10012,7 +10026,7 @@ function createAsteriaUser(
     };
 
     astWrite(
-        ASTERIA_KEYS.user,
+        Elysia_KEYS.user,
         user
     );
 
@@ -10021,12 +10035,12 @@ function createAsteriaUser(
 }
 
 
-function updateAsteriaUser(
+function updateElysiaUser(
     patch
 ){
 
     const user =
-        getAsteriaUser();
+        getElysiaUser();
 
     if(!user){
         return null;
@@ -10041,7 +10055,7 @@ function updateAsteriaUser(
     };
 
     astWrite(
-        ASTERIA_KEYS.user,
+        Elysia_KEYS.user,
         updated
     );
 
@@ -10050,7 +10064,7 @@ function updateAsteriaUser(
 }
 
 
-function loginAsteria(
+function loginElysia(
     user
 ){
 
@@ -10059,7 +10073,7 @@ function loginAsteria(
     }
 
     astWrite(
-        ASTERIA_KEYS.session,
+        Elysia_KEYS.session,
         {
 
             userId:
@@ -10077,18 +10091,18 @@ function loginAsteria(
 }
 
 
-function logoutAsteria(){
+function logoutElysia(){
 
     try{
 
         localStorage.removeItem(
-            ASTERIA_KEYS.session
+            Elysia_KEYS.session
         );
 
     }catch(e){
 
         console.warn(
-            "[Asteria] logout failed",
+            "[Elysia] logout failed",
             e
         );
 
@@ -10290,7 +10304,7 @@ async function verifyPassword(
     }catch(e){
 
         console.error(
-            "[Asteria] password verification failed",
+            "[Elysia] password verification failed",
             e
         );
 
@@ -10305,7 +10319,7 @@ async function verifyPassword(
    HTML ESCAPE
 ========================================================= */
 
-function escapeAsteriaHTML(
+function escapeElysiaHTML(
     value
 ){
 
@@ -10340,11 +10354,11 @@ function escapeAsteriaHTML(
    CSS
 ========================================================= */
 
-function installAsteriaCSS(){
+function installElysiaCSS(){
 
     if(
         document.getElementById(
-            "wincon10AsteriaCSS"
+            "wincon10ElysiaCSS"
         )
     ){
 
@@ -10359,13 +10373,13 @@ function installAsteriaCSS(){
         );
 
     style.id =
-        "wincon10AsteriaCSS";
+        "wincon10ElysiaCSS";
 
 
     style.textContent = `
 
 /* =====================================================
-   ASTERIA BOOT
+   Elysia BOOT
 ===================================================== */
 
 #wincon10BootOverlay{
@@ -11147,7 +11161,7 @@ let oobeData = {
    OOBE ISOLATION
 ========================================================= */
 
-function enterAsteriaIsolation(){
+function enterElysiaIsolation(){
 
     document.body.classList.add(
         "wincon10-oobe-isolated"
@@ -11156,7 +11170,7 @@ function enterAsteriaIsolation(){
 }
 
 
-function leaveAsteriaIsolation(){
+function leaveElysiaIsolation(){
 
     document.body.classList.remove(
         "wincon10-oobe-isolated"
@@ -11169,16 +11183,16 @@ function leaveAsteriaIsolation(){
    OOBE WINDOW
 ========================================================= */
 
-function openAsteriaOOBE(
+function openElysiaOOBE(
     isolated = false
 ){
 
-    installAsteriaCSS();
+    installElysiaCSS();
 
 
     if(isolated){
 
-        enterAsteriaIsolation();
+        enterElysiaIsolation();
 
     }
 
@@ -11188,7 +11202,7 @@ function openAsteriaOOBE(
 
 
     const settings =
-        getAsteriaSettings();
+        getElysiaSettings();
 
 
     oobeData = {
@@ -11279,7 +11293,7 @@ function openAsteriaOOBE(
         createWindow({
 
             title:
-                "Wincon 10 Asteria",
+                "Wincon 11 Elysia",
 
             icon:
                 "🪟",
@@ -11332,7 +11346,7 @@ function openAsteriaOOBE(
 
 
     setTimeout(
-        setupAsteriaOOBEEvents,
+        setupElysiaOOBEEvents,
         50
     );
 
@@ -11346,7 +11360,7 @@ function openAsteriaOOBE(
    OOBE RENDER
 ========================================================= */
 
-function renderAsteriaOOBEStep(){
+function renderElysiaOOBEStep(){
 
     const main =
         document.getElementById(
@@ -11421,7 +11435,7 @@ function renderAsteriaOOBEStep(){
 <h1
     class="wincon10-oobe-title"
 >
-    Wincon 10 Asteriaへようこそ
+    Wincon 11 Elysiaへようこそ
 </h1>
 
 <p
@@ -11438,7 +11452,7 @@ function renderAsteriaOOBEStep(){
     <div
         class="wincon10-oobe-choice-title"
     >
-        🪟 Wincon 10 Asteria
+        🪟 Wincon 11 Elysia
     </div>
 
     <div
@@ -11691,7 +11705,7 @@ function renderAsteriaOOBEStep(){
     autocomplete="username"
     placeholder="ユーザー名"
     value="${
-        escapeAsteriaHTML(
+        escapeElysiaHTML(
             oobeData.username
         )
     }"
@@ -11807,7 +11821,7 @@ function renderAsteriaOOBEStep(){
 <p
     class="wincon10-oobe-description"
 >
-    Wincon 10 Asteriaの初期設定を保存するために、再起動します。再起動後、Winconをご利用いただけます。
+    Wincon 11 Elysiaの初期設定を保存するために、再起動します。再起動後、Winconをご利用いただけます。
 </p>
 
 <div
@@ -11855,7 +11869,7 @@ function renderAsteriaOOBEStep(){
         html;
 
 
-    setupAsteriaOOBEStepEvents();
+    setupElysiaOOBEStepEvents();
 
 }
 
@@ -11864,7 +11878,7 @@ function renderAsteriaOOBEStep(){
    OOBE STEP EVENTS
 ========================================================= */
 
-function setupAsteriaOOBEStepEvents(){
+function setupElysiaOOBEStepEvents(){
 
     const language =
         document.getElementById(
@@ -12109,7 +12123,7 @@ function setupAsteriaOOBEStepEvents(){
    OOBE VALIDATION
 ========================================================= */
 
-function validateAsteriaOOBEStep(){
+function validateElysiaOOBEStep(){
 
     if(
         oobeStep ===
@@ -12240,9 +12254,9 @@ function validateAsteriaOOBEStep(){
    OOBE EVENTS
 ========================================================= */
 
-function setupAsteriaOOBEEvents(){
+function setupElysiaOOBEEvents(){
 
-    renderAsteriaOOBEStep();
+    renderElysiaOOBEStep();
 
 
     const back =
@@ -12269,7 +12283,7 @@ function setupAsteriaOOBEEvents(){
 
                 oobeStep--;
 
-                renderAsteriaOOBEStep();
+                renderElysiaOOBEStep();
 
             };
 
@@ -12282,7 +12296,7 @@ function setupAsteriaOOBEEvents(){
             async () => {
 
                 if(
-                    !validateAsteriaOOBEStep()
+                    !validateElysiaOOBEStep()
                 ){
 
                     return;
@@ -12297,14 +12311,14 @@ function setupAsteriaOOBEEvents(){
 
                     oobeStep++;
 
-                    renderAsteriaOOBEStep();
+                    renderElysiaOOBEStep();
 
                     return;
 
                 }
 
 
-                await finishAsteriaOOBE();
+                await finishElysiaOOBE();
 
             };
 
@@ -12317,7 +12331,7 @@ function setupAsteriaOOBEEvents(){
    PASSKEY
 ========================================================= */
 
-async function tryCreateAsteriaPasskey(
+async function tryCreateElysiaPasskey(
     user
 ){
 
@@ -12358,7 +12372,7 @@ async function tryCreateAsteriaPasskey(
                     rp: {
 
                         name:
-                            "Wincon 10 Asteria"
+                            "Wincon 11 Elysia"
 
                     },
 
@@ -12426,7 +12440,7 @@ async function tryCreateAsteriaPasskey(
 
 
         const updated =
-            updateAsteriaUser({
+            updateElysiaUser({
 
                 passkey:
                     true,
@@ -12448,7 +12462,7 @@ async function tryCreateAsteriaPasskey(
     }catch(e){
 
         console.warn(
-            "[Asteria] Passkey setup unavailable or cancelled",
+            "[Elysia] Passkey setup unavailable or cancelled",
             e
         );
 
@@ -12463,10 +12477,10 @@ async function tryCreateAsteriaPasskey(
    OOBE FINISH
 ========================================================= */
 
-async function finishAsteriaOOBE(){
+async function finishElysiaOOBE(){
 
     if(
-        !validateAsteriaOOBEStep()
+        !validateElysiaOOBEStep()
     ){
 
         return;
@@ -12520,7 +12534,7 @@ async function finishAsteriaOOBE(){
             font-size:13px;
         "
     >
-        Wincon 10 Asteria
+        Wincon 11 Elysia
     </p>
 
 </div>
@@ -12621,13 +12635,13 @@ async function finishAsteriaOOBE(){
 
 
     let user =
-        getAsteriaUser();
+        getElysiaUser();
 
 
     if(!user){
 
         user =
-            createAsteriaUser(
+            createElysiaUser(
                 oobeData.username,
                 passwordHash
             );
@@ -12635,7 +12649,7 @@ async function finishAsteriaOOBE(){
     }else{
 
         user =
-            updateAsteriaUser({
+            updateElysiaUser({
 
                 name:
                     oobeData.username,
@@ -12653,7 +12667,7 @@ async function finishAsteriaOOBE(){
     ){
 
         user =
-            updateAsteriaUser({
+            updateElysiaUser({
 
                 icon:
                     oobeData.icon
@@ -12667,17 +12681,17 @@ async function finishAsteriaOOBE(){
         oobeData.passkey
     ){
 
-        await tryCreateAsteriaPasskey(
+        await tryCreateElysiaPasskey(
             user
         );
 
         user =
-            getAsteriaUser();
+            getElysiaUser();
 
     }
 
 
-    saveAsteriaSettings({
+    saveElysiaSettings({
 
         language:
             oobeData.language,
@@ -12692,17 +12706,17 @@ async function finishAsteriaOOBE(){
 
 
     astWrite(
-        ASTERIA_KEYS.oobeCompleted,
+        Elysia_KEYS.oobeCompleted,
         true
     );
 
 
-    loginAsteria(
+    loginElysia(
         user
     );
 
 
-    leaveAsteriaIsolation();
+    leaveElysiaIsolation();
 
 
     if(oobeWindow){
@@ -12715,7 +12729,7 @@ async function finishAsteriaOOBE(){
     }
 
 
-    startAsteriaDesktop();
+    startElysiaDesktop();
 
 }
 
@@ -12724,9 +12738,9 @@ async function finishAsteriaOOBE(){
    LOGIN
 ========================================================= */
 
-function showAsteriaLogin(){
+function showElysiaLogin(){
 
-    installAsteriaCSS();
+    installElysiaCSS();
 
 
     const old =
@@ -12742,12 +12756,12 @@ function showAsteriaLogin(){
 
 
     const user =
-        getAsteriaUser();
+        getElysiaUser();
 
 
     if(!user){
 
-        startAsteriaDesktop();
+        startElysiaDesktop();
 
         return;
 
@@ -12791,7 +12805,7 @@ function showAsteriaLogin(){
     <div
         class="wincon10-login-name"
     >
-        ${escapeAsteriaHTML(
+        ${escapeElysiaHTML(
             user.name
         )}
     </div>
@@ -12880,12 +12894,12 @@ function showAsteriaLogin(){
         }
 
 
-        loginAsteria(
+        loginElysia(
             user
         );
 
 
-        continueAsteriaAfterLogin();
+        continueElysiaAfterLogin();
 
     }
 
@@ -12939,7 +12953,7 @@ function showAsteriaLogin(){
    DESKTOP
 ========================================================= */
 
-function continueAsteriaAfterLogin(){
+function continueElysiaAfterLogin(){
 
     const overlay =
         document.getElementById(
@@ -12953,15 +12967,15 @@ function continueAsteriaAfterLogin(){
     }
 
 
-    startAsteriaDesktop();
+    startElysiaDesktop();
 
 }
 
 
-function startAsteriaDesktop(){
+function startElysiaDesktop(){
 
     const settings =
-        getAsteriaSettings();
+        getElysiaSettings();
 
 
     if(
@@ -13003,7 +13017,7 @@ function startAsteriaDesktop(){
    OOBE MODULE REGISTRATION
 ========================================================= */
 
-function registerAsteriaOOBEModule(){
+function registerElysiaOOBEModule(){
 
     if(
         typeof menuItems ===
@@ -13067,7 +13081,7 @@ function registerAsteriaOOBEModule(){
    OPENAPP HOOK
 ========================================================= */
 
-function installAsteriaCommandHook(){
+function installElysiaCommandHook(){
 
     if(
         window.__WINCON10_OOBE_COMMAND_HOOK__
@@ -13138,7 +13152,7 @@ function installAsteriaCommandHook(){
                     "OOBE"
                 ){
 
-                    openAsteriaOOBE(
+                    openElysiaOOBE(
                         false
                     );
 
@@ -13179,7 +13193,7 @@ function installAsteriaCommandHook(){
    PROCESS SCREEN
 ========================================================= */
 
-function createAsteriaProcessScreen(
+function createElysiaProcessScreen(
     options = {}
 ){
 
@@ -13214,7 +13228,7 @@ function createAsteriaProcessScreen(
 
     const oldProcess =
         document.getElementById(
-            "wincon10AsteriaProcess"
+            "wincon10ElysiaProcess"
         );
 
 
@@ -13245,18 +13259,18 @@ function createAsteriaProcessScreen(
 
 
     screen.id =
-        "wincon10AsteriaProcess";
+        "wincon10ElysiaProcess";
 
 
     screen.innerHTML = `
 
 <div
-    class="wincon10-asteria-process-inner"
+    class="wincon10-Elysia-process-inner"
 >
 
     <img
         src="wincon.png"
-        class="wincon10-asteria-logo"
+        class="wincon10-Elysia-logo"
         draggable="false"
         onerror="
             this.style.display='none';
@@ -13264,19 +13278,19 @@ function createAsteriaProcessScreen(
     >
 
     <div
-        class="wincon10-asteria-brand"
+        class="wincon10-Elysia-brand"
     >
         Wincon
     </div>
 
     <div
-        class="wincon10-asteria-version"
+        class="wincon10-Elysia-version"
     >
-        10 ASTERIA
+        11 Elysia
     </div>
 
     <div
-        class="wincon10-asteria-progress"
+        class="wincon10-Elysia-progress"
         role="progressbar"
         aria-valuemin="0"
         aria-valuemax="100"
@@ -13284,17 +13298,17 @@ function createAsteriaProcessScreen(
     >
 
         <div
-            class="wincon10-asteria-progress-bar"
-            id="wincon10AsteriaProgressBar"
+            class="wincon10-Elysia-progress-bar"
+            id="wincon10ElysiaProgressBar"
         ></div>
 
     </div>
 
     <div
-        class="wincon10-asteria-status"
-        id="wincon10AsteriaStatus"
+        class="wincon10-Elysia-status"
+        id="wincon10ElysiaStatus"
     >
-        ${escapeAsteriaHTML(
+        ${escapeElysiaHTML(
             statusText
         )}
     </div>
@@ -13304,9 +13318,9 @@ function createAsteriaProcessScreen(
         ?
         `
         <div
-            class="wincon10-asteria-substatus"
+            class="wincon10-Elysia-substatus"
         >
-            ${escapeAsteriaHTML(
+            ${escapeElysiaHTML(
                 substatusText
             )}
         </div>
@@ -13327,13 +13341,13 @@ function createAsteriaProcessScreen(
 
     const bar =
         document.getElementById(
-            "wincon10AsteriaProgressBar"
+            "wincon10ElysiaProgressBar"
         );
 
 
     const progressRoot =
         screen.querySelector(
-            ".wincon10-asteria-progress"
+            ".wincon10-Elysia-progress"
         );
 
 
@@ -13548,11 +13562,11 @@ function createAsteriaProcessScreen(
    PROCESS SCREEN CSS
 ========================================================= */
 
-function installAsteriaProcessCSS(){
+function installElysiaProcessCSS(){
 
     if(
         document.getElementById(
-            "wincon10AsteriaProcessCSS"
+            "wincon10ElysiaProcessCSS"
         )
     ){
 
@@ -13568,12 +13582,12 @@ function installAsteriaProcessCSS(){
 
 
     style.id =
-        "wincon10AsteriaProcessCSS";
+        "wincon10ElysiaProcessCSS";
 
 
     style.textContent = `
 
-#wincon10AsteriaProcess{
+#wincon10ElysiaProcess{
 
     position:fixed;
 
@@ -13607,7 +13621,7 @@ function installAsteriaProcessCSS(){
 }
 
 
-.wincon10-asteria-process-inner{
+.wincon10-Elysia-process-inner{
 
     width:420px;
 
@@ -13624,7 +13638,7 @@ function installAsteriaProcessCSS(){
 }
 
 
-.wincon10-asteria-logo{
+.wincon10-Elysia-logo{
 
     width:110px;
 
@@ -13643,7 +13657,7 @@ function installAsteriaProcessCSS(){
 }
 
 
-.wincon10-asteria-brand{
+.wincon10-Elysia-brand{
 
     font-size:30px;
 
@@ -13654,7 +13668,7 @@ function installAsteriaProcessCSS(){
 }
 
 
-.wincon10-asteria-version{
+.wincon10-Elysia-version{
 
     margin-top:4px;
 
@@ -13667,7 +13681,7 @@ function installAsteriaProcessCSS(){
 }
 
 
-.wincon10-asteria-progress{
+.wincon10-Elysia-progress{
 
     width:260px;
 
@@ -13689,7 +13703,7 @@ function installAsteriaProcessCSS(){
 }
 
 
-.wincon10-asteria-progress-bar{
+.wincon10-Elysia-progress-bar{
 
     width:0%;
 
@@ -13708,7 +13722,7 @@ function installAsteriaProcessCSS(){
 }
 
 
-.wincon10-asteria-status{
+.wincon10-Elysia-status{
 
     margin-top:18px;
 
@@ -13719,7 +13733,7 @@ function installAsteriaProcessCSS(){
 }
 
 
-.wincon10-asteria-substatus{
+.wincon10-Elysia-substatus{
 
     margin-top:7px;
 
@@ -13751,7 +13765,7 @@ body.wincon10-oobe-isolated
    CORE BOOT GUARD
 ========================================================= */
 
-function installAsteriaCoreBootGuard(){
+function installElysiaCoreBootGuard(){
 
     if(
         window.__WINCON10_CORE_BOOT_GUARD__
@@ -13816,7 +13830,7 @@ function installAsteriaCoreBootGuard(){
 
 function runWinconCoreBootOnce(){
 
-    installAsteriaCoreBootGuard();
+    installElysiaCoreBootGuard();
 
 
     const legacyBoot =
@@ -13857,7 +13871,7 @@ function runWinconCoreBootOnce(){
    FIRST BOOT OOBE BRIDGE
 ========================================================= */
 
-function launchAsteriaFirstBootOOBE(){
+function launchElysiaFirstBootOOBE(){
 
     if(
         window.__WINCON10_OOBE_REBUILT_RUNNING__
@@ -13872,7 +13886,7 @@ function launchAsteriaFirstBootOOBE(){
         true;
 
 
-    openAsteriaOOBE(
+    openElysiaOOBE(
         true
     );
 
@@ -13886,7 +13900,7 @@ function launchAsteriaFirstBootOOBE(){
 window.Wincon10.openOOBE =
     function(){
 
-        openAsteriaOOBE(
+        openElysiaOOBE(
             false
         );
 
@@ -13897,7 +13911,7 @@ window.Wincon10.openOOBE =
    BOOT FLOW
 ========================================================= */
 
-function startAsteriaBootFlow(){
+function startElysiaBootFlow(){
 
     if(
         window.__WINCON10_BOOT_RUNNING__
@@ -13912,24 +13926,24 @@ function startAsteriaBootFlow(){
         true;
 
 
-    installAsteriaCSS();
-    installAsteriaProcessCSS();
+    installElysiaCSS();
+    installElysiaProcessCSS();
 
     runWinconCoreBootOnce();
 
-    registerAsteriaOOBEModule();
-    installAsteriaCommandHook();
+    registerElysiaOOBEModule();
+    installElysiaCommandHook();
 
 
     const completed =
         astRead(
-            ASTERIA_KEYS.oobeCompleted,
+            Elysia_KEYS.oobeCompleted,
             false
         );
 
 
     const user =
-        getAsteriaUser();
+        getElysiaUser();
 
 
     if(
@@ -13937,10 +13951,10 @@ function startAsteriaBootFlow(){
         !user
     ){
 
-        createAsteriaProcessScreen({
+        createElysiaProcessScreen({
 
             status:
-                "Wincon 10 Asteria を準備しています...",
+                "Wincon 11 Elysia を準備しています...",
 
             substatus:
                 "初回セットアップ",
@@ -13952,7 +13966,7 @@ function startAsteriaBootFlow(){
 
                 const screen =
                     document.getElementById(
-                        "wincon10AsteriaProcess"
+                        "wincon10ElysiaProcess"
                     );
 
                 if(screen){
@@ -13962,7 +13976,7 @@ function startAsteriaBootFlow(){
                 }
 
 
-                launchAsteriaFirstBootOOBE();
+                launchElysiaFirstBootOOBE();
 
             }
 
@@ -13973,13 +13987,13 @@ function startAsteriaBootFlow(){
     }
 
 
-    createAsteriaProcessScreen({
+    createElysiaProcessScreen({
 
         status:
             "Winconを起動しています...",
 
         substatus:
-            "Wincon 10 Asteria",
+            "Wincon 11 Elysia",
 
         duration:
             10000,
@@ -13988,7 +14002,7 @@ function startAsteriaBootFlow(){
 
             const screen =
                 document.getElementById(
-                    "wincon10AsteriaProcess"
+                    "wincon10ElysiaProcess"
                 );
 
             if(screen){
@@ -13998,7 +14012,7 @@ function startAsteriaBootFlow(){
             }
 
 
-            showAsteriaLogin();
+            showElysiaLogin();
 
         }
 
@@ -14011,7 +14025,7 @@ function startAsteriaBootFlow(){
    SHUTDOWN
 ========================================================= */
 
-window.Wincon10AsteriaShutdown =
+window.Wincon10ElysiaShutdown =
     function(){
 
         if(
@@ -14041,20 +14055,20 @@ window.Wincon10AsteriaShutdown =
         }catch(e){
 
             console.warn(
-                "[Asteria] saveEnterpriseApps failed during shutdown",
+                "[Elysia] saveEnterpriseApps failed during shutdown",
                 e
             );
 
         }
 
 
-        createAsteriaProcessScreen({
+        createElysiaProcessScreen({
 
             status:
                 "シャットダウンしています...",
 
             substatus:
-                "Wincon 10 Asteria",
+                "Wincon 11 Elysia",
 
             duration:
                 5000,
@@ -14072,7 +14086,7 @@ window.Wincon10AsteriaShutdown =
                 }catch(e){
 
                     console.log(
-                        "[Asteria] shutdown complete"
+                        "[Elysia] shutdown complete"
                     );
 
                 }
@@ -14088,7 +14102,7 @@ window.Wincon10AsteriaShutdown =
    RESTART
 ========================================================= */
 
-window.Wincon10AsteriaRestart =
+window.Wincon10ElysiaRestart =
     function(){
 
         if(
@@ -14118,20 +14132,20 @@ window.Wincon10AsteriaRestart =
         }catch(e){
 
             console.warn(
-                "[Asteria] saveEnterpriseApps failed during restart",
+                "[Elysia] saveEnterpriseApps failed during restart",
                 e
             );
 
         }
 
 
-        createAsteriaProcessScreen({
+        createElysiaProcessScreen({
 
             status:
                 "再起動しています...",
 
             substatus:
-                "Wincon 10 Asteria",
+                "Wincon 11 Elysia",
 
             duration:
                 5000,
@@ -14155,7 +14169,7 @@ window.Wincon10AsteriaRestart =
    RECOVERY
 ========================================================= */
 
-window.Wincon10AsteriaRecovery =
+window.Wincon10ElysiaRecovery =
     function(){
 
         if(
@@ -14171,13 +14185,13 @@ window.Wincon10AsteriaRecovery =
             true;
 
 
-        createAsteriaProcessScreen({
+        createElysiaProcessScreen({
 
             status:
                 "Recoveryを起動しています...",
 
             substatus:
-                "Wincon 10 Asteria",
+                "Wincon 11 Elysia",
 
             duration:
                 6000,
@@ -14186,7 +14200,7 @@ window.Wincon10AsteriaRecovery =
 
                 const screen =
                     document.getElementById(
-                        "wincon10AsteriaProcess"
+                        "wincon10ElysiaProcess"
                     );
 
                 if(screen){
@@ -14233,7 +14247,7 @@ window.Wincon10AsteriaRecovery =
    FACTORY RESET
 ========================================================= */
 
-window.Wincon10AsteriaFactoryReset =
+window.Wincon10ElysiaFactoryReset =
     function(){
 
         if(
@@ -14262,13 +14276,13 @@ window.Wincon10AsteriaFactoryReset =
             true;
 
 
-        createAsteriaProcessScreen({
+        createElysiaProcessScreen({
 
             status:
                 "初期化しています...",
 
             substatus:
-                "Wincon 10 Asteria",
+                "Wincon 11 Elysia",
 
             duration:
                 5000,
@@ -14306,7 +14320,7 @@ window.Wincon10AsteriaFactoryReset =
 window.Wincon10.logout =
     function(){
 
-        logoutAsteria();
+        logoutElysia();
 
 
         const windows =
@@ -14332,13 +14346,13 @@ window.Wincon10.logout =
         );
 
 
-        createAsteriaProcessScreen({
+        createElysiaProcessScreen({
 
             status:
                 "ログアウトしています...",
 
             substatus:
-                "Wincon 10 Asteria",
+                "Wincon 11 Elysia",
 
             duration:
                 5000,
@@ -14347,7 +14361,7 @@ window.Wincon10.logout =
 
                 const screen =
                     document.getElementById(
-                        "wincon10AsteriaProcess"
+                        "wincon10ElysiaProcess"
                     );
 
                 if(screen){
@@ -14357,7 +14371,7 @@ window.Wincon10.logout =
                 }
 
 
-                showAsteriaLogin();
+                showElysiaLogin();
 
             }
 
@@ -14370,7 +14384,7 @@ window.Wincon10.logout =
    LEGACY POWER COMMAND BRIDGE
 ========================================================= */
 
-function installAsteriaPowerCommandBridge(){
+function installElysiaPowerCommandBridge(){
 
     if(
         window.__WINCON10_POWER_COMMAND_BRIDGE__
@@ -14436,7 +14450,7 @@ function installAsteriaPowerCommandBridge(){
     window.shutdownSystem =
         function(){
 
-            return window.Wincon10AsteriaShutdown();
+            return window.Wincon10ElysiaShutdown();
 
         };
 
@@ -14444,7 +14458,7 @@ function installAsteriaPowerCommandBridge(){
     window.restartSystem =
         function(){
 
-            return window.Wincon10AsteriaRestart();
+            return window.Wincon10ElysiaRestart();
 
         };
 
@@ -14472,7 +14486,7 @@ function installAsteriaPowerCommandBridge(){
             }
 
 
-            return window.Wincon10AsteriaRecovery();
+            return window.Wincon10ElysiaRecovery();
 
         };
 
@@ -14480,7 +14494,7 @@ function installAsteriaPowerCommandBridge(){
     window.resetSystem =
         function(){
 
-            return window.Wincon10AsteriaFactoryReset();
+            return window.Wincon10ElysiaFactoryReset();
 
         };
 
@@ -14491,7 +14505,7 @@ function installAsteriaPowerCommandBridge(){
 }
 
 
-installAsteriaPowerCommandBridge();
+installElysiaPowerCommandBridge();
 
 
 /* =========================================================
@@ -14499,7 +14513,7 @@ installAsteriaPowerCommandBridge();
 ========================================================= */
 
 if(
-    !window.__WINCON10_ASTERIA_BOOT_OBSERVER__
+    !window.__WINCON10_Elysia_BOOT_OBSERVER__
 ){
 
     const observer =
@@ -14508,7 +14522,7 @@ if(
 
                 const process =
                     document.getElementById(
-                        "wincon10AsteriaProcess"
+                        "wincon10ElysiaProcess"
                     );
 
 
@@ -14586,7 +14600,7 @@ if(
     );
 
 
-    window.__WINCON10_ASTERIA_BOOT_OBSERVER__ =
+    window.__WINCON10_Elysia_BOOT_OBSERVER__ =
         observer;
 
 }
@@ -14596,11 +14610,11 @@ if(
    INITIALIZE
 ========================================================= */
 
-installAsteriaCSS();
-installAsteriaProcessCSS();
+installElysiaCSS();
+installElysiaProcessCSS();
 
 
-function initializeAsteriaBoot(){
+function initializeElysiaBoot(){
 
     if(
         window.__WINCON10_BOOT_INIT_SCHEDULED__
@@ -14615,7 +14629,7 @@ function initializeAsteriaBoot(){
         true;
 
 
-    startAsteriaBootFlow();
+    startElysiaBootFlow();
 
 }
 
@@ -14627,7 +14641,7 @@ if(
 
     document.addEventListener(
         "DOMContentLoaded",
-        initializeAsteriaBoot,
+        initializeElysiaBoot,
         {
             once:
                 true
@@ -14636,25 +14650,25 @@ if(
 
 }else{
 
-    initializeAsteriaBoot();
+    initializeElysiaBoot();
 
 }
 
 
 console.log(
-    "[Wincon 10 Asteria] Unified Boot/OOBE/Power layer loaded"
+    "[Wincon 11 Elysia] Unified Boot/OOBE/Power layer loaded"
 );
 
 
 /* =========================================================
-   END ASTERIA INTEGRATION
+   END Elysia INTEGRATION
 ========================================================= */
 
 })();
 
 
 /* =========================================================
-   Wincon 10 Asteria
+   Wincon 11 Elysia
    Accessibility & Appearance Module
    FIXED VERSION
    ========================================================= */
@@ -16372,134 +16386,7 @@ console.log(
        ログイン画面が表示されている間は絶対に出さない
     ===================================================== */
 
-    function ensureScreenSaver() {
-        if (screenSaver) return screenSaver;
-
-        screenSaver = document.createElement("div");
-        screenSaver.id = "winconScreenSaver";
-
-        screenSaver.innerHTML = `
-            <div id="winconScreenSaverContent">
-                <div id="winconScreenSaverTime">00:00</div>
-                <div id="winconScreenSaverDate"></div>
-                <div id="winconScreenSaverHint">
-                    クリック・キー入力・上スワイプで復帰
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(screenSaver);
-
-        screenSaver.addEventListener("click", hideScreenSaver);
-
-        screenSaver.addEventListener("touchstart", event => {
-            screenSaver.dataset.touchY =
-                String(event.touches[0]?.clientY ?? 0);
-        }, { passive: true });
-
-        screenSaver.addEventListener("touchend", event => {
-            const startY = Number(screenSaver.dataset.touchY || 0);
-            const endY = event.changedTouches[0]?.clientY ?? startY;
-
-            if (startY - endY > 35) {
-                hideScreenSaver();
-            }
-        }, { passive: true });
-
-        // 背景画像は外部画像サービスを使用する。
-        screenSaver.style.backgroundImage =
-            'url("https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=2400&q=85")';
-
-        updateScreenSaverClock();
-
-        setInterval(updateScreenSaverClock, 1000);
-
-        return screenSaver;
-    }
-
-    function updateScreenSaverClock() {
-        if (!screenSaver) return;
-
-        const now = new Date();
-
-        const time = $("#winconScreenSaverTime", screenSaver);
-        const date = $("#winconScreenSaverDate", screenSaver);
-
-        if (time) {
-            time.textContent = now.toLocaleTimeString("ja-JP", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false
-            });
-        }
-
-        if (date) {
-            date.textContent = now.toLocaleDateString("ja-JP", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                weekday: "long"
-            });
-        }
-    }
-
-    function loginScreenVisible() {
-        const overlay = $("#wincon10LoginOverlay");
-
-        return !!(
-            overlay &&
-            getComputedStyle(overlay).display !== "none" &&
-            overlay.isConnected
-        );
-    }
-
-    function showScreenSaver() {
-        if (saverVisible || loginScreenVisible()) return;
-
-        const saver = ensureScreenSaver();
-
-        saver.style.display = "flex";
-        saverVisible = true;
-    }
-
-    function hideScreenSaver() {
-        if (!saverVisible) return;
-
-        if (screenSaver) {
-            screenSaver.style.display = "none";
-        }
-
-        saverVisible = false;
-        resetIdleTimer();
-    }
-
-    function resetIdleTimer() {
-        clearTimeout(idleTimer);
-
-        if (saverVisible || loginScreenVisible()) return;
-
-        idleTimer = setTimeout(() => {
-            if (!loginScreenVisible()) {
-                showScreenSaver();
-            }
-        }, IDLE_TIME);
-    }
-
-    [
-        "pointerdown",
-        "pointermove",
-        "keydown",
-        "wheel",
-        "touchstart"
-    ].forEach(type => {
-        document.addEventListener(type, () => {
-            if (saverVisible) {
-                hideScreenSaver();
-            } else {
-                resetIdleTimer();
-            }
-        }, { passive: true });
-    });
+    
 
 
     /* =====================================================
@@ -16636,6 +16523,2738 @@ console.log(
         setTabletMode
     };
 
+})();
+
+</script>
+
+<script>
+/* =====================================================
+   Wincon お引越し — DAT版 統合スクリプト
+   メニュー登録 / 書き出し / 読み込み / 復元
+   ===================================================== */
+(() => {
+    "use strict";
+
+    const APP_NAME = "Wincon お引越し";
+    const APP_ICON = "📦";
+    const APP_TYPE = "transfer";
+    const DAT_FORMAT = "WinconDataTransfer";
+    const DAT_VERSION = 1;
+
+    // 二重初期化を防止
+    if (window.__WINCON_DAT_APP_V2__) return;
+    window.__WINCON_DAT_APP_V2__ = true;
+
+    /* =================================================
+       LocalStorageをDAT形式に変換
+       ================================================= */
+
+    function collectStorage() {
+        const storage = [];
+
+        for (let i = 0; i < localStorage.length; i++) {
+            const id = localStorage.key(i);
+
+            if (id === null) continue;
+
+            storage.push({
+                id: id,
+                value: localStorage.getItem(id)
+            });
+        }
+
+        return storage;
+    }
+
+    function createDAT(storage) {
+        return {
+            format: DAT_FORMAT,
+            version: DAT_VERSION,
+            createdAt: new Date().toISOString(),
+            storage: storage
+        };
+    }
+
+    function downloadDAT(data, filename) {
+        const blob = new Blob(
+            [JSON.stringify(data, null, 2)],
+            { type: "application/json;charset=utf-8" }
+        );
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = filename;
+        link.style.display = "none";
+
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 10000);
+    }
+
+    /* =================================================
+       DATファイルの検証
+       ================================================= */
+
+    function validateDAT(data) {
+        if (!data || typeof data !== "object") {
+            throw new Error("ファイルの内容が正しくありません。");
+        }
+
+        if (data.format !== DAT_FORMAT) {
+            throw new Error(
+                "Winconのお引越しDATファイルではありません。"
+            );
+        }
+
+        if (data.version !== DAT_VERSION) {
+            throw new Error(
+                "対応していないDATバージョンです。"
+            );
+        }
+
+        if (!Array.isArray(data.storage)) {
+            throw new Error(
+                "DATファイルにstorage配列がありません。"
+            );
+        }
+
+        for (const entry of data.storage) {
+            if (
+                !entry ||
+                typeof entry.id !== "string" ||
+                typeof entry.value !== "string"
+            ) {
+                throw new Error(
+                    "DATファイルに不正なデータがあります。"
+                );
+            }
+        }
+
+        return data;
+    }
+
+    /* =================================================
+       アプリ画面
+       ================================================= */
+
+    function openApp() {
+        if (typeof window.createWindow !== "function") {
+            alert("Winconのウィンドウ機能を確認できません。");
+            return;
+        }
+
+        // createWindowにはDOM要素ではなくHTML文字列を渡す
+        const html = `
+            <div class="wincon-dat-app"
+                 style="
+                    box-sizing:border-box;
+                    width:100%;
+                    height:100%;
+                    overflow:auto;
+                    padding:20px;
+                    font-family:'Segoe UI',sans-serif;
+                 ">
+
+                <h2 style="margin-top:0;">
+                    📦 Wincon お引越し
+                </h2>
+
+                <p>
+                    WinconのLocalStorageをDATファイルに保存し、
+                    別のWincon環境に移行できます。
+                </p>
+
+                <section style="
+                    padding:16px;
+                    margin:16px 0;
+                    border:1px solid var(--border-color,#ccc);
+                    border-radius:10px;
+                ">
+                    <h3>① データの書き出し</h3>
+
+                    <p>
+                        現在のWinconに保存されている
+                        LocalStorageのデータを書き出します。
+                    </p>
+
+                    <button type="button"
+                            data-action="export"
+                            style="
+                                width:100%;
+                                padding:12px;
+                                border:0;
+                                border-radius:7px;
+                                cursor:pointer;
+                                background:#0078d4;
+                                color:white;
+                            ">
+                        DATファイルに書き出す
+                    </button>
+                </section>
+
+                <section style="
+                    padding:16px;
+                    margin:16px 0;
+                    border:1px solid var(--border-color,#ccc);
+                    border-radius:10px;
+                ">
+                    <h3>② DATファイルの読み込み</h3>
+
+                    <p>
+                        読み込んだファイルのIDを確認し、
+                        復元対象を表示します。
+                    </p>
+
+                    <input type="file"
+                           data-role="file"
+                           accept=".dat,.json,application/json"
+                           style="width:100%;margin:8px 0 12px;">
+
+                    <div data-role="preview"
+                         style="
+                            display:none;
+                            padding:12px;
+                            margin:8px 0 12px;
+                            border-radius:7px;
+                            background:var(--panel-color,#f3f3f3);
+                            overflow-wrap:anywhere;
+                            white-space:pre-wrap;
+                         "></div>
+
+                    <button type="button"
+                            data-action="restore"
+                            disabled
+                            style="
+                                width:100%;
+                                padding:12px;
+                                border:0;
+                                border-radius:7px;
+                                cursor:not-allowed;
+                                background:#107c10;
+                                color:white;
+                                opacity:.5;
+                            ">
+                        データを復元する
+                    </button>
+                </section>
+
+                <div data-role="status"
+                     role="status"
+                     aria-live="polite"
+                     style="
+                        padding:10px 0;
+                        white-space:pre-wrap;
+                        overflow-wrap:anywhere;
+                     ">
+                    準備完了
+                </div>
+
+                <p style="font-size:12px;opacity:.75;">
+                    注意：復元すると、DATファイル内のIDと
+                    同じIDを持つデータは上書きされます。
+                    復元前に現在のデータをバックアップします。
+                </p>
+            </div>
+        `;
+
+        // safe:false にして閉じるボタンを表示する
+        const win = window.createWindow({
+            title: APP_NAME,
+            icon: APP_ICON,
+            content: html,
+            width: 760,
+            height: 680,
+            safe: false,
+            popup: false
+        });
+
+        if (!win || typeof win.querySelector !== "function") {
+            alert("お引越しウィンドウを作成できませんでした。");
+            return;
+        }
+
+        const fileInput = win.querySelector('[data-role="file"]');
+        const preview = win.querySelector('[data-role="preview"]');
+        const status = win.querySelector('[data-role="status"]');
+        const exportButton = win.querySelector('[data-action="export"]');
+        const restoreButton = win.querySelector('[data-action="restore"]');
+
+        let importedData = null;
+
+        function setStatus(message, isError = false) {
+            status.textContent = message;
+            status.style.color = isError ? "#c42b1c" : "inherit";
+        }
+
+        /* ---------------------------------------------
+           書き出し
+           --------------------------------------------- */
+
+        exportButton.addEventListener("click", () => {
+            try {
+                const storage = collectStorage();
+                const data = createDAT(storage);
+
+                downloadDAT(data, "WinconBackup.dat");
+
+                setStatus(
+                    "書き出しを開始しました。\n" +
+                    "保存対象：" + storage.length + "件\n" +
+                    "ファイル名：WinconBackup.dat"
+                );
+            } catch (error) {
+                console.error(error);
+                setStatus(
+                    "書き出しに失敗しました。\n" + error.message,
+                    true
+                );
+            }
+        });
+
+        /* ---------------------------------------------
+           DATファイル読み込み・プレビュー
+           --------------------------------------------- */
+
+        fileInput.addEventListener("change", async () => {
+            importedData = null;
+            restoreButton.disabled = true;
+            restoreButton.style.opacity = ".5";
+            restoreButton.style.cursor = "not-allowed";
+            preview.style.display = "none";
+            preview.textContent = "";
+
+            const file = fileInput.files && fileInput.files[0];
+
+            if (!file) {
+                setStatus("ファイルが選択されていません。");
+                return;
+            }
+
+            try {
+                const text = await file.text();
+                const data = validateDAT(JSON.parse(text));
+
+                importedData = data;
+
+                const currentKeys = new Set();
+
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key !== null) currentKeys.add(key);
+                }
+
+                let overwriteCount = 0;
+                let newCount = 0;
+
+                for (const entry of data.storage) {
+                    if (currentKeys.has(entry.id)) {
+                        overwriteCount++;
+                    } else {
+                        newCount++;
+                    }
+                }
+
+                preview.textContent =
+                    "ファイル名：" + file.name + "\n" +
+                    "作成日時：" + (data.createdAt || "記録なし") + "\n" +
+                    "データ件数：" + data.storage.length + "件\n" +
+                    "上書き対象：" + overwriteCount + "件\n" +
+                    "新規追加：" + newCount + "件";
+
+                preview.style.display = "block";
+
+                restoreButton.disabled = false;
+                restoreButton.style.opacity = "1";
+                restoreButton.style.cursor = "pointer";
+
+                setStatus("ファイルを確認しました。復元できます。");
+
+            } catch (error) {
+                console.error(error);
+                setStatus(
+                    "読み込みに失敗しました。\n" + error.message,
+                    true
+                );
+            }
+        });
+
+        /* ---------------------------------------------
+           復元
+           --------------------------------------------- */
+
+        restoreButton.addEventListener("click", () => {
+            if (!importedData) {
+                setStatus("先にDATファイルを読み込んでください。", true);
+                return;
+            }
+
+            const confirmed = confirm(
+                "DATファイルのデータを復元しますか？\n\n" +
+                "同じIDのデータは上書きされます。\n" +
+                "復元前のデータはDATファイルにバックアップします。"
+            );
+
+            if (!confirmed) return;
+
+            let oldStorage;
+
+            try {
+                // 復元前の状態を保存
+                oldStorage = collectStorage();
+
+                downloadDAT(
+                    createDAT(oldStorage),
+                    "WinconBeforeRestore.dat"
+                );
+
+                // 復元前にLocalStorageの状態を記録
+                const originalKeys = new Set(
+                    oldStorage.map(entry => entry.id)
+                );
+
+                try {
+                    for (const entry of importedData.storage) {
+                        localStorage.setItem(entry.id, entry.value);
+                    }
+                } catch (restoreError) {
+                    // 復元中にエラーが出た場合は元の状態に戻す
+                    try {
+                        const keysNow = [];
+
+                        for (let i = 0; i < localStorage.length; i++) {
+                            const key = localStorage.key(i);
+                            if (key !== null) keysNow.push(key);
+                        }
+
+                        for (const key of keysNow) {
+                            if (!originalKeys.has(key)) {
+                                localStorage.removeItem(key);
+                            }
+                        }
+
+                        for (const entry of oldStorage) {
+                            localStorage.setItem(entry.id, entry.value);
+                        }
+                    } catch (rollbackError) {
+                        console.error(
+                            "復元の取り消しにも失敗しました。",
+                            rollbackError
+                        );
+                    }
+
+                    throw restoreError;
+                }
+
+                setStatus(
+                    "復元が完了しました。\n" +
+                    "復元件数：" + importedData.storage.length + "件\n" +
+                    "バックアップ：WinconBeforeRestore.dat\n\n" +
+                    "変更を反映するにはWinconを再読み込みしてください。"
+                );
+
+                if (confirm(
+                    "復元が完了しました。\nWinconを再読み込みしますか？"
+                )) {
+                    location.reload();
+                }
+
+            } catch (error) {
+                console.error(error);
+
+                setStatus(
+                    "復元に失敗しました。\n" + error.message,
+                    true
+                );
+            }
+        });
+    }
+
+    /* =================================================
+       メニュー登録
+       ================================================= */
+
+    function registerMenu() {
+        if (
+            typeof menuItems === "undefined" ||
+            typeof renderMenu !== "function"
+        ) {
+            return false;
+        }
+
+        // 既存の「お引越し」項目があれば再利用
+        let item = menuItems.find(entry =>
+            entry.type === "transfer" ||
+            entry.title === "お引越し" ||
+            entry.title === APP_NAME
+        );
+
+        if (item) {
+            item.title = APP_NAME;
+            item.icon = APP_ICON;
+            item.type = APP_TYPE;
+            item.hidden = false;
+            item.system = true;
+        } else {
+            item = {
+                title: APP_NAME,
+                icon: APP_ICON,
+                type: APP_TYPE,
+                system: true,
+                hidden: false
+            };
+
+            menuItems.push(item);
+        }
+
+        // 既存の「お引越し」起動処理をDAT版に置き換える
+        window.openTransferApp = openApp;
+
+        try {
+            localStorage.setItem(
+                "winconMenuItems",
+                JSON.stringify(menuItems)
+            );
+        } catch (error) {
+            console.warn(
+                "[Wincon お引越し] メニュー設定を保存できませんでした。",
+                error
+            );
+        }
+
+        renderMenu();
+
+        console.info("[Wincon お引越し] 登録完了");
+        return true;
+    }
+
+    // Winconの初期化タイミングに備えて再試行
+    let attempts = 0;
+
+    const timer = setInterval(() => {
+        attempts++;
+
+        if (registerMenu() || attempts >= 40) {
+            clearInterval(timer);
+
+            if (attempts >= 40) {
+                console.error(
+                    "[Wincon お引越し] メニュー登録に失敗しました。"
+                );
+            }
+        }
+    }, 250);
+
+    // アプリを直接起動できるようにする
+    window.winconDataTransfer = {
+        open: openApp,
+        exportData: () => createDAT(collectStorage())
+    };
+})();
+/* =========================================================
+   Wincon Camera
+   Pixel-inspired Camera App
+   Photo / Video / Camera Switch / Library / Download
+   ========================================================= */
+(() => {
+    "use strict";
+
+    if (window.__WINCON_CAMERA_INSTALLED__) return;
+    window.__WINCON_CAMERA_INSTALLED__ = true;
+
+    const APP_NAME = "カメラ";
+    const APP_ICON = "📷";
+    const DB_NAME = "WinconCameraDB";
+    const DB_VERSION = 1;
+    const STORE_NAME = "media";
+
+    let currentWindow = null;
+    let stream = null;
+    let mediaRecorder = null;
+    let recordingChunks = [];
+    let recording = false;
+    let facingMode = "environment";
+    let currentMode = "photo";
+    let recordingStartedAt = 0;
+    let recordingTimer = null;
+    let currentObjectUrl = null;
+    let libraryView = false;
+    let cameraRequestId = 0;
+
+    let dbPromise = null;
+
+    /* =====================================================
+       IndexedDB
+       ===================================================== */
+
+    function openDB() {
+        if (dbPromise) return dbPromise;
+
+        dbPromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+            request.onupgradeneeded = () => {
+                const db = request.result;
+
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    const store = db.createObjectStore(STORE_NAME, {
+                        keyPath: "id",
+                        autoIncrement: true
+                    });
+
+                    store.createIndex("createdAt", "createdAt");
+                }
+            };
+
+            request.onsuccess = () => resolve(request.result);
+
+            request.onerror = () => {
+                dbPromise = null;
+                reject(request.error);
+            };
+        });
+
+        return dbPromise;
+    }
+
+    async function saveMedia(blob, type, filename) {
+        const db = await openDB();
+
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, "readwrite");
+
+            transaction.objectStore(STORE_NAME).add({
+                blob,
+                type,
+                filename,
+                createdAt: Date.now()
+            });
+
+            transaction.oncomplete = () => resolve(true);
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+        });
+    }
+
+    async function getAllMedia() {
+        const db = await openDB();
+
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, "readonly");
+            const request = transaction
+                .objectStore(STORE_NAME)
+                .getAll();
+
+            request.onsuccess = () => {
+                const items = request.result || [];
+
+                items.sort((a, b) => b.createdAt - a.createdAt);
+
+                resolve(items);
+            };
+
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async function deleteMedia(id) {
+        const db = await openDB();
+
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, "readwrite");
+
+            transaction.objectStore(STORE_NAME).delete(id);
+
+            transaction.oncomplete = () => resolve(true);
+            transaction.onerror = () => reject(transaction.error);
+        });
+    }
+
+    /* =====================================================
+       Download
+       ===================================================== */
+
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = filename;
+        link.style.display = "none";
+
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+    }
+
+    function makeFilename(type, extension) {
+        const now = new Date();
+
+        const timestamp = [
+            now.getFullYear(),
+            String(now.getMonth() + 1).padStart(2, "0"),
+            String(now.getDate()).padStart(2, "0"),
+            "_",
+            String(now.getHours()).padStart(2, "0"),
+            String(now.getMinutes()).padStart(2, "0"),
+            String(now.getSeconds()).padStart(2, "0")
+        ].join("");
+
+        return `Wincon_${type}_${timestamp}.${extension}`;
+    }
+
+    /* =====================================================
+       UI
+       ===================================================== */
+
+    function buildHTML() {
+        return `
+        <div class="wc-camera"
+             style="
+                height:100%;
+                min-height:0;
+                display:flex;
+                flex-direction:column;
+                background:#101010;
+                color:white;
+                font-family:'Segoe UI',sans-serif;
+                overflow:hidden;
+             ">
+
+            <div class="wc-camera-main"
+                 style="
+                    flex:1;
+                    min-height:0;
+                    display:flex;
+                    flex-direction:column;
+                 ">
+
+                <div style="
+                    height:54px;
+                    flex-shrink:0;
+                    display:flex;
+                    align-items:center;
+                    justify-content:space-between;
+                    padding:0 18px;
+                    box-sizing:border-box;
+                ">
+                    <span style="font-size:17px;font-weight:600;">
+                        Camera
+                    </span>
+
+                    <button data-action="library"
+                            title="ライブラリ"
+                            style="
+                                width:40px;height:40px;
+                                border:0;border-radius:50%;
+                                color:white;background:#303030;
+                                font-size:20px;cursor:pointer;
+                            ">▦</button>
+                </div>
+
+                <div class="wc-camera-preview"
+                     style="
+                        flex:1;
+                        min-height:120px;
+                        position:relative;
+                        overflow:hidden;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        background:#000;
+                     ">
+
+                    <video data-role="video"
+                           autoplay
+                           playsinline
+                           muted
+                           style="
+                                width:100%;
+                                height:100%;
+                                object-fit:cover;
+                                display:none;
+                           "></video>
+
+                    <canvas data-role="canvas"
+                            style="display:none;"></canvas>
+
+                    <div data-role="placeholder"
+                         style="
+                            padding:24px;
+                            text-align:center;
+                            color:#bbb;
+                            line-height:1.8;
+                         ">
+                        <div style="font-size:44px;">📷</div>
+                        <div>カメラを起動しています…</div>
+                    </div>
+
+                    <div data-role="recording-indicator"
+                         style="
+                            display:none;
+                            position:absolute;
+                            top:16px;
+                            left:16px;
+                            padding:7px 11px;
+                            border-radius:20px;
+                            background:#b3261e;
+                            color:white;
+                            font-size:13px;
+                         ">
+                        ● REC <span data-role="recording-time">00:00</span>
+                    </div>
+
+                    <button data-action="flip"
+                            title="カメラ切り替え"
+                            style="
+                                position:absolute;
+                                right:16px;
+                                bottom:16px;
+                                width:48px;
+                                height:48px;
+                                border:0;
+                                border-radius:50%;
+                                background:#303030dd;
+                                color:white;
+                                font-size:23px;
+                                cursor:pointer;
+                            ">↻</button>
+                </div>
+
+                <div style="
+                    flex-shrink:0;
+                    padding:16px 12px 22px;
+                    background:#101010;
+                ">
+
+                    <div style="
+                        display:flex;
+                        justify-content:center;
+                        gap:8px;
+                        margin-bottom:18px;
+                    ">
+                        <button data-mode="photo"
+                                style="
+                                    padding:9px 20px;
+                                    border:0;
+                                    border-radius:22px;
+                                    cursor:pointer;
+                                    color:white;
+                                    background:#f5c451;
+                                    font-weight:600;
+                                ">写真</button>
+
+                        <button data-mode="video"
+                                style="
+                                    padding:9px 20px;
+                                    border:0;
+                                    border-radius:22px;
+                                    cursor:pointer;
+                                    color:white;
+                                    background:#303030;
+                                ">動画</button>
+                    </div>
+
+                    <div style="
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        gap:32px;
+                    ">
+
+                        <button data-action="library-bottom"
+                                title="ライブラリ"
+                                style="
+                                    width:48px;
+                                    height:48px;
+                                    border:1px solid #555;
+                                    border-radius:12px;
+                                    background:#303030;
+                                    color:white;
+                                    font-size:22px;
+                                    cursor:pointer;
+                                ">▧</button>
+
+                        <button data-action="shutter"
+                                aria-label="撮影"
+                                style="
+                                    width:76px;
+                                    height:76px;
+                                    border:5px solid #ddd;
+                                    border-radius:50%;
+                                    background:white;
+                                    cursor:pointer;
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:center;
+                                    flex-shrink:0;
+                                ">
+                            <span data-role="shutter-inner"
+                                  style="
+                                    width:60px;
+                                    height:60px;
+                                    border-radius:50%;
+                                    background:white;
+                                    display:block;
+                                    transition:all .15s;
+                                  "></span>
+                        </button>
+
+                        <button data-action="stop"
+                                style="
+                                    display:none;
+                                    width:48px;
+                                    height:48px;
+                                    border:0;
+                                    border-radius:50%;
+                                    background:#b3261e;
+                                    color:white;
+                                    font-size:20px;
+                                    cursor:pointer;
+                                ">■</button>
+                    </div>
+
+                    <div data-role="status"
+                         role="status"
+                         aria-live="polite"
+                         style="
+                            text-align:center;
+                            font-size:12px;
+                            color:#bbb;
+                            min-height:18px;
+                            margin-top:16px;
+                         ">カメラを準備しています</div>
+                </div>
+            </div>
+
+            <div data-role="library"
+                 style="
+                    display:none;
+                    position:absolute;
+                    inset:0;
+                    z-index:5;
+                    background:#171717;
+                    color:white;
+                    flex-direction:column;
+                    overflow:hidden;
+                 ">
+
+                <div style="
+                    height:58px;
+                    flex-shrink:0;
+                    display:flex;
+                    align-items:center;
+                    gap:12px;
+                    padding:0 16px;
+                    border-bottom:1px solid #333;
+                ">
+                    <button data-action="library-back"
+                            style="
+                                width:38px;height:38px;
+                                border:0;border-radius:50%;
+                                background:#303030;color:white;
+                                font-size:22px;cursor:pointer;
+                            ">‹</button>
+
+                    <span style="font-size:18px;font-weight:600;">
+                        ライブラリ
+                    </span>
+                </div>
+
+                <div data-role="library-grid"
+                     style="
+                        flex:1;
+                        overflow:auto;
+                        padding:12px;
+                        display:grid;
+                        grid-template-columns:repeat(3,minmax(0,1fr));
+                        align-content:start;
+                        gap:8px;
+                     "></div>
+
+                <div data-role="media-detail"
+                     style="
+                        display:none;
+                        position:absolute;
+                        inset:0;
+                        z-index:2;
+                        flex-direction:column;
+                        background:#080808;
+                     ">
+
+                    <div style="
+                        height:54px;
+                        flex-shrink:0;
+                        display:flex;
+                        align-items:center;
+                        justify-content:space-between;
+                        padding:0 12px;
+                    ">
+                        <button data-action="detail-back"
+                                style="
+                                    border:0;border-radius:20px;
+                                    background:#303030;color:white;
+                                    padding:9px 15px;cursor:pointer;
+                                ">‹ 戻る</button>
+
+                        <button data-action="detail-download"
+                                style="
+                                    border:0;border-radius:20px;
+                                    background:#f5c451;color:#111;
+                                    padding:9px 15px;cursor:pointer;
+                                ">↓ 保存</button>
+                    </div>
+
+                    <div data-role="detail-preview"
+                         style="
+                            flex:1;
+                            min-height:0;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            overflow:hidden;
+                         "></div>
+
+                    <div style="
+                        flex-shrink:0;
+                        padding:12px;
+                        display:flex;
+                        justify-content:space-between;
+                        align-items:center;
+                        gap:8px;
+                    ">
+                        <div data-role="detail-name"
+                             style="
+                                font-size:12px;
+                                overflow-wrap:anywhere;
+                             "></div>
+
+                        <button data-action="detail-delete"
+                                style="
+                                    flex-shrink:0;
+                                    border:1px solid #a44;
+                                    border-radius:20px;
+                                    background:transparent;
+                                    color:#ffaaaa;
+                                    padding:8px 12px;
+                                    cursor:pointer;
+                                ">削除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+    }
+
+    /* =====================================================
+       Camera lifecycle
+       ===================================================== */
+
+    function setStatus(message) {
+        if (!currentWindow) return;
+
+        const element = currentWindow.querySelector(
+            '[data-role="status"]'
+        );
+
+        if (element) element.textContent = message;
+    }
+
+    function stopCurrentStream() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+
+        const video = currentWindow?.querySelector('[data-role="video"]');
+
+        if (video) {
+            video.pause();
+            video.srcObject = null;
+            video.style.display = "none";
+        }
+    }
+
+    async function startCamera() {
+        if (!currentWindow || recording) return;
+
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setStatus("この環境ではカメラを利用できません。HTTPS接続を確認してください。");
+            showPlaceholder("カメラを利用できません");
+            return;
+        }
+
+        const requestId = ++cameraRequestId;
+
+        stopCurrentStream();
+
+        const video = currentWindow.querySelector('[data-role="video"]');
+        const placeholder = currentWindow.querySelector('[data-role="placeholder"]');
+
+        placeholder.style.display = "block";
+        placeholder.textContent = "カメラを起動しています…";
+        setStatus("カメラを起動しています");
+
+        try {
+            let newStream;
+
+            try {
+                newStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: {
+                        facingMode: { ideal: facingMode },
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+            } catch (firstError) {
+                newStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: true
+                });
+            }
+
+            // 起動待ちの間に閉じる・切り替える操作があった場合
+            if (
+                requestId !== cameraRequestId ||
+                !currentWindow ||
+                !currentWindow.isConnected
+            ) {
+                newStream.getTracks().forEach(track => track.stop());
+                return;
+            }
+
+            stream = newStream;
+            video.srcObject = stream;
+            video.style.display = "block";
+
+            await video.play();
+
+            placeholder.style.display = "none";
+            setStatus(
+                facingMode === "environment"
+                    ? "背面カメラ"
+                    : "前面カメラ"
+            );
+
+        } catch (error) {
+            console.error("[Wincon Camera]", error);
+
+            showPlaceholder("カメラを起動できません");
+
+            if (error.name === "NotAllowedError") {
+                setStatus("カメラの使用を許可してください");
+            } else if (error.name === "NotFoundError") {
+                setStatus("利用できるカメラが見つかりません");
+            } else {
+                setStatus("カメラを起動できません：" + error.message);
+            }
+        }
+    }
+
+    function showPlaceholder(message) {
+        if (!currentWindow) return;
+
+        const placeholder = currentWindow.querySelector(
+            '[data-role="placeholder"]'
+        );
+
+        const video = currentWindow.querySelector('[data-role="video"]');
+
+        if (placeholder) {
+            placeholder.style.display = "block";
+            placeholder.textContent = message;
+        }
+
+        if (video) video.style.display = "none";
+    }
+
+    async function switchCamera() {
+        if (recording) return;
+
+        facingMode = facingMode === "environment"
+            ? "user"
+            : "environment";
+
+        await startCamera();
+    }
+
+    /* =====================================================
+       Photo capture
+       ===================================================== */
+
+    async function takePhoto() {
+        if (!stream || recording || !currentWindow) return;
+
+        const video = currentWindow.querySelector('[data-role="video"]');
+        const canvas = currentWindow.querySelector('[data-role="canvas"]');
+
+        if (!video.videoWidth || !video.videoHeight) {
+            setStatus("カメラの準備ができていません");
+            return;
+        }
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const context = canvas.getContext("2d");
+
+        // 前面カメラのプレビューは鏡像だが、
+        // 保存画像は通常の向きで記録する
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        setStatus("写真を保存しています…");
+
+        canvas.toBlob(async blob => {
+            if (!blob) {
+                setStatus("写真を作成できませんでした");
+                return;
+            }
+
+            const filename = makeFilename("Photo", "jpg");
+
+            try {
+                await saveMedia(blob, "photo", filename);
+                downloadBlob(blob, filename);
+
+                setStatus("写真を保存しました");
+                await renderLibrary();
+
+            } catch (error) {
+                console.error(error);
+
+                // ライブラリ保存が失敗しても写真のDLは試みる
+                downloadBlob(blob, filename);
+                setStatus("写真をダウンロードしました。ライブラリ保存は失敗しました");
+            }
+        }, "image/jpeg", 0.95);
+    }
+
+    /* =====================================================
+       Video recording
+       ===================================================== */
+
+    function chooseVideoMimeType() {
+        if (!window.MediaRecorder) return "";
+
+        const types = [
+            "video/webm;codecs=vp9,opus",
+            "video/webm;codecs=vp8,opus",
+            "video/webm"
+        ];
+
+        return types.find(type =>
+            MediaRecorder.isTypeSupported(type)
+        ) || "";
+    }
+
+    function setRecordingLock(locked) {
+        if (!currentWindow) return;
+
+        const controls = currentWindow.querySelectorAll(
+            '[data-mode], [data-action="flip"], ' +
+            '[data-action="library"], [data-action="library-bottom"], ' +
+            '[data-action="shutter"]'
+        );
+
+        controls.forEach(button => {
+            button.disabled = locked;
+            button.style.opacity = locked ? ".35" : "1";
+            button.style.cursor = locked ? "not-allowed" : "pointer";
+        });
+
+        const stopButton = currentWindow.querySelector('[data-action="stop"]');
+
+        if (stopButton) {
+            stopButton.style.display = locked ? "block" : "none";
+            stopButton.disabled = !locked;
+        }
+
+        const indicator = currentWindow.querySelector(
+            '[data-role="recording-indicator"]'
+        );
+
+        if (indicator) indicator.style.display = locked ? "block" : "none";
+
+        const inner = currentWindow.querySelector(
+            '[data-role="shutter-inner"]'
+        );
+
+        if (inner) {
+            inner.style.background = locked ? "#b3261e" : "white";
+            inner.style.borderRadius = locked ? "10px" : "50%";
+        }
+    }
+
+    function startRecording() {
+        if (!stream || recording || !currentWindow) return;
+
+        if (!window.MediaRecorder) {
+            setStatus("このブラウザーは動画撮影に対応していません");
+            return;
+        }
+
+        try {
+            const mimeType = chooseVideoMimeType();
+
+            mediaRecorder = mimeType
+                ? new MediaRecorder(stream, { mimeType })
+                : new MediaRecorder(stream);
+
+            recordingChunks = [];
+
+            mediaRecorder.ondataavailable = event => {
+                if (event.data && event.data.size > 0) {
+                    recordingChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onerror = event => {
+                console.error("[Wincon Camera] Recorder error", event.error);
+                setStatus("動画の録画中にエラーが発生しました");
+            };
+
+            mediaRecorder.onstop = async () => {
+                const finalType = mediaRecorder?.mimeType || "video/webm";
+                const extension = finalType.includes("mp4") ? "mp4" : "webm";
+
+                const blob = new Blob(recordingChunks, { type: finalType });
+                recordingChunks = [];
+
+                if (!blob.size) {
+                    setStatus("動画データがありません");
+                    return;
+                }
+
+                const filename = makeFilename("Video", extension);
+
+                setStatus("動画を保存しています…");
+
+                try {
+                    await saveMedia(blob, "video", filename);
+                    downloadBlob(blob, filename);
+                    setStatus("動画を保存しました");
+                    await renderLibrary();
+                } catch (error) {
+                    console.error(error);
+
+                    downloadBlob(blob, filename);
+                    setStatus("動画をダウンロードしました。ライブラリ保存は失敗しました");
+                }
+            };
+
+            mediaRecorder.start(1000);
+
+            recording = true;
+            recordingStartedAt = Date.now();
+
+            setRecordingLock(true);
+            setStatus("動画を録画中です");
+
+            recordingTimer = setInterval(() => {
+                if (!currentWindow) return;
+
+                const elapsed = Math.floor(
+                    (Date.now() - recordingStartedAt) / 1000
+                );
+
+                const timeElement = currentWindow.querySelector(
+                    '[data-role="recording-time"]'
+                );
+
+                if (timeElement) {
+                    timeElement.textContent =
+                        String(Math.floor(elapsed / 60)).padStart(2, "0") +
+                        ":" +
+                        String(elapsed % 60).padStart(2, "0");
+                }
+            }, 250);
+
+        } catch (error) {
+            console.error(error);
+            setStatus("録画を開始できません：" + error.message);
+        }
+    }
+
+    function stopRecording() {
+        if (!recording || !mediaRecorder) return;
+
+        recording = false;
+
+        if (recordingTimer) {
+            clearInterval(recordingTimer);
+            recordingTimer = null;
+        }
+
+        setRecordingLock(false);
+        setStatus("動画を処理しています…");
+
+        if (mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+        }
+    }
+
+    /* =====================================================
+       Mode switching
+       ===================================================== */
+
+    function setMode(mode) {
+        if (recording || !currentWindow) return;
+
+        currentMode = mode;
+
+        currentWindow.querySelectorAll("[data-mode]").forEach(button => {
+            const active = button.dataset.mode === mode;
+
+            button.style.background = active ? "#f5c451" : "#303030";
+            button.style.color = active ? "#111" : "white";
+            button.style.fontWeight = active ? "600" : "400";
+        });
+
+        const shutter = currentWindow.querySelector('[data-action="shutter"]');
+
+        if (shutter) {
+            shutter.setAttribute(
+                "aria-label",
+                mode === "photo" ? "写真を撮影" : "動画を録画"
+            );
+        }
+
+        setStatus(mode === "photo" ? "写真モード" : "動画モード");
+    }
+
+    /* =====================================================
+       Library
+       ===================================================== */
+
+    function showLibrary() {
+        if (recording || !currentWindow) return;
+
+        libraryView = true;
+
+        const library = currentWindow.querySelector('[data-role="library"]');
+        const main = currentWindow.querySelector('.wc-camera-main');
+
+        if (library) library.style.display = "flex";
+        if (main) main.style.display = "none";
+
+        renderLibrary();
+    }
+
+    function hideLibrary() {
+        if (!currentWindow) return;
+
+        libraryView = false;
+
+        const library = currentWindow.querySelector('[data-role="library"]');
+        const main = currentWindow.querySelector('.wc-camera-main');
+        const detail = currentWindow.querySelector('[data-role="media-detail"]');
+
+        if (library) library.style.display = "none";
+        if (main) main.style.display = "flex";
+        if (detail) detail.style.display = "none";
+    }
+
+    async function renderLibrary() {
+        if (!currentWindow) return;
+
+        const grid = currentWindow.querySelector('[data-role="library-grid"]');
+
+        if (!grid) return;
+
+        grid.innerHTML = "";
+
+        let items;
+
+        try {
+            items = await getAllMedia();
+        } catch (error) {
+            console.error(error);
+            grid.textContent = "ライブラリを読み込めませんでした";
+            return;
+        }
+
+        if (!items.length) {
+            grid.style.display = "block";
+            grid.textContent = "撮影した写真や動画はまだありません";
+            return;
+        }
+
+        grid.style.display = "grid";
+
+        items.forEach(item => {
+            const url = URL.createObjectURL(item.blob);
+
+            const card = document.createElement("button");
+
+            card.type = "button";
+            card.style.cssText = `
+                position:relative;
+                aspect-ratio:1/1;
+                min-width:0;
+                padding:0;
+                overflow:hidden;
+                border:0;
+                border-radius:8px;
+                background:#303030;
+                cursor:pointer;
+            `;
+
+            if (item.type === "photo") {
+                const img = document.createElement("img");
+                img.src = url;
+                img.alt = "撮影した写真";
+                img.style.cssText = "width:100%;height:100%;object-fit:cover;";
+                card.appendChild(img);
+            } else {
+                const thumb = document.createElement("div");
+
+                thumb.style.cssText = `
+                    width:100%;height:100%;
+                    display:flex;align-items:center;justify-content:center;
+                    background:#292929;color:white;font-size:34px;
+                `;
+
+                thumb.textContent = "▶";
+                card.appendChild(thumb);
+
+                const label = document.createElement("span");
+                label.textContent = "動画";
+                label.style.cssText = `
+                    position:absolute;bottom:5px;left:5px;
+                    padding:3px 6px;border-radius:5px;
+                    background:#000a;color:white;font-size:11px;
+                `;
+
+                card.appendChild(label);
+            }
+
+            card.addEventListener("click", () => {
+                openMediaDetail(item);
+            });
+
+            grid.appendChild(card);
+        });
+    }
+
+    let selectedMedia = null;
+
+    function openMediaDetail(item) {
+        if (!currentWindow) return;
+
+        selectedMedia = item;
+
+        const detail = currentWindow.querySelector('[data-role="media-detail"]');
+        const preview = currentWindow.querySelector('[data-role="detail-preview"]');
+        const name = currentWindow.querySelector('[data-role="detail-name"]');
+
+        preview.innerHTML = "";
+
+        if (currentObjectUrl) {
+            URL.revokeObjectURL(currentObjectUrl);
+            currentObjectUrl = null;
+        }
+
+        currentObjectUrl = URL.createObjectURL(item.blob);
+
+        if (item.type === "photo") {
+            const img = document.createElement("img");
+
+            img.src = currentObjectUrl;
+            img.alt = "撮影した写真";
+            img.style.cssText = `
+                max-width:100%;max-height:100%;object-fit:contain;
+            `;
+
+            preview.appendChild(img);
+        } else {
+            const video = document.createElement("video");
+
+            video.src = currentObjectUrl;
+            video.controls = true;
+            video.playsInline = true;
+            video.style.cssText = `
+                width:100%;height:100%;object-fit:contain;
+            `;
+
+            preview.appendChild(video);
+        }
+
+        name.textContent = item.filename || "撮影データ";
+
+        detail.style.display = "flex";
+    }
+
+    function closeMediaDetail() {
+        if (!currentWindow) return;
+
+        const detail = currentWindow.querySelector('[data-role="media-detail"]');
+
+        if (detail) detail.style.display = "none";
+
+        const preview = currentWindow.querySelector('[data-role="detail-preview"]');
+
+        if (preview) {
+            preview.querySelectorAll("video").forEach(video => {
+                video.pause();
+                video.removeAttribute("src");
+                video.load();
+            });
+
+            preview.innerHTML = "";
+        }
+
+        if (currentObjectUrl) {
+            URL.revokeObjectURL(currentObjectUrl);
+            currentObjectUrl = null;
+        }
+
+        selectedMedia = null;
+    }
+
+    async function downloadSelectedMedia() {
+        if (!selectedMedia) return;
+
+        downloadBlob(selectedMedia.blob, selectedMedia.filename);
+    }
+
+    async function deleteSelectedMedia() {
+        if (!selectedMedia) return;
+
+        if (!confirm("この撮影データをライブラリから削除しますか？")) {
+            return;
+        }
+
+        const id = selectedMedia.id;
+
+        closeMediaDetail();
+
+        try {
+            await deleteMedia(id);
+            await renderLibrary();
+        } catch (error) {
+            console.error(error);
+            alert("削除に失敗しました");
+        }
+    }
+
+    /* =====================================================
+       Open app
+       ===================================================== */
+
+    function openCameraApp() {
+        if (recording) {
+            alert("録画中はカメラアプリを開き直せません。先に録画を停止してください。");
+            return;
+        }
+
+        if (currentWindow && currentWindow.isConnected) {
+            currentWindow.style.display = "flex";
+            currentWindow.style.zIndex = "99999";
+            return;
+        }
+
+        const win = window.createWindow({
+            title: APP_NAME,
+            icon: APP_ICON,
+            content: buildHTML(),
+            width: 780,
+            height: 760,
+            safe: false,
+            popup: false
+        });
+
+        currentWindow = win;
+        libraryView = false;
+        selectedMedia = null;
+
+        const find = selector => win.querySelector(selector);
+
+        find('[data-action="flip"]').addEventListener("click", switchCamera);
+
+        find('[data-action="library"]').addEventListener("click", showLibrary);
+        find('[data-action="library-bottom"]').addEventListener("click", showLibrary);
+        find('[data-action="library-back"]').addEventListener("click", hideLibrary);
+
+        find('[data-action="shutter"]').addEventListener("click", () => {
+            if (recording) return;
+
+            if (currentMode === "photo") {
+                takePhoto();
+            } else {
+                startRecording();
+            }
+        });
+
+        find('[data-action="stop"]').addEventListener("click", stopRecording);
+
+        findAll(win, "[data-mode]").forEach(button => {
+            button.addEventListener("click", () => {
+                setMode(button.dataset.mode);
+            });
+        });
+
+        find('[data-action="detail-back"]').addEventListener(
+            "click",
+            closeMediaDetail
+        );
+
+        find('[data-action="detail-download"]').addEventListener(
+            "click",
+            downloadSelectedMedia
+        );
+
+        find('[data-action="detail-delete"]').addEventListener(
+            "click",
+            deleteSelectedMedia
+        );
+
+        const closeButton = win.querySelector(".close-btn");
+
+        if (closeButton) {
+            closeButton.addEventListener("click", () => {
+                if (recording) {
+                    stopRecording();
+                }
+
+                cameraRequestId++;
+                stopCurrentStream();
+
+                if (recordingTimer) {
+                    clearInterval(recordingTimer);
+                    recordingTimer = null;
+                }
+
+                closeMediaDetail();
+
+                currentWindow = null;
+                recording = false;
+            });
+        }
+
+        setMode("photo");
+        startCamera();
+    }
+
+    function findAll(root, selector) {
+        return Array.from(root.querySelectorAll(selector));
+    }
+
+    /* =====================================================
+       Menu registration
+       ===================================================== */
+
+    function registerCameraMenu() {
+        if (
+            typeof menuItems === "undefined" ||
+            typeof renderMenu !== "function"
+        ) {
+            return false;
+        }
+
+        let item = menuItems.find(entry =>
+            entry.type === "camera" ||
+            entry.title === APP_NAME
+        );
+
+        if (item) {
+            item.title = APP_NAME;
+            item.icon = APP_ICON;
+            item.type = "camera";
+            item.system = true;
+            item.hidden = false;
+        } else {
+            item = {
+                id: "wincon-camera",
+                title: APP_NAME,
+                icon: APP_ICON,
+                type: "camera",
+                system: true,
+                hidden: false
+            };
+
+            menuItems.push(item);
+        }
+
+        try {
+            localStorage.setItem(
+                "winconMenuItems",
+                JSON.stringify(menuItems)
+            );
+        } catch (error) {
+            console.warn("[Wincon Camera] メニュー保存に失敗", error);
+        }
+
+        renderMenu();
+        return true;
+    }
+
+    // 既存renderMenuのswitchにcameraがないため、メニュークリックを補完
+    document.addEventListener("click", event => {
+        const button = event.target.closest(".menu-item");
+
+        if (!button) return;
+
+        const text = button.textContent || "";
+
+        if (text.includes(APP_NAME)) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const menu = document.getElementById("menu");
+
+            if (menu) menu.style.display = "none";
+
+            openCameraApp();
+        }
+    }, true);
+
+    // Wincon本体の起動順序に対応
+    let attempts = 0;
+
+    const registrationTimer = setInterval(() => {
+        attempts++;
+
+        if (registerCameraMenu() || attempts >= 40) {
+            clearInterval(registrationTimer);
+        }
+    }, 250);
+
+    window.winconCamera = {
+        open: openCameraApp,
+        getLibrary: getAllMedia
+    };
+
+    console.info("[Wincon Camera] Initialized");
+})();
+/* =========================================================
+   Wincon Intelligence
+   Standalone AI Chat
+   Gemini API / Normal / Mini / Quick Overlay
+   システム操作なし・新規scriptタグ不要
+   ========================================================= */
+
+(() => {
+    "use strict";
+
+    const CONFIG = {
+    apiKey: "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",
+    model: "openai/gpt-oss-120b",
+    apiBase: "https://api.groq.com/openai/v1/chat/completions",
+    storageKey: "winconIntelligenceHistory",
+    maxHistory: 40
+};
+
+    const state = {
+        history: [],
+        busy: false,
+        overlay: null,
+        normal: null,
+        mini: null,
+        recognition: null,
+        requestId: 0
+    };
+
+    const escapeHTML = value => String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[char]);
+
+    function loadHistory() {
+        try {
+            const saved = JSON.parse(
+                localStorage.getItem(CONFIG.storageKey) || "[]"
+            );
+
+            if (!Array.isArray(saved)) return [];
+
+            return saved
+                .filter(item =>
+                    item &&
+                    ["user", "model"].includes(item.role) &&
+                    typeof item.text === "string"
+                )
+                .slice(-CONFIG.maxHistory);
+        } catch {
+            return [];
+        }
+    }
+
+    function saveHistory() {
+        try {
+            localStorage.setItem(
+                CONFIG.storageKey,
+                JSON.stringify(state.history.slice(-CONFIG.maxHistory))
+            );
+        } catch (error) {
+            console.warn("[Wincon Intelligence] 履歴を保存できません", error);
+        }
+    }
+
+    state.history = loadHistory();
+
+    function addStyles() {
+        if (document.getElementById("wi-standalone-styles")) return;
+
+        const style = document.createElement("style");
+        style.id = "wi-standalone-styles";
+
+        style.textContent = `
+            .wi-app {
+                box-sizing:border-box;
+                display:flex;
+                flex-direction:column;
+                gap:12px;
+                width:100%;
+                height:100%;
+                min-height:300px;
+                color:var(--wincon-text,#f5f5f7);
+                font-family:inherit;
+                font-size:13px;
+            }
+
+            .wi-app *,
+            .wi-overlay *,
+            .wi-mini-window * {
+                box-sizing:border-box;
+            }
+
+            .wi-header {
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:10px;
+                flex-wrap:wrap;
+            }
+
+            .wi-brand {
+                font-size:18px;
+                font-weight:700;
+                letter-spacing:-.5px;
+            }
+
+            .wi-caption {
+                margin-top:4px;
+                font-size:11px;
+                opacity:.6;
+            }
+
+            .wi-actions {
+                display:flex;
+                gap:6px;
+                flex-wrap:wrap;
+            }
+
+            .wi-btn {
+                min-height:34px;
+                padding:7px 11px;
+                border:1px solid rgba(128,128,128,.3);
+                border-radius:9px;
+                background:rgba(128,128,128,.12);
+                color:inherit;
+                font:inherit;
+                font-size:12px;
+                cursor:pointer;
+            }
+
+            .wi-btn:hover {
+                background:rgba(128,128,128,.23);
+            }
+
+            .wi-btn:disabled {
+                opacity:.45;
+                cursor:default;
+            }
+
+            .wi-btn-primary {
+                background:#3478f6;
+                color:white;
+                border-color:transparent;
+            }
+
+            .wi-btn-primary:hover {
+                background:#2469e7;
+            }
+
+            .wi-messages {
+                flex:1;
+                min-height:100px;
+                overflow:auto;
+                display:flex;
+                flex-direction:column;
+                gap:12px;
+                padding:4px 2px;
+                overscroll-behavior:contain;
+            }
+
+            .wi-empty {
+                margin:auto;
+                padding:24px 10px;
+                text-align:center;
+                opacity:.7;
+                line-height:1.7;
+            }
+
+            .wi-empty-icon {
+                display:block;
+                margin-bottom:10px;
+                font-size:32px;
+            }
+
+            .wi-message {
+                max-width:94%;
+                padding:11px 13px;
+                border-radius:13px;
+                white-space:pre-wrap;
+                overflow-wrap:anywhere;
+                line-height:1.7;
+            }
+
+            .wi-message-user {
+                align-self:flex-end;
+                background:rgba(52,120,246,.2);
+                border:1px solid rgba(52,120,246,.25);
+            }
+
+            .wi-message-model {
+                align-self:flex-start;
+                background:rgba(128,128,128,.11);
+                border:1px solid rgba(128,128,128,.14);
+            }
+
+            .wi-message-role {
+                margin-bottom:5px;
+                font-size:10px;
+                font-weight:650;
+                opacity:.65;
+            }
+
+            .wi-status {
+                min-height:16px;
+                font-size:11px;
+                line-height:1.5;
+                opacity:.75;
+                overflow-wrap:anywhere;
+            }
+
+            .wi-compose {
+                display:flex;
+                align-items:flex-end;
+                gap:8px;
+            }
+
+            .wi-input {
+                flex:1;
+                min-width:0;
+                min-height:43px;
+                max-height:140px;
+                padding:11px 12px;
+                resize:vertical;
+                border:1px solid rgba(128,128,128,.3);
+                border-radius:11px;
+                outline:none;
+                background:rgba(128,128,128,.08);
+                color:inherit;
+                font:inherit;
+                font-size:13px;
+            }
+
+            .wi-input:focus {
+                border-color:#3478f6;
+            }
+
+            .wi-footnote {
+                font-size:10px;
+                line-height:1.5;
+                opacity:.5;
+            }
+
+            .wi-overlay {
+                position:fixed;
+                inset:0;
+                z-index:2147483000;
+                isolation:isolate;
+            }
+
+            .wi-overlay-glow {
+                position:absolute;
+                inset:0;
+                z-index:-1;
+                pointer-events:none;
+                box-shadow:
+                    inset 0 0 20px 3px rgba(255,40,90,.4),
+                    inset 0 0 45px 5px rgba(255,150,20,.3),
+                    inset 0 0 65px 6px rgba(30,220,150,.25),
+                    inset 0 0 90px 9px rgba(70,100,255,.35);
+                animation:wi-rainbow 7s linear infinite;
+            }
+
+            @keyframes wi-rainbow {
+                0% { filter:hue-rotate(0deg); opacity:.7; }
+                50% { filter:hue-rotate(180deg); opacity:1; }
+                100% { filter:hue-rotate(360deg); opacity:.7; }
+            }
+
+            .wi-overlay-panel {
+                position:absolute;
+                top:18px;
+                right:18px;
+                display:flex;
+                flex-direction:column;
+                width:min(410px,calc(100vw - 36px));
+                max-height:calc(100% - 36px);
+                padding:16px;
+                gap:10px;
+                overflow:hidden;
+                border:1px solid rgba(255,255,255,.15);
+                border-radius:19px;
+                background:rgba(23,24,31,.95);
+                color:#f7f7fb;
+                box-shadow:0 18px 65px rgba(0,0,0,.4);
+                backdrop-filter:blur(24px);
+                -webkit-backdrop-filter:blur(24px);
+            }
+
+            .wi-overlay .wi-messages {
+                min-height:70px;
+                max-height:36vh;
+            }
+
+            .wi-overlay .wi-input {
+                background:rgba(255,255,255,.07);
+            }
+
+            .wi-listening {
+                color:#ff7777 !important;
+            }
+
+            .wi-mini-window {
+                position:fixed;
+                right:20px;
+                bottom:20px;
+                z-index:2147482000;
+                display:flex;
+                flex-direction:column;
+                width:min(390px,calc(100vw - 24px));
+                height:min(470px,calc(100vh - 24px));
+                padding:14px;
+                gap:10px;
+                overflow:hidden;
+                border:1px solid rgba(128,128,128,.3);
+                border-radius:16px;
+                background:var(--wincon-window,#202127);
+                color:var(--wincon-text,#f5f5f7);
+                box-shadow:0 14px 45px rgba(0,0,0,.35);
+            }
+
+            @media(prefers-reduced-motion:reduce) {
+                .wi-overlay-glow { animation:none; }
+            }
+        `;
+
+        document.head.appendChild(style);
+    }
+
+    function chatHTML(mode) {
+        return `
+            <div class="wi-app" data-wi-mode="${mode}">
+                <div class="wi-header">
+                    <div>
+                        <div class="wi-brand">✦ Wincon Intelligence</div>
+                        <div class="wi-caption">AIアシスタント · Groq</div>
+                    </div>
+
+                    <div class="wi-actions">
+                        ${mode === "normal"
+                            ? '<button class="wi-btn" data-wi="mini">ミニ</button>'
+                            : ""}
+                        <button class="wi-btn" data-wi="voice">🎙 音声入力</button>
+                        <button class="wi-btn" data-wi="clear">新しい会話</button>
+                        ${mode === "overlay"
+                            ? '<button class="wi-btn" data-wi="close">閉じる</button>'
+                            : ""}
+                        ${mode === "mini"
+                            ? '<button class="wi-btn" data-wi="close-mini">×</button>'
+                            : ""}
+                    </div>
+                </div>
+
+                <div class="wi-messages" data-wi-messages aria-live="polite"></div>
+
+                <div class="wi-status" data-wi-status role="status"></div>
+
+                <form class="wi-compose" data-wi-form>
+                    <textarea
+                        class="wi-input"
+                        data-wi-input
+                        rows="1"
+                        aria-label="AIへの質問"
+                        placeholder="何でも聞いてください…"
+                    ></textarea>
+                    <button class="wi-btn wi-btn-primary"
+                            type="submit" data-wi-send>送信</button>
+                </form>
+
+                <div class="wi-footnote">
+                    AIの回答は誤っている場合があります。
+                </div>
+            </div>
+        `;
+    }
+
+    function renderMessages(root) {
+        const box = root.querySelector("[data-wi-messages]");
+        if (!box) return;
+
+        box.replaceChildren();
+
+        if (!state.history.length) {
+            const empty = document.createElement("div");
+            empty.className = "wi-empty";
+            empty.innerHTML = `
+                <span class="wi-empty-icon">✦</span>
+                <strong>何をお手伝いしましょうか？</strong><br>
+                質問を入力するか、マイクで話しかけてください。
+            `;
+            box.appendChild(empty);
+            return;
+        }
+
+        state.history.forEach(message => {
+            const item = document.createElement("div");
+            item.className = "wi-message wi-message-" + message.role;
+
+            const role = document.createElement("div");
+            role.className = "wi-message-role";
+            role.textContent = message.role === "user"
+                ? "あなた"
+                : "Wincon Intelligence";
+
+            const body = document.createElement("div");
+            body.textContent = message.text;
+
+            item.append(role, body);
+            box.appendChild(item);
+        });
+
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function setStatus(root, message) {
+        const status = root.querySelector("[data-wi-status]");
+        if (status) status.textContent = message || "";
+    }
+
+    function setBusy(root, busy) {
+        root.querySelectorAll("[data-wi-send]").forEach(button => {
+            button.disabled = busy;
+        });
+    }
+
+    async function askGemini(prompt, root) {
+    if (!prompt || state.busy) return;
+
+    const apiKey = typeof CONFIG.apiKey === "string"
+    ? CONFIG.apiKey.trim()
+    : "";
+
+if (
+    !apiKey ||
+    apiKey === "ここにGroqのAPIキー" ||
+    apiKey === "実際に発行されたGroq APIキー"
+) {
+    setStatus(root, "Groq APIキーを設定してください。");
+    return;
+}
+
+    state.busy = true;
+    const requestId = ++state.requestId;
+
+    state.history.push({
+        role: "user",
+        text: prompt
+    });
+
+    state.history = state.history.slice(-CONFIG.maxHistory);
+
+    renderAll();
+    saveHistory();
+    setBusy(root, true);
+    setStatus(root, "Groq AIが回答を生成しています…");
+
+    try {
+        const messages = [
+            {
+                role: "system",
+                content:
+                    "あなたはWincon Intelligenceです。" +
+                    "親切で正確な日本語のAIアシスタントとして回答してください。" +
+                    "不明なことは推測で断定せず、必要に応じて確認してください。" +
+                    "音声読み上げは必要ありません。回答はテキストで返してください。"
+            },
+            ...state.history.map(item => ({
+                role: item.role === "model"
+                    ? "assistant"
+                    : item.role,
+                content: item.text
+            }))
+        ];
+
+       const response = await fetch(CONFIG.apiBase, {
+    method: "POST",
+    headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${apiKey}`
+},
+    body: JSON.stringify({
+        model: CONFIG.model,
+        messages: [
+            { role: "user", content: prompt }
+        ]
+    })
+});
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data?.error?.message ||
+                "Groq APIエラー: HTTP " + response.status
+            );
+        }
+
+        const answer = data?.choices?.[0]?.message?.content?.trim();
+
+        if (!answer) {
+            throw new Error("AIから回答が返されませんでした。");
+        }
+
+        if (requestId !== state.requestId) return;
+
+        state.history.push({
+            role: "model",
+            text: answer
+        });
+
+        state.history = state.history.slice(-CONFIG.maxHistory);
+
+        saveHistory();
+        renderAll();
+        setStatus(root, "回答しました。");
+
+    } catch (error) {
+        console.error("[Wincon Intelligence]", error);
+
+        setStatus(
+            root,
+            "エラー: " + (error.message || "通信に失敗しました")
+        );
+
+    } finally {
+        if (requestId === state.requestId) {
+            state.busy = false;
+            renderAll();
+            setBusy(root, false);
+        }
+    }
+}
+
+    function renderAll() {
+        document.querySelectorAll(".wi-app").forEach(renderMessages);
+    }
+
+    function startVoice(root, autoSend = false) {
+        const SpeechRecognition =
+            window.SpeechRecognition ||
+            window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            setStatus(root, "このブラウザは音声認識に対応していません。");
+            return;
+        }
+
+        if (state.recognition) {
+            try { state.recognition.stop(); } catch {}
+            state.recognition = null;
+        }
+
+        const recognition = new SpeechRecognition();
+        state.recognition = recognition;
+        recognition.lang = "ja-JP";
+        recognition.continuous = false;
+        recognition.interimResults = true;
+
+        const input = root.querySelector("[data-wi-input]");
+        const button = root.querySelector('[data-wi="voice"]');
+        let finalText = "";
+
+        recognition.onstart = () => {
+            setStatus(root, "聞き取り中…");
+            button?.classList.add("wi-listening");
+            if (button) button.textContent = "● 聞き取り中";
+        };
+
+        recognition.onresult = event => {
+            let interim = "";
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const text = event.results[i][0].transcript;
+                if (event.results[i].isFinal) finalText += text;
+                else interim += text;
+            }
+
+            if (input) input.value = finalText + interim;
+        };
+
+        recognition.onerror = event => {
+            setStatus(root, "音声入力エラー: " + event.error);
+        };
+
+        recognition.onend = () => {
+            button?.classList.remove("wi-listening");
+            if (button) button.textContent = "🎙 音声入力";
+
+            if (state.recognition === recognition) {
+                state.recognition = null;
+            }
+
+            const text = input?.value.trim() || "";
+
+            if (autoSend && text) {
+                input.value = "";
+                askGemini(text, root);
+            } else {
+                setStatus(root, text
+                    ? "認識結果を確認して送信してください。"
+                    : "音声入力を終了しました。");
+            }
+        };
+
+        try {
+            recognition.start();
+        } catch {
+            setStatus(root, "音声入力を開始できませんでした。");
+        }
+    }
+
+    function bindChat(root) {
+        if (!root || root.dataset.wiBound) return;
+        root.dataset.wiBound = "1";
+
+        renderMessages(root);
+
+        root.addEventListener("submit", event => {
+            if (!event.target.matches("[data-wi-form]")) return;
+
+            event.preventDefault();
+
+            const input = root.querySelector("[data-wi-input]");
+            const prompt = input.value.trim();
+
+            if (!prompt || state.busy) return;
+
+            input.value = "";
+            askGemini(prompt, root);
+        });
+
+        root.addEventListener("keydown", event => {
+            if (
+                event.target.matches("[data-wi-input]") &&
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+                event.preventDefault();
+                root.querySelector("[data-wi-form]").requestSubmit();
+            }
+        });
+
+        root.addEventListener("click", event => {
+            const button = event.target.closest("[data-wi]");
+            if (!button) return;
+
+            switch (button.dataset.wi) {
+                case "mini":
+                    openMini();
+                    break;
+
+                case "voice":
+                    startVoice(root, false);
+                    break;
+
+                case "clear":
+                    if (state.busy) return;
+                    state.history = [];
+                    saveHistory();
+                    renderAll();
+                    setStatus(root, "新しい会話を開始しました。");
+                    break;
+
+                case "close":
+                    closeOverlay();
+                    break;
+
+                case "close-mini": {
+    const mini = state.mini;
+
+    if (mini?.isConnected) {
+        const closeButton = mini.querySelector(".close-btn");
+
+        if (closeButton) {
+            closeButton.click();
+        } else {
+            mini.remove();
+            state.mini = null;
+        }
+    }
+
+    break;
+}
+            }
+        });
+    }
+
+    function openNormal() {
+    // 既に開いている場合は、そのウィンドウを前面に表示
+    if (state.normal?.isConnected) {
+        state.normal.style.display = "flex";
+        state.normal.style.zIndex = ++zIndexCounter;
+        state.normal
+            .querySelector("[data-wi-input]")
+            ?.focus();
+        return;
+    }
+
+    addStyles();
+
+    // Wincon標準のウィンドウシステムを使用
+    const win = createWindow({
+        title: "Wincon Intelligence",
+        icon: "✦",
+        content: chatHTML("normal"),
+        width: 760,
+        height: 540,
+        popup: false,
+        safe: false
+    });
+
+    state.normal = win;
+
+    const root = win.querySelector(".wi-app");
+
+    if (root) {
+        bindChat(root);
+    }
+
+    // 閉じるボタンを押した際の状態を更新
+    const closeButton = win.querySelector(".close-btn");
+
+    if (closeButton) {
+        closeButton.addEventListener("click", () => {
+            if (state.normal === win) {
+                state.normal = null;
+            }
+        });
+    }
+
+    win.querySelector("[data-wi-input]")?.focus();
+}
+    function openMini() {
+    // 既に開いている場合は前面に表示
+    if (state.mini?.isConnected) {
+        state.mini.style.display = "flex";
+        state.mini.style.zIndex = ++zIndexCounter;
+        state.mini
+            .querySelector("[data-wi-input]")
+            ?.focus();
+        return;
+    }
+
+    addStyles();
+
+    // Wincon標準のポップアップウィンドウを使用
+    const mini = createWindow({
+        title: "Wincon Intelligence - Mini",
+        icon: "✦",
+        content: chatHTML("mini"),
+        popup: true,
+        safe: false
+    });
+
+    state.mini = mini;
+
+    const root = mini.querySelector(".wi-app");
+
+    if (root) {
+        bindChat(root);
+    }
+
+    // 閉じる際に状態を更新
+    const closeButton = mini.querySelector(".close-btn");
+
+    if (closeButton) {
+        closeButton.addEventListener("click", () => {
+            if (state.mini === mini) {
+                state.mini = null;
+            }
+        });
+    }
+
+    mini.querySelector("[data-wi-input]")?.focus();
+}
+    function closeOverlay() {
+        if (state.recognition) {
+            try { state.recognition.stop(); } catch {}
+            state.recognition = null;
+        }
+
+        state.overlay?.remove();
+        state.overlay = null;
+    }
+
+    function openOverlay() {
+        if (state.overlay?.isConnected) {
+            closeOverlay();
+            return;
+        }
+
+        addStyles();
+
+        const overlay = document.createElement("div");
+        overlay.className = "wi-overlay";
+        overlay.innerHTML = `
+            <div class="wi-overlay-glow"></div>
+            <section class="wi-overlay-panel"
+                     role="dialog"
+                     aria-label="Wincon Intelligence クイック起動">
+                ${chatHTML("overlay")}
+            </section>
+        `;
+
+        document.body.appendChild(overlay);
+        state.overlay = overlay;
+
+        bindChat(overlay.querySelector(".wi-app"));
+
+        // パネル外クリックで閉じる
+        overlay.addEventListener("click", event => {
+            if (
+                event.target === overlay ||
+                event.target.classList.contains("wi-overlay-glow")
+            ) {
+                closeOverlay();
+            }
+        });
+
+        const root = overlay.querySelector(".wi-app");
+        root.querySelector("[data-wi-input]")?.focus();
+
+        // 起動時は音声入力を開始する
+        startVoice(root, false);
+    }
+
+    function installShortcuts() {
+        document.addEventListener("keydown", event => {
+            if (
+                event.ctrlKey &&
+                event.altKey &&
+                !event.shiftKey &&
+                event.key.toLowerCase() === "i"
+            ) {
+                event.preventDefault();
+                event.stopPropagation();
+                openOverlay();
+                return;
+            }
+
+            if (
+                event.ctrlKey &&
+                event.altKey &&
+                !event.shiftKey &&
+                event.key.toLowerCase() === "c" &&
+                state.overlay
+            ) {
+                event.preventDefault();
+                event.stopPropagation();
+                closeOverlay();
+            }
+        }, true);
+    }
+
+    function install() {
+        addStyles();
+        installShortcuts();
+
+        window.WinconIntelligence = {
+            open: openNormal,
+            openMini,
+            openOverlay,
+            closeOverlay
+        };
+
+        console.info("[Wincon Intelligence] 準備完了");
+    }
+
+    install();
+})();
+
+/* =========================================================
+   Wincon Intelligence - Menu Registration
+   ========================================================= */
+(() => {
+    "use strict";
+
+    if (
+        !window.WinconIntelligence ||
+        typeof window.WinconIntelligence.open !== "function"
+    ) {
+        console.error(
+            "[Wincon Intelligence] 起動関数が見つかりません。"
+        );
+        return;
+    }
+
+    // Wincon本体のmenuItemsを直接参照する
+    if (typeof menuItems === "undefined" || !Array.isArray(menuItems)) {
+        console.error(
+            "[Wincon Intelligence] menuItemsを読み込めません。"
+        );
+        return;
+    }
+
+    // 重複登録を防止
+    const exists = menuItems.some(
+        item => item.type === "wincon-intelligence"
+    );
+
+    if (!exists) {
+        menuItems.push({
+            id: "wincon-intelligence",
+            title: "Wincon Intelligence",
+            icon: "✦",
+            type: "wincon-intelligence",
+            system: true,
+            hidden: false
+        });
+    }
+
+    // メニューを再描画
+    if (typeof renderMenu === "function") {
+        renderMenu();
+    }
+
+    console.info(
+        "[Wincon Intelligence] メニュー登録完了"
+    );
 })();
 </script>
 </body>
