@@ -1322,19 +1322,13 @@ openSystemSettings(true);
 
 }
 function fullFactoryReset(){
-
-if(
-!confirm(
-"完全初期化しますか？企業モジュールも削除されます。"
-)
-){
-return;
-}
-
-localStorage.clear();
-
-location.reload();
-
+    if(typeof window.Wincon10HorizonFactoryReset==="function"){
+        return window.Wincon10HorizonFactoryReset();
+    }
+    if(!confirm("Winconを完全初期化しますか？"))return;
+    localStorage.clear();
+    sessionStorage.clear();
+    location.reload();
 }
 let hiddenCommand="";
 
@@ -1485,6 +1479,12 @@ break;
 case "browser":
 openBrowser();
 break;
+case "wincon-update":
+if(window.WinconUpdateManager)window.WinconUpdateManager.open();
+break;
+case "user-config":
+if(window.Wincon12UserConfig)window.Wincon12UserConfig();
+break;
 case "appcenter":
   openAppCenter();
   break;
@@ -1511,6 +1511,39 @@ search.addEventListener("input",()=>{
 
 }
 
+function ensureWinconSystemWindowLayer(){
+    let layer=document.getElementById("winconSystemWindowLayer");
+    if(!layer){
+        layer=document.createElement("div");
+        layer.id="winconSystemWindowLayer";
+        document.body.appendChild(layer);
+    }
+    return layer;
+}
+window.Wincon12SystemWindow={
+    open(options={}){
+        return createWindow({...options,systemLayer:true,noTaskbar:true});
+    },
+    run(callback){
+        const previous=!!window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__;
+        window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__=true;
+        try{
+            const result=callback();
+            if(result&&typeof result.finally==="function"){
+                return result.finally(()=>{window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__=previous;});
+            }
+            window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__=previous;
+            return result;
+        }catch(error){
+            window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__=previous;
+            throw error;
+        }
+    },
+    getLayer(){
+        return ensureWinconSystemWindowLayer();
+    }
+};
+
 function createWindow(options){
 
 const {
@@ -1520,12 +1553,14 @@ content="",
 width=700,
 height=450,
 popup=false,
-safe=false
+safe=false,
+systemLayer=false,
+noTaskbar=false
 }=options;
 
 const win=document.createElement("div");
 win.dataset.popup = popup ? "true" : "false";
-win.className="window";
+win.className="window"+(systemLayer?" wincon-system-window":"");
 
 win.style.width=(popup?560:width)+"px";
 win.style.height=(popup?360:height)+"px";
@@ -1581,25 +1616,24 @@ ${popup?"":"<div class='resize-handle'></div>"}
 
 `;
 
-desktop.appendChild(win);
+const useSystemLayer=systemLayer||!!window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__;
+if(useSystemLayer)win.classList.add("wincon-system-window");
+const targetLayer=useSystemLayer?ensureWinconSystemWindowLayer():desktop;
+targetLayer.appendChild(win);
 
-const task=document.createElement("div");
+const task=noTaskbar?null:document.createElement("div");
 
-task.className="task-icon";
-task.innerHTML=icon;
-task.title=title;
-
-taskIcons.appendChild(task);
-
-task.onclick=()=>{
-
-win.style.display="flex";
-
-task.classList.remove("minimized");
-
-win.style.zIndex=++zIndexCounter;
-
-};
+if(task){
+    task.className="task-icon";
+    task.innerHTML=icon;
+    task.title=title;
+    taskIcons.appendChild(task);
+    task.onclick=()=>{
+        win.style.display="flex";
+        task.classList.remove("minimized");
+        win.style.zIndex=++zIndexCounter;
+    };
+}
 
 const titlebar=win.querySelector(".titlebar");
 
@@ -1684,7 +1718,7 @@ if(closeBtn){
 
 closeBtn.onclick=()=>{
 
-task.remove();
+if(task)task.remove();
 win.remove();
 
 saveState();
@@ -1709,7 +1743,7 @@ minBtn.onclick=()=>{
 
 win.style.display="none";
 
-task.classList.add("minimized");
+if(task)task.classList.add("minimized");
 
 };
 
@@ -2110,28 +2144,15 @@ onclick="startFactoryReset()">
 
 }
 function startFactoryReset(){
-
-  if(!confirm("Winconを完全初期化しますか？")){
-    return;
-  }
-
-  // メモリ上のデータも消す
-  window.__WINCON_ENTERPRISE_APPS__ = [];
-
-  menuItems = [];
-
-  // LocalStorage全削除
-  localStorage.clear();
-
-  // 念のため個別削除
-  localStorage.removeItem("winconEnterpriseApps");
-  localStorage.removeItem("winconMenuItems");
-
-  alert("完全初期化しました");
-
-  location.reload();
-
+    if(typeof window.Wincon10HorizonFactoryReset==="function"){
+        return window.Wincon10HorizonFactoryReset();
+    }
+    if(!confirm("Winconを完全初期化しますか？"))return;
+    localStorage.clear();
+    sessionStorage.clear();
+    location.reload();
 }
+
 function openBrowser(){
 
 createWindow({
@@ -4335,6 +4356,9 @@ location.href="index.html";
 boot();
 
 <\/script>
+
+
+
 
 
 
@@ -10515,15 +10539,38 @@ function saveHorizonSettings(
    USER / SESSION
 ========================================================= */
 
-function getHorizonUser(){
+const HORIZON_USERS_KEY="wincon12_users";
+const HORIZON_SELECTED_USER_KEY="wincon12_selected_user";
 
-    return astRead(
-        Horizon_KEYS.user,
-        null
-    );
-
+function getHorizonUsers(){
+    let users=astRead(HORIZON_USERS_KEY,[]);
+    if(!Array.isArray(users))users=[];
+    const legacy=astRead(Horizon_KEYS.user,null);
+    if(legacy&&legacy.id&&!users.some(u=>u&&u.id===legacy.id)){
+        users.push(legacy);
+        astWrite(HORIZON_USERS_KEY,users);
+    }
+    return users.filter(u=>u&&u.id);
 }
 
+function saveHorizonUsers(users){
+    const clean=Array.isArray(users)?users.filter(u=>u&&u.id):[];
+    astWrite(HORIZON_USERS_KEY,clean);
+    return clean;
+}
+
+function getHorizonUser(){
+    const users=getHorizonUsers();
+    const session=astRead(Horizon_KEYS.session,null);
+    const selectedId=(session&&session.userId)||localStorage.getItem(HORIZON_SELECTED_USER_KEY);
+    if(selectedId){
+        const selected=users.find(u=>u.id===selectedId);
+        if(selected)return selected;
+    }
+    const legacy=astRead(Horizon_KEYS.user,null);
+    if(legacy&&legacy.id)return users.find(u=>u.id===legacy.id)||legacy;
+    return users[0]||null;
+}
 
 function getHorizonSession(){
 
@@ -10555,70 +10602,35 @@ function isHorizonLoggedIn(){
 
 function createHorizonUser(
     username,
-    passwordHash
+    passwordHash,
+    extra={}
 ){
-
-    const user = {
-
-        id:
-            "usr_" +
-            Date.now().toString(36) +
-            "_" +
-            Math.random()
-                .toString(36)
-                .slice(2,8),
-
-        name:
-            username,
-
-        passwordHash:
-            passwordHash,
-
-        createdAt:
-            new Date()
-                .toISOString(),
-
-        version:
-            1
-
+    const user={
+        id:"usr_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8),
+        name:String(username||"ユーザー").trim(),
+        passwordHash:passwordHash||null,
+        createdAt:new Date().toISOString(),
+        version:1,
+        ...(extra||{})
     };
-
-    astWrite(
-        Horizon_KEYS.user,
-        user
-    );
-
+    const users=getHorizonUsers();
+    users.push(user);
+    saveHorizonUsers(users);
+    astWrite(Horizon_KEYS.user,user);
+    try{localStorage.setItem(HORIZON_SELECTED_USER_KEY,user.id);}catch(_){}
     return user;
-
 }
 
-
-function updateHorizonUser(
-    patch
-){
-
-    const user =
-        getHorizonUser();
-
-    if(!user){
-        return null;
-    }
-
-    const updated = {
-
-        ...user,
-
-        ...(patch || {})
-
-    };
-
-    astWrite(
-        Horizon_KEYS.user,
-        updated
-    );
-
+function updateHorizonUser(patch){
+    const user=getHorizonUser();
+    if(!user)return null;
+    const updated={...user,...(patch||{}),id:user.id};
+    const users=getHorizonUsers();
+    const index=users.findIndex(u=>u.id===user.id);
+    if(index>=0)users[index]=updated;else users.push(updated);
+    saveHorizonUsers(users);
+    astWrite(Horizon_KEYS.user,updated);
     return updated;
-
 }
 
 
@@ -10633,17 +10645,15 @@ function loginHorizon(
     astWrite(
         Horizon_KEYS.session,
         {
-
-            userId:
-                user.id,
-
-            loginAt:
-                new Date()
-                    .toISOString()
-
+            userId:user.id,
+            loginAt:new Date().toISOString()
         }
     );
-
+    try{window.__WINCON12_ACTIVATE_STORAGE_SCOPE__?.(user.id);sessionStorage.setItem('wincon12_storage_scope',user.id);}catch(_){}
+    try{
+        localStorage.setItem(HORIZON_SELECTED_USER_KEY,user.id);
+        astWrite(Horizon_KEYS.user,user);
+    }catch(_){}
     return true;
 
 }
@@ -10651,6 +10661,7 @@ function loginHorizon(
 
 function logoutHorizon(){
 
+    try{sessionStorage.removeItem('wincon12_storage_scope');}catch(_){}
     try{
 
         localStorage.removeItem(
@@ -11099,9 +11110,32 @@ function installHorizonCSS(){
    LOGIN
 ===================================================== */
 
-#wincon10LoginOverlay{
 
+#winconSystemWindowLayer{
+    position:fixed !important;
+    inset:0 !important;
+    z-index:2147483200 !important;
+    isolation:isolate !important;
+    overflow:visible !important;
+    pointer-events:none !important;
+}
+#winconSystemWindowLayer > .window{
+    pointer-events:auto !important;
+}
+body.wincon10-oobe-isolated .wincon-system-window{
+    pointer-events:auto !important;
+    opacity:1 !important;
+    visibility:visible !important;
+}
+body.wincon10-oobe-isolated #winconSystemWindowLayer .wincon-system-window{
+    pointer-events:auto !important;
+    opacity:1 !important;
+    visibility:visible !important;
+    display:flex !important;
+}
+#wincon10LoginOverlay{
     position:fixed;
+
 
     inset:0;
 
@@ -11302,6 +11336,44 @@ function installHorizonCSS(){
 
 }
 
+
+
+/* Wincon 12.0.1 Patch 1 - macOS-inspired lock screen */
+#wincon10LoginOverlay{
+    position:fixed !important;inset:0 !important;z-index:2147483001 !important;
+    display:flex !important;flex-direction:column !important;justify-content:space-between !important;
+    padding:6vh 5vw 3vh !important;box-sizing:border-box !important;
+    background:radial-gradient(ellipse at 50% 22%,#64748b 0%,#293342 38%,#10151d 100%);
+    background-size:cover;background-position:center;color:#fff;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+.w12-lock-top{text-align:center;text-shadow:0 3px 18px #0009;margin-top:2vh}
+.w12-lock-time{font-size:clamp(64px,10vw,126px);font-weight:300;letter-spacing:-.055em;line-height:1}
+.w12-lock-date{font-size:clamp(17px,2vw,25px);font-weight:400;margin-top:12px;opacity:.94}
+.w12-lock-bottom{width:min(1180px,100%);margin:0 auto;display:grid;grid-template-columns:minmax(260px,1fr) minmax(250px,340px);gap:18px 34px;align-items:end}
+.w12-lock-section-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.72;margin:0 0 10px 5px}
+.w12-lock-user-list{display:flex;flex-wrap:wrap;gap:10px}
+.w12-lock-user{width:104px;min-height:116px;border:1px solid #ffffff24;border-radius:15px;background:#17202dbb;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px 5px;cursor:pointer;backdrop-filter:blur(16px);font-size:12px}
+.w12-lock-user.active{border-color:#fff;background:#ffffff24;box-shadow:0 0 0 2px #ffffff25}
+.w12-lock-avatar,.w12-lock-selected-avatar{width:56px;height:56px;border-radius:50%;overflow:hidden;background:#687487;display:flex;align-items:center;justify-content:center;font-size:27px}
+.w12-lock-avatar img,.w12-lock-selected-avatar img{width:100%;height:100%;object-fit:cover}
+.w12-lock-add .w12-lock-avatar{background:#ffffff20}
+.w12-lock-login{padding:18px 20px 16px;border:1px solid #ffffff25;border-radius:20px;background:#111827a8;backdrop-filter:blur(22px);text-align:center;box-shadow:0 18px 50px #0005}
+.w12-lock-selected-avatar{width:72px;height:72px;margin:0 auto 10px;font-size:34px}
+.w12-lock-selected-name{font-size:20px;font-weight:600;margin-bottom:8px}
+.w12-lock-login .wincon10-login-input{margin-top:8px;background:#ffffff20;border:1px solid #ffffff30}
+.w12-lock-login .wincon10-login-button{margin-top:10px}
+.w12-lock-actions{grid-column:1/-1;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:2px}
+.w12-lock-actions button{border:1px solid #ffffff35;border-radius:11px;padding:11px 18px;background:#101827a8;color:#fff;cursor:pointer;backdrop-filter:blur(14px)}
+.w12-lock-actions button:hover{background:#ffffff28}
+.w12-lock-actions button.danger{border-color:#f87171aa;color:#fecaca}
+.w12-lock-login button:disabled{opacity:.6;cursor:wait}
+@media(max-width:720px){
+ #wincon10LoginOverlay{padding:4vh 16px 18px;overflow:auto}
+ .w12-lock-bottom{grid-template-columns:1fr;gap:14px}
+ .w12-lock-users{order:2}.w12-lock-login{order:1}.w12-lock-actions{order:3}
+ .w12-lock-user{width:82px;min-height:94px}.w12-lock-avatar{width:46px;height:46px}
+}
 
 /* =====================================================
    OOBE
@@ -11907,6 +11979,10 @@ function openHorizonOOBE(
                 620,
 
             safe:
+                isolated,
+            systemLayer:
+                isolated,
+            noTaskbar:
                 isolated
 
         });
@@ -12306,232 +12382,130 @@ async function finishHorizonOOBE(){
 ========================================================= */
 
 function showHorizonLogin(){
-
     installHorizonCSS();
+    document.getElementById("wincon10LoginOverlay")?.remove();
+    logoutHorizon();
 
-
-    const old =
-        document.getElementById(
-            "wincon10LoginOverlay"
-        );
-
-    if(old){
-
-        old.remove();
-
-    }
-
-
-    const user =
-        getHorizonUser();
-
-
-    if(!user){
-
+    const users=getHorizonUsers();
+    if(!users.length){
         startHorizonDesktop();
-
         return;
-
     }
 
+    let selectedId=localStorage.getItem(HORIZON_SELECTED_USER_KEY)||users[0].id;
+    if(!users.some(u=>u.id===selectedId))selectedId=users[0].id;
 
-    const overlay =
-        document.createElement(
-            "div"
-        );
+    const overlay=document.createElement("div");
+    overlay.id="wincon10LoginOverlay";
+    document.body.appendChild(overlay);
 
-    overlay.id =
-        "wincon10LoginOverlay";
+    const render=()=>{
+        const selected=users.find(u=>u.id===selectedId)||users[0];
+        try{localStorage.setItem(HORIZON_SELECTED_USER_KEY,selected.id);}catch(_){}
+        const wallpaper=selected.wallpaper||"";
+        const desktopElement=document.getElementById("desktop");
+        const desktopBackground=desktopElement?getComputedStyle(desktopElement).backgroundImage:"";
+        overlay.style.backgroundImage=wallpaper
+            ? `linear-gradient(180deg,rgba(8,12,18,.18),rgba(8,12,18,.72)),url("${wallpaper}")`
+            : (desktopBackground&&desktopBackground!=="none"
+                ? `linear-gradient(180deg,rgba(8,12,18,.12),rgba(8,12,18,.66)),${desktopBackground}`
+                : "radial-gradient(ellipse at 50% 22%,#64748b 0%,#293342 38%,#10151d 100%)");
+        overlay.style.backgroundSize="cover";
+        overlay.style.backgroundPosition="center";
+        overlay.innerHTML=`
+          <div class="w12-lock-top">
+            <div class="w12-lock-time" id="w12LockTime">--:--</div>
+            <div class="w12-lock-date" id="w12LockDate">----</div>
+          </div>
+          <div class="w12-lock-bottom">
+            <div class="w12-lock-users">
+              <div class="w12-lock-section-title">ユーザー</div>
+              <div class="w12-lock-user-list">
+                ${users.map(u=>`<button type="button" class="w12-lock-user ${u.id===selected.id?"active":""}" data-user-id="${escapeHorizonHTML(u.id)}">
+                  <span class="w12-lock-avatar">${u.icon?`<img src="${u.icon}" alt="">`:"👤"}</span>
+                  <span>${escapeHorizonHTML(u.name||"ユーザー")}</span>
+                </button>`).join("")}
+                <button type="button" class="w12-lock-user w12-lock-add" id="w12LockAddUser"><span class="w12-lock-avatar">＋</span><span>ユーザー追加</span></button>
+              </div>
+            </div>
+            <div class="w12-lock-login">
+              <div class="w12-lock-selected-avatar">${selected.icon?`<img src="${selected.icon}" alt="">`:"👤"}</div>
+              <div class="w12-lock-selected-name">${escapeHorizonHTML(selected.name||"ユーザー")}</div>
+              ${selected.passwordHash?`<input id="wincon10LoginPassword" class="wincon10-login-input" type="password" placeholder="パスワード" autocomplete="current-password">`:""}
+              <button id="wincon10LoginButton" class="wincon10-login-button">ログイン</button>
+              <div id="wincon10LoginError" class="wincon10-login-error" role="status"></div>
+            </div>
+            <div class="w12-lock-actions">
+              <button type="button" id="wincon12GuestButton">ゲスト</button>
+              <button type="button" id="w12LockShutdown">⏻ シャットダウン</button>
+              <button type="button" id="w12LockRestart">↻ 再起動</button>
+              <button type="button" id="w12LockReset" class="danger">リセット</button>
+            </div>
+          </div>`;
+        const timeEl=overlay.querySelector("#w12LockTime");
+        const dateEl=overlay.querySelector("#w12LockDate");
+        const updateClock=()=>{
+            const now=new Date();
+            if(timeEl)timeEl.textContent=now.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+            if(dateEl)dateEl.textContent=now.toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"long"});
+        };
+        updateClock();
+        if(window.__WINCON12_LOCK_CLOCK__)clearInterval(window.__WINCON12_LOCK_CLOCK__);
+        window.__WINCON12_LOCK_CLOCK__=setInterval(updateClock,1000);
 
-
-    const avatar =
-        user.icon
-        ?
-        `
-        <img
-            src="${user.icon}"
-            alt=""
-        >
-        `
-        :
-        "👤";
-
-
-    overlay.innerHTML = `
-
-<div
-    class="wincon10-login-card"
->
-
-    <div
-        class="wincon10-login-avatar"
-    >
-        ${avatar}
-    </div>
-
-    <div
-        class="wincon10-login-name"
-    >
-        ${escapeHorizonHTML(
-            user.name
-        )}
-    </div>
-
-    ${
-        user.passwordHash
-        ?
-        `
-        <input
-            id="wincon10LoginPassword"
-            class="wincon10-login-input"
-            type="password"
-            placeholder="パスワード"
-            autocomplete="current-password"
-        >
-        `
-        :
-        ""
-    }
-
-    <button
-        id="wincon10LoginButton"
-        class="wincon10-login-button"
-    >
-        ログイン
-    </button>
-
-    <button id="wincon12GuestButton" class="wincon10-login-button" type="button" style="margin-top:10px;background:#465363;">ゲストとして起動</button>
-
-    <div
-        id="wincon10LoginError"
-        class="wincon10-login-error"
-    ></div>
-
-</div>
-
-`;
-
-
-    document.body.appendChild(
-        overlay
-    );
-
-
-    const button =
-        document.getElementById(
-            "wincon10LoginButton"
-        );
-
-    const password =
-        document.getElementById(
-            "wincon10LoginPassword"
-        );
-
-    const error =
-        document.getElementById(
-            "wincon10LoginError"
-        );
-
-    const guestButton=document.getElementById("wincon12GuestButton");
-    if(guestButton)guestButton.onclick=()=>startHorizonGuestSession();
-
-
-    async function doLogin(){
-
-        if(
-            user.passwordHash
-        ){
-
-            const valid =
-                await verifyPassword(
-                    password
-                    ? password.value
-                    : "",
-                    user.passwordHash
-                );
-
-            if(!valid){
-
-                if(error){
-
-                    error.textContent =
-                        "パスワードが正しくありません。";
-
+        overlay.querySelectorAll("[data-user-id]").forEach(btn=>{
+            btn.addEventListener("click",()=>{
+                selectedId=btn.dataset.userId;
+                render();
+            });
+        });
+        const password=overlay.querySelector("#wincon10LoginPassword");
+        const error=overlay.querySelector("#wincon10LoginError");
+        const login=async()=>{
+            const current=users.find(u=>u.id===selectedId)||selected;
+            const button=overlay.querySelector("#wincon10LoginButton");
+            if(button)button.disabled=true;
+            if(current.passwordHash){
+                const valid=await verifyPassword(password?password.value:"",current.passwordHash);
+                if(!valid){
+                    if(error)error.textContent="パスワードが正しくありません。";
+                    if(button)button.disabled=false;
+                    password?.focus();
+                    return;
                 }
-
-                return;
-
             }
-
-        }
-
-
-        loginHorizon(
-            user
-        );
-
-
-        continueHorizonAfterLogin();
-
-    }
-
-
-    if(button){
-
-        button.onclick =
-            doLogin;
-
-    }
-
-
-    if(password){
-
-        password.addEventListener(
-            "keydown",
-            event => {
-
-                if(
-                    event.key ===
-                    "Enter"
-                ){
-
-                    event.preventDefault();
-
-                    doLogin();
-
-                }
-
-            }
-        );
-
-        setTimeout(
-            () => password.focus(),
-            100
-        );
-
-    }else if(button){
-
-        setTimeout(
-            () => button.focus(),
-            100
-        );
-
-    }
-
+            loginHorizon(current);
+            continueHorizonAfterLogin();
+        };
+        overlay.querySelector("#wincon10LoginButton").onclick=login;
+        password?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();login();}});
+        overlay.querySelector("#wincon12GuestButton").onclick=()=>startHorizonGuestSession();
+        overlay.querySelector("#w12LockShutdown").onclick=()=>window.Wincon10HorizonShutdown();
+        overlay.querySelector("#w12LockRestart").onclick=()=>window.Wincon10HorizonRestart();
+        overlay.querySelector("#w12LockReset").onclick=()=>window.Wincon10HorizonFactoryReset();
+        overlay.querySelector("#w12LockAddUser").onclick=()=>openHorizonAddUserMini();
+        if(password)setTimeout(()=>password.focus(),100);
+    };
+    render();
 }
 
+// Expose a safe lock action for the Start menu and power options.
+window.Wincon12LockScreen=function(){
+    try{logoutHorizon();}catch(error){console.warn('[Horizon] logout before lock failed',error);}
+    try{showHorizonLogin();}catch(error){console.error('[Horizon] lock screen failed',error);alert('ロック画面を表示できませんでした。');}
+};
 
 /* =========================================================
    GUEST SESSION (temporary localStorage sandbox)
 ========================================================= */
 function startHorizonGuestSession(){
  try{
-  const snapshot={};for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);snapshot[key]=localStorage.getItem(key);}
-  sessionStorage.setItem("wincon12_guest_backup",JSON.stringify(snapshot));
+  const guestScope='guest_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+  sessionStorage.setItem('wincon12_storage_scope',guestScope);
+  sessionStorage.setItem('wincon12_guest_scope',guestScope);
   sessionStorage.setItem("wincon12_guest_active","1");
-  // Keep the existing profile readable (installed apps remain available); all writes are temporary
-  // because the snapshot is restored when the guest session ends.
   window.__WINCON12_GUEST_SESSION__=true;
+  if(window.__WINCON12_LOCK_CLOCK__){clearInterval(window.__WINCON12_LOCK_CLOCK__);window.__WINCON12_LOCK_CLOCK__=null;}
   document.getElementById("wincon10LoginOverlay")?.remove();
   setTimeout(()=>{
    try{const win=createWindow({title:"ゲストセッション",icon:"👤",width:480,height:220,content:'<div style="padding:22px"><h2>ゲストとして起動しました</h2><p>このセッション中のデータは一時的な領域に保存され、シャットダウンまたは再起動すると破棄されます。</p></div>'});}catch(e){console.warn(e);}
@@ -12544,6 +12518,7 @@ function startHorizonGuestSession(){
 ========================================================= */
 
 function continueHorizonAfterLogin(){
+ if(window.__WINCON12_LOCK_CLOCK__){clearInterval(window.__WINCON12_LOCK_CLOCK__);window.__WINCON12_LOCK_CLOCK__=null;}
  const overlay=document.getElementById("wincon10LoginOverlay");if(overlay)overlay.remove();
  startHorizonDesktop();
  if(!window.__WINCON12_GUEST_SESSION__&&!localStorage.getItem("wincon12_first_welcome_shown")){
@@ -12592,6 +12567,192 @@ function startHorizonDesktop(){
 
 }
 
+
+
+/* =========================================================
+   Wincon 12.0.1 Patch 1 - Multi-user management
+========================================================= */
+
+function readHorizonImage(file,maxWidth=1280,maxHeight=720){
+    return new Promise((resolve,reject)=>{
+        if(!file){resolve(null);return;}
+        const reader=new FileReader();
+        reader.onerror=()=>reject(reader.error||new Error("画像を読み込めません"));
+        reader.onload=()=>{
+            const img=new Image();
+            img.onerror=()=>reject(new Error("画像形式を読み込めません"));
+            img.onload=()=>{
+                const scale=Math.min(1,maxWidth/img.width,maxHeight/img.height);
+                const canvas=document.createElement("canvas");
+                canvas.width=Math.max(1,Math.round(img.width*scale));
+                canvas.height=Math.max(1,Math.round(img.height*scale));
+                const ctx=canvas.getContext("2d");
+                ctx.drawImage(img,0,0,canvas.width,canvas.height);
+                resolve(canvas.toDataURL("image/jpeg",0.78));
+            };
+            img.src=reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function openHorizonAddUserMini(){
+    const content=`
+      <div style="padding:4px 2px">
+        <h2 style="margin-bottom:8px">ユーザーを追加</h2>
+        <p style="opacity:.7;font-size:13px;margin-bottom:14px">新しいWinconユーザーを作成します。</p>
+        <label>ユーザーネーム</label><input id="w12MiniName" maxlength="32" placeholder="ユーザーネーム">
+        <label style="display:block;margin-top:12px">アイコン</label><input id="w12MiniIcon" type="file" accept="image/*">
+        <div id="w12MiniPreview" style="width:64px;height:64px;border-radius:50%;background:#475569;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;margin-top:8px">👤</div>
+        <label style="display:block;margin-top:12px">パスワード（任意）</label><input id="w12MiniPassword" type="password" autocomplete="new-password" placeholder="設定しない場合は空欄">
+        <div id="w12MiniError" style="color:#fca5a5;min-height:22px;margin-top:8px;font-size:13px"></div>
+        <button class="action" id="w12MiniCreate">ユーザーを追加</button>
+      </div>`;
+    const win=createWindow({title:"ユーザー追加",icon:"＋",width:470,height:500,popup:false,content,systemLayer:true,noTaskbar:true});
+    if(!win)return;
+    const file=win.querySelector("#w12MiniIcon");
+    let iconData=null;
+    file.onchange=async()=>{
+        try{iconData=await readHorizonImage(file.files?.[0],512,512);win.querySelector("#w12MiniPreview").innerHTML=iconData?`<img src="${iconData}" style="width:100%;height:100%;object-fit:cover">`:"👤";}
+        catch(e){win.querySelector("#w12MiniError").textContent=e.message;}
+    };
+    win.querySelector("#w12MiniCreate").onclick=async()=>{
+        const name=win.querySelector("#w12MiniName").value.trim();
+        const password=win.querySelector("#w12MiniPassword").value;
+        const error=win.querySelector("#w12MiniError");
+        if(!name){error.textContent="ユーザーネームを入力してください。";return;}
+        if(getHorizonUsers().some(u=>u.name.toLocaleLowerCase()===name.toLocaleLowerCase())){error.textContent="同じ名前のユーザーが既に存在します。";return;}
+        const button=win.querySelector("#w12MiniCreate");button.disabled=true;
+        try{
+            const record=password?await createPasswordRecord(password):null;
+            const user=createHorizonUser(name,record,{icon:iconData||null});
+            win.remove();
+            if(document.getElementById("wincon10LoginOverlay")){
+                localStorage.setItem(HORIZON_SELECTED_USER_KEY,user.id);
+                showHorizonLogin();
+            }
+        }catch(e){error.textContent="ユーザーを作成できませんでした: "+(e.message||e);button.disabled=false;}
+    };
+}
+
+function openHorizonUserConfig(){
+    const users=getHorizonUsers();
+    const content=`
+      <div style="display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;height:100%;min-height:0">
+        <section style="min-width:0;overflow:auto">
+          <h2 style="margin:0 0 12px">ユーザー</h2>
+          <div id="w12UserList"></div>
+          <button class="action" id="w12UserNew" style="margin-top:10px">＋ ユーザーを追加</button>
+        </section>
+        <section style="min-width:0;overflow:auto">
+          <h2 id="w12UserFormTitle" style="margin:0 0 12px">ユーザー情報</h2>
+          <label>ユーザーネーム</label><input id="w12UserName" maxlength="32">
+          <label style="display:block;margin-top:10px">アイコン</label><input id="w12UserIcon" type="file" accept="image/*">
+          <div id="w12UserPreview" style="width:64px;height:64px;border-radius:50%;background:#475569;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;margin-top:8px">👤</div>
+          <label style="display:block;margin-top:10px">パスワード（空欄なら変更しない）</label><input id="w12UserPassword" type="password" autocomplete="new-password">
+          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px"><input id="w12UserPasswordClear" type="checkbox" style="width:18px;height:18px;margin:0">パスワードを削除する</label>
+          <label style="display:block;margin-top:10px">ロック画面の背景（任意）</label><input id="w12UserWallpaper" type="file" accept="image/*">
+          <div id="w12UserError" style="color:#fca5a5;min-height:24px;margin-top:8px;font-size:13px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="action" id="w12UserSave">保存</button>
+            <button class="action" id="w12UserDelete" style="background:#991b1b">削除</button>
+          </div>
+        </section>
+      </div>`;
+    const win=createWindow({title:"ユーザーコンフィグ",icon:"👥",width:850,height:620,content});
+    if(!win)return;
+    let selectedId=users[0]?.id||null;
+    let iconData=null,wallpaperData=null;
+    const list=win.querySelector("#w12UserList");
+    const nameEl=win.querySelector("#w12UserName");
+    const passEl=win.querySelector("#w12UserPassword");
+    const preview=win.querySelector("#w12UserPreview");
+    const error=win.querySelector("#w12UserError");
+    const deleteBtn=win.querySelector("#w12UserDelete");
+    const userById=id=>getHorizonUsers().find(u=>u.id===id)||null;
+    const renderList=()=>{
+        list.innerHTML="";
+        getHorizonUsers().forEach(user=>{
+            const button=document.createElement("button");
+            button.type="button";button.style.cssText="width:100%;display:flex;align-items:center;gap:10px;padding:10px;margin:0 0 7px;border:1px solid #ffffff22;border-radius:10px;background:"+(user.id===selectedId?"#46566d":"#343b46")+";color:white;text-align:left;cursor:pointer";
+            const avatar=document.createElement("span");avatar.style.cssText="width:36px;height:36px;border-radius:50%;overflow:hidden;background:#64748b;display:flex;align-items:center;justify-content:center;flex:none";
+            avatar.innerHTML=user.icon?`<img src="${user.icon}" style="width:100%;height:100%;object-fit:cover">`:"👤";
+            const label=document.createElement("span");label.textContent=user.name||"ユーザー";
+            button.append(avatar,label);button.onclick=()=>showUser(user);list.appendChild(button);
+        });
+    };
+    const showUser=user=>{
+        selectedId=user?.id||null;iconData=user?.icon||null;wallpaperData=user?.wallpaper||null;
+        win.querySelector("#w12UserFormTitle").textContent=user?"ユーザーを編集":"新しいユーザー";
+        nameEl.value=user?.name||"";passEl.value="";error.textContent="";
+        preview.innerHTML=iconData?`<img src="${iconData}" style="width:100%;height:100%;object-fit:cover">`:"👤";
+        deleteBtn.style.display=user?"":"none";
+        renderList();
+    };
+    win.querySelector("#w12UserNew").onclick=()=>showUser(null);
+    win.querySelector("#w12UserIcon").onchange=async e=>{
+        try{iconData=await readHorizonImage(e.target.files?.[0],512,512);preview.innerHTML=iconData?`<img src="${iconData}" style="width:100%;height:100%;object-fit:cover">`:"👤";}
+        catch(err){error.textContent=err.message;}
+    };
+    win.querySelector("#w12UserWallpaper").onchange=async e=>{
+        try{wallpaperData=await readHorizonImage(e.target.files?.[0],1600,1000);}
+        catch(err){error.textContent=err.message;}
+    };
+    win.querySelector("#w12UserSave").onclick=async()=>{
+        const name=nameEl.value.trim(),password=passEl.value;
+        if(!name){error.textContent="ユーザーネームを入力してください。";return;}
+        if(getHorizonUsers().some(u=>u.id!==selectedId&&u.name.toLocaleLowerCase()===name.toLocaleLowerCase())){error.textContent="同じ名前のユーザーが既に存在します。";return;}
+        const button=win.querySelector("#w12UserSave");button.disabled=true;
+        try{
+            const old=selectedId?userById(selectedId):null;
+            const patch={name,icon:iconData||null};
+            if(wallpaperData!==null)patch.wallpaper=wallpaperData;
+            if(password)patch.passwordHash=await createPasswordRecord(password);
+            else if(win.querySelector("#w12UserPasswordClear").checked)patch.passwordHash=null;
+            if(old){
+                const users=getHorizonUsers().map(u=>u.id===old.id?{...u,...patch}:u);
+                saveHorizonUsers(users);
+                if(getHorizonSession()?.userId===old.id)astWrite(Horizon_KEYS.user,{...old,...patch});
+            }else{
+                const created=createHorizonUser(name,password?await createPasswordRecord(password):null,{icon:iconData||null,wallpaper:wallpaperData||null});
+                selectedId=created.id;
+            }
+            showUser(userById(selectedId)||getHorizonUsers().find(u=>u.name===name));
+            error.style.color="#86efac";error.textContent="保存しました。";
+        }catch(err){error.style.color="#fca5a5";error.textContent="保存に失敗しました: "+(err.message||err);}
+        finally{button.disabled=false;}
+    };
+    deleteBtn.onclick=()=>{
+        const user=userById(selectedId);if(!user)return;
+        const all=getHorizonUsers();
+        if(all.length<=1){error.textContent="最後のユーザーは削除できません。";return;}
+        if(!confirm(`「${user.name}」を削除しますか？`))return;
+        const remaining=all.filter(u=>u.id!==selectedId);
+        saveHorizonUsers(remaining);
+        if(astRead(Horizon_KEYS.user,null)?.id===selectedId){
+            astWrite(Horizon_KEYS.user,remaining[0]);
+        }
+        if(localStorage.getItem(HORIZON_SELECTED_USER_KEY)===selectedId){
+            localStorage.setItem(HORIZON_SELECTED_USER_KEY,remaining[0].id);
+        }
+        if(getHorizonSession()?.userId===selectedId){
+            logoutHorizon();win.remove();showHorizonLogin();return;
+        }
+        selectedId=null;showUser(null);
+    };
+    showUser(users[0]||null);
+}
+
+window.Wincon12UserConfig=openHorizonUserConfig;
+
+function registerHorizonUserConfigModule(){
+    if(typeof menuItems==="undefined")return;
+    if(!menuItems.some(item=>item&&item.type==="user-config")){
+        menuItems.push({title:"ユーザーコンフィグ",icon:"👥",type:"user-config",system:true});
+    }
+    try{localStorage.setItem("winconMenuItems",JSON.stringify(menuItems));}catch(_){}
+    if(typeof renderMenu==="function")renderMenu();
+}
 
 /* =========================================================
    OOBE MODULE REGISTRATION
@@ -13522,6 +13683,7 @@ function startHorizonBootFlow(){
     runWinconCoreBootOnce();
 
     registerHorizonOOBEModule();
+    registerHorizonUserConfigModule();
     installHorizonCommandHook();
 
 
@@ -13845,6 +14007,26 @@ window.Wincon10HorizonRecovery =
    FACTORY RESET
 ========================================================= */
 
+async function clearWinconOwnedStorage(){
+    try{if(typeof window.__WINCON12_RAW_STORAGE_CLEAR__==='function')window.__WINCON12_RAW_STORAGE_CLEAR__();else localStorage.clear();}catch(_){}
+    try{sessionStorage.clear();}catch(_){}
+    const databases=["WinconAppearanceDB","WinconCameraDB","WinconHorizonDirectoryDB"];
+    if(window.indexedDB&&typeof indexedDB.deleteDatabase==="function"){
+        try{if(typeof indexedDB.databases==='function'){const all=await indexedDB.databases();for(const db of all){if(db.name&&!databases.includes(db.name))databases.push(db.name);}}}catch(_){}
+        await Promise.all(databases.map(name=>new Promise(resolve=>{
+            const req=indexedDB.deleteDatabase(name);
+            req.onsuccess=req.onerror=req.onblocked=()=>resolve();
+            setTimeout(resolve,2500);
+        })));
+    }
+    if("caches" in window){
+        try{
+            const names=await caches.keys();
+            await Promise.all(names.filter(name=>/wincon/i.test(name)).map(name=>caches.delete(name)));
+        }catch(e){console.warn("[Wincon Reset] cache cleanup failed",e);}
+    }
+}
+
 window.Wincon10HorizonFactoryReset =
     function(){
 
@@ -13886,24 +14068,17 @@ window.Wincon10HorizonFactoryReset =
                 5000,
 
             onComplete(){
-
-                window.__WINCON10_FACTORY_INTERNAL__ =
-                    true;
-
-
-                try{
-
-                    localStorage.clear();
-
-                    location.reload();
-
-                }finally{
-
-                    window.__WINCON10_FACTORY_INTERNAL__ =
-                        false;
-
-                }
-
+                window.__WINCON10_FACTORY_INTERNAL__ = true;
+                (async()=>{
+                    try{
+                        await clearWinconOwnedStorage();
+                        location.reload();
+                    }catch(error){
+                        console.error("[Wincon Reset] complete reset failed",error);
+                        alert("初期化中に一部のデータを削除できませんでした。ページを再読み込みします。");
+                        location.reload();
+                    }
+                })();
             }
 
         });
@@ -19193,7 +19368,9 @@ if (
                 console.error(error);
             }
 
-            updateWincon();
+            console.log(
+                "[Wincon Update] 自動更新は停止されています。アップデートアプリから実行してください。"
+            );
 
         }
 
@@ -20166,13 +20343,13 @@ async function openDirectory(){style();const win=createWindow({title:'Horizon Di
  async function render(){const all=await allEntries();pathLabel.textContent='/'+current;list.replaceChildren();const children=all.filter(e=>dirname(e.path)===current).sort((a,b)=>(a.type==='folder'?-1:1)-(b.type==='folder'?-1:1)||a.name.localeCompare(b.name,'ja'));for(const e of children){const tr=document.createElement('tr');tr.className='hd-entry';const icon=e.type==='folder'?'📁':e.name.toLowerCase().endsWith('.wincapps')?'🧩':e.name.toLowerCase().endsWith('.zip')?'🗜️':'📄';tr.innerHTML=`<td><span class="hd-entry-name"><span>${icon}</span><span>${esc(e.name)}</span></span></td><td>${e.type==='folder'?'フォルダ':esc(ext(e.name)||'ファイル')}</td><td>${e.type==='folder'?'—':formatSize(e.size||0)}</td><td>${e.updated?new Date(e.updated).toLocaleString():'—'}</td>`;tr.addEventListener('click',()=>{selected=e.path;root.querySelectorAll('tr').forEach(x=>x.style.background='');tr.style.background='#3986d533';});tr.addEventListener('dblclick',()=>{if(e.type==='folder'){current=e.path;selected=null;render();}else openStoredFile(e.path);});tr.addEventListener('contextmenu',ev=>{ev.preventDefault();selected=e.path;showContext(ev.clientX,ev.clientY,e);});list.appendChild(tr);}
  tree.replaceChildren();const home=document.createElement('button');home.textContent='🏠 このPC';home.classList.toggle('active',!current);home.onclick=()=>{current='';selected=null;render();};tree.appendChild(home);const folders=all.filter(e=>e.type==='folder').sort((a,b)=>a.path.localeCompare(b.path,'ja'));folders.forEach(f=>{const b=document.createElement('button');const depth=f.path.split('/').length;b.style.paddingLeft=(8+depth*10)+'px';b.textContent='📁 '+f.name;b.classList.toggle('active',current===f.path);b.onclick=()=>{current=f.path;selected=null;render();};tree.appendChild(b);});}
  function formatSize(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';return (n/1048576).toFixed(1)+' MB';}
- function showContext(x,y,e){document.querySelector('.hd-context')?.remove();const m=document.createElement('div');m.className='hd-context';m.style.left=Math.min(x,innerWidth-230)+'px';m.style.top=Math.min(y,innerHeight-330)+'px';const opts=[['開く',()=>e.type==='folder'?(current=e.path,render()):openStoredFile(e.path)],...(e.type!=='folder'&&['txt','md','json','csv','xml','html','css','js','log'].includes(ext(e.name))?[['Horizon Noteで開く',()=>openNoteForPath(e.path)]]:[]),['名前の変更',()=>renameEntry(e)],['削除',()=>deleteEntryConfirm(e)],['一度だけ別のアプリで開く',()=>openWithDialog(e,false)],['常にこのアプリで開く',()=>openWithDialog(e,true)],['ダウンロード',()=>downloadEntry(e)]];opts.forEach(([label,fn])=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>{m.remove();fn();};m.appendChild(b);});document.body.appendChild(m);const close=ev=>{if(!m.contains(ev.target)){m.remove();document.removeEventListener('pointerdown',close,true);}};setTimeout(()=>document.addEventListener('pointerdown',close,true),0);}
+ function showContext(x,y,e){document.querySelector('.hd-context')?.remove();const m=document.createElement('div');m.className='hd-context';m.style.left=Math.min(x,innerWidth-230)+'px';m.style.top=Math.min(y,innerHeight-330)+'px';const opts=[['開く',()=>e.type==='folder'?(current=e.path,render()):openStoredFile(e.path)],...(e.type!=='folder'&&['html','htm','svg'].includes(ext(e.name))?[['Sail Browserで開始',async()=>{const file=await getEntry(e.path);if(file&&window.WinconSailOpenBlob)window.WinconSailOpenBlob(file.blob,basename(e.path));}]]:[]),...(e.type!=='folder'&&['txt','md','json','csv','xml','html','css','js','log'].includes(ext(e.name))?[['Horizon Noteで開く',()=>openNoteForPath(e.path)]]:[]),['名前の変更',()=>renameEntry(e)],['削除',()=>deleteEntryConfirm(e)],['一度だけ別のアプリで開く',()=>openWithDialog(e,false)],['常にこのアプリで開く',()=>openWithDialog(e,true)],['ダウンロード',()=>downloadEntry(e)]];opts.forEach(([label,fn])=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>{m.remove();fn();};m.appendChild(b);});document.body.appendChild(m);const close=ev=>{if(!m.contains(ev.target)){m.remove();document.removeEventListener('pointerdown',close,true);}};setTimeout(()=>document.addEventListener('pointerdown',close,true),0);}
  async function renameEntry(e){const n=prompt('新しい名前',e.name);if(!n||n===e.name)return;const target=dirname(e.path)?dirname(e.path)+'/'+n:n;if(await getEntry(target)){alert('同じ名前が既にあります');return;}const all=await allEntries(),move=all.filter(x=>x.path===e.path||x.path.startsWith(e.path+'/'));for(const item of move){const next={...item,path:target+item.path.slice(e.path.length),name:basename(target+item.path.slice(e.path.length)),updated:Date.now()};await putEntry(next);await deleteEntry(item.path);}render();}
  async function deleteEntryConfirm(e){if(!confirm(`「${e.name}」を削除しますか？`))return;const all=await allEntries();for(const x of all.filter(x=>x.path===e.path||x.path.startsWith(e.path+'/')))await deleteEntry(x.path);render();}
  async function downloadEntry(e){if(e.type==='folder'){alert('フォルダのダウンロードはZIP圧縮を使用してください');return;}const blob=e.blob instanceof Blob?e.blob:new Blob([e.blob||'']);downloadBlob(blob,e.name);}
  async function openWithDialog(e,always){const apps=[{title:'Horizon Note',icon:'📝',type:'horizon-note',fileExtensions:['txt','md','json','csv','xml','html','css','js']} ,...(Array.isArray(menuItems)?menuItems.filter(a=>a&&a.fileExtensions&&a.type==='externalHTML'):[])];const body=`<p>「${esc(e.name)}」を開くアプリを選択してください。</p><select data-app>${apps.map((a,i)=>`<option value="${i}">${esc(a.icon||'📄')} ${esc(a.title)}</option>`).join('')}</select>`;showModal(always?'常にこのアプリで開く':'アプリを選択',body,[{label:'キャンセル'},{label:'開く',onClick:async back=>{const i=Number(back.querySelector('[data-app]').value),a=apps[i];if(always){const assoc=getAssociations();assoc[ext(e.name)]=a.id||a.type;localStorage.setItem(LS_ASSOC,JSON.stringify(assoc));}if(a.type==='horizon-note')openNoteForPath(e.path);else if(a.type==='externalHTML')openExternalHTML(a);}}]);}
  async function openStoredFile(p){const e=await getEntry(p);if(!e)return;if(ext(p)==='wincapps'){const txt=await e.blob.text();try{await window.WinconMiniAppsUtility.open(JSON.parse(txt),p);}catch(err){alert('wincappsを読み込めません: '+err.message);}return;}const assoc=getAssociations()[ext(p)];if(assoc){if(assoc==='horizon-note')return openNoteForPath(p);const app=menuItems.find(a=>a&&((a.id===assoc)||(a.type===assoc)));if(app&&app.type==='externalHTML')return openExternalHTML(app);}
- if(['txt','md','json','csv','xml','html','css','js','log'].includes(ext(p)))return openNoteForPath(p);if(ext(p)==='zip')return extractZip(p);downloadEntry(e);}
+ if(['html','htm','svg'].includes(ext(p))){if(typeof window.WinconSailOpenBlob==='function')return window.WinconSailOpenBlob(e.blob instanceof Blob?e.blob:new Blob([e.blob||''],{type:'text/html'}),basename(p));}if(['txt','md','json','csv','xml','css','js','log'].includes(ext(p)))return openNoteForPath(p);if(ext(p)==='zip')return extractZip(p);downloadEntry(e);}
  root.querySelector('[data-act=back]').onclick=()=>{current=dirname(current);selected=null;render();};root.querySelector('[data-act=up]').onclick=()=>{current=dirname(current);selected=null;render();};root.querySelector('[data-act=refresh]').onclick=render;
  root.querySelector('[data-act=newfolder]').onclick=async()=>{const n=prompt('フォルダ名');if(!n)return;await ensureFolder(current?current+'/'+n:n);render();};
  root.querySelector('[data-act=newfile]').onclick=async()=>{const n=prompt('ファイル名','新しいテキスト.txt');if(!n)return;await saveBlob(current?current+'/'+n:n,new Blob([''],{type:'text/plain'}));render();openNoteForPath(current?current+'/'+n:n);};
@@ -20604,6 +20781,10 @@ style.textContent=`
 #wincon12-start-context{position:fixed;z-index:2147483647;min-width:150px;background:#252525;color:#fff;border:1px solid #555;box-shadow:0 5px 18px #0009;padding:4px 0;font:13px 'Segoe UI',sans-serif;}
 #wincon12-start-context button{display:block;width:100%;height:32px;padding:0 13px;border:0;background:transparent;color:#fff;text-align:left;cursor:pointer;}
 #wincon12-start-context button:hover{background:#3b3b3b;}
+.w12-sail-installed.mode-standalone .w12-sail-pwa-views{flex:1;min-height:0;width:100%;height:100%;}
+.w12-sail-installed.mode-standalone .w12-sail-pwa-frame{display:block;width:100%;height:100%;border:0;flex:1;}
+.w12-sail-installed.mode-tabbed .w12-sail-pwa-views{flex:1;min-height:0;}
+.w12-sail-pwa-tabs[hidden],.w12-sail-appbar[hidden]{display:none!important;}
 @media(max-width:620px){#menu{min-width:0!important;width:calc(100vw - 8px)!important;}#menu .w10-start-shell{grid-template-columns:38px minmax(145px,42%) minmax(120px,1fr);}#menu .w10-start-tiles{grid-template-columns:repeat(2,minmax(60px,1fr));padding-left:8px;padding-right:8px;}#menu .w10-tiles-heading{left:calc(38px + 42% + 8px);}}
 `;
 document.head.appendChild(style);
@@ -20723,7 +20904,16 @@ function launchItem(item){
   case 'wincon-intelligence':if(window.WinconIntelligence?.open)window.WinconIntelligence.open();else showInWinconAlert('Wincon Intelligenceを起動できません。');break;
   case 'externalHTML':openExternalHTML(item);break;case 'transfer':openTransferApp();break;case 'terminal':openTerminal();break;
   case 'reset':openResetCenter();break;case 'browser':openBrowser();break;case 'appcenter':openAppCenter();break;case 'gamecenter':openGameCenter();break;
-  case 'appcenterdev':openAppCenterDeveloper();break;case 'sail-webapp':openSailInstalledWebApp(item);break;
+  case 'wincon-update':
+   if(window.WinconUpdateManager && typeof window.WinconUpdateManager.open==='function'){
+    window.WinconUpdateManager.open();
+   }else{
+    console.error('[Wincon Start] Wincon Update Manager is not ready.');
+    if(typeof showInWinconAlert==='function')showInWinconAlert('Wincon Updateを読み込めませんでした。','起動エラー');
+    else alert('Wincon Updateを読み込めませんでした。');
+   }
+   break;
+  case 'appcenterdev':openAppCenterDeveloper();break;case 'user-config':if(typeof window.Wincon12UserConfig==='function')window.Wincon12UserConfig();else showInWinconAlert('ユーザーコンフィグを読み込めませんでした。','起動エラー');break;case 'sail-webapp':openSailInstalledWebApp(item);break;
   default: if(typeof item.onClick==='function')item.onClick();else console.warn('[Wincon Start] no launch route for',item);
  }
 }
@@ -20772,9 +20962,10 @@ function renderStartMenu(){
  const profile=document.createElement('div');profile.className='w12-start-profile';profile.textContent='◉  Wincon';
  const power=document.createElement('div');power.className='w12-start-power';
  const powerLabel=document.createElement('span');powerLabel.textContent='電源';
+ const lock=document.createElement('button');lock.type='button';lock.textContent='🔒 ロック';lock.onclick=()=>{menu.style.display='none';window.Wincon12LockScreen?.();};
  const shutdown=document.createElement('button');shutdown.type='button';shutdown.textContent='⏻ シャットダウン';shutdown.onclick=()=>{menu.style.display='none';window.shutdownSystem?.();};
  const restart=document.createElement('button');restart.type='button';restart.textContent='↻ 再起動';restart.onclick=()=>{menu.style.display='none';window.restartSystem?.();};
- power.append(powerLabel,shutdown,restart);footer.append(profile,power);
+ power.append(powerLabel,lock,shutdown,restart);footer.append(profile,power);
  shell.append(rail,listPane,tilePane,footer);menu.replaceChildren(shell);
  // Right-click is handled by Wincon's existing #winconExtensionContextMenu. The extra action is
  // appended to that same menu after its built-in Open / taskbar pin actions have appeared.
@@ -20811,52 +21002,95 @@ function showInWinconAlert(message,title='通知'){
 }
 window.alert=message=>showInWinconAlert(message,'Wincon - 通知');
 
-/* Sail Browser: tab strip, navigation controls, and install-current-page-as-app. */
+/* Sail Browser Patch 2: PWA metadata, Tabbed app windows, local file support. */
 let sailWindowSerial=0;
-function normalizeWebURL(raw){let value=String(raw||'').trim();if(!value)return'';if(!/^https?:\/\//i.test(value)){if(value.includes('.')&&!value.includes(' '))value='https://'+value;else value='https://www.google.com/search?q='+encodeURIComponent(value);}try{return new URL(value).href;}catch(_){return'';}}
-function pageTitleFromURL(url){try{return new URL(url).hostname.replace(/^www\./,'')||'Web App';}catch(_){return'Web App';}}
-function faviconForURL(url){try{return 'https://www.google.com/s2/favicons?domain_url='+encodeURIComponent(url)+'&sz=128';}catch(_){return'';}}
-function installSailPage(url){
- const normalized=normalizeWebURL(url);if(!normalized){showInWinconAlert('有効なURLを入力してください。');return;}
- const name=pageTitleFromURL(normalized);const favicon=faviconForURL(normalized);
+function normalizeWebURL(raw){
+ let value=String(raw||'').trim();if(!value)return'';
+ if(/^file:\/\//i.test(value)||/^blob:/i.test(value)||/^about:/i.test(value)){try{return new URL(value).href;}catch(_){return'';}}
+ if(!/^https?:\/\//i.test(value)){if(value.includes('.')&&!value.includes(' '))value='https://'+value;else value='https://www.google.com/search?q='+encodeURIComponent(value);}
+ try{const u=new URL(value);return ['http:','https:','file:','blob:','about:'].includes(u.protocol)?u.href:'';}catch(_){return'';}
+}
+function pageTitleFromURL(url){try{const u=new URL(url);if(u.protocol==='file:')return decodeURIComponent(u.pathname.split('/').pop()||'ローカルファイル');if(u.protocol==='blob:')return'ローカルファイル';return u.hostname.replace(/^www\./,'')||'Web App';}catch(_){return'Web App';}}
+function faviconForURL(url){try{const u=new URL(url);if(u.protocol==='http:'||u.protocol==='https:')return 'https://www.google.com/s2/favicons?domain_url='+encodeURIComponent(url)+'&sz=128';}catch(_){}return'';}
+const SAIL_SUPPORTED_DISPLAY_MODES=['tabbed','standalone','minimal-ui','fullscreen','browser'];
+function resolveSailDisplayMode(manifest){
+ // display_override はマニフェスト記載順で評価し、Winconが実装する最初の値を採用。
+ const overrides=Array.isArray(manifest?.display_override)?manifest.display_override:[];
+ const selected=overrides.find(mode=>SAIL_SUPPORTED_DISPLAY_MODES.includes(String(mode).toLowerCase()));
+ if(selected)return String(selected).toLowerCase();
+ const declared=String(manifest?.display||'').toLowerCase();
+ return SAIL_SUPPORTED_DISPLAY_MODES.includes(declared)?declared:'standalone';
+}
+async function readSailPageMetadata(url,frame){
+ const fallback={title:pageTitleFromURL(url),icon:faviconForURL(url),manifest:null,display:'standalone',manifestURL:'',startURL:url,scope:''};
+ // Cross-origin iframe DOM is isolated; fetch metadata only when the site permits CORS.
+ try{const response=await fetch(url,{method:'GET',mode:'cors',credentials:'omit'});if(response.ok){const html=await response.text();const doc=new DOMParser().parseFromString(html,'text/html');
+  const title=doc.querySelector('title')?.textContent?.trim();if(title)fallback.title=title;
+  const icon=doc.querySelector('link[rel~="icon"],link[rel="apple-touch-icon"]')?.getAttribute('href');if(icon)fallback.icon=new URL(icon,url).href;
+  const manifestHref=doc.querySelector('link[rel="manifest"]')?.getAttribute('href');
+  if(manifestHref){try{const manifestURL=new URL(manifestHref,url).href;const mr=await fetch(manifestURL,{mode:'cors',credentials:'omit'});if(mr.ok){const manifest=await mr.json();fallback.manifest=manifest;fallback.manifestURL=manifestURL;fallback.display=resolveSailDisplayMode(manifest);fallback.startURL=new URL(manifest.start_url||url,manifestURL).href;fallback.scope=manifest.scope?new URL(manifest.scope,manifestURL).href:'';
+   // PWA名はname/short_name、通常ページ名は<title>を優先して保持。
+   fallback.appName=String(manifest.name||manifest.short_name||fallback.title);
+   const icons=Array.isArray(manifest.icons)?manifest.icons:[];const mi=icons.find(x=>String(x.sizes||'').split(/\s+/).includes('192x192'))||icons.find(x=>String(x.sizes||'').includes('192'))||icons.find(x=>x.purpose?.includes?.('any'))||icons[0];if(mi?.src)fallback.icon=new URL(mi.src,manifestURL).href;
+  }}catch(_){}}
+ }}catch(_){}
+ try{const d=frame?.contentDocument;const t=d?.title?.trim();if(t)fallback.title=t;const i=d?.querySelector('link[rel~="icon"]')?.href;if(i)fallback.icon=i;}catch(_){}
+ return fallback;
+}
+function installSailPage(url,metadata={}){
+ const normalized=normalizeWebURL(url);if(!normalized){showInWinconAlert('有効なURLまたはローカルファイルを指定してください。');return;}if(/^file:|^blob:/i.test(normalized)){showInWinconAlert('ローカルファイルはSail Browserで開けますが、PWAとしてのアプリ登録には対応しません。PWAはHTTPSなどの安全なオリジンが必要です。','PWA登録');return;}
+ const name=String(metadata.title||pageTitleFromURL(normalized)).trim()||pageTitleFromURL(normalized);const icon=metadata.icon||faviconForURL(normalized)||'🌐';const manifest=metadata.manifest||null;const displayMode=manifest?resolveSailDisplayMode(manifest):String(metadata.display||'standalone');
  const apps=readJSON(WEBAPP_KEY,[]);const existing=apps.find(a=>a.url===normalized);
- const app=existing||{id:'sail-webapp-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),type:'sail-webapp',title:name,url:normalized,icon:'🌐',favicon,iconImage:favicon,installedAt:Date.now()};
- if(!existing){apps.push(app);saveJSON(WEBAPP_KEY,apps);}
- if(!Array.isArray(menuItems))window.menuItems=[];
- const found=menuItems.findIndex(x=>x&&x.type==='sail-webapp'&&x.url===normalized);
- if(found>=0)menuItems[found]=app;else menuItems.push(app);
- try{localStorage.setItem('winconMenuItems',JSON.stringify(menuItems));}catch(_){}
- try{renderMenu();}catch(_){}
- showInWinconAlert('「'+name+'」をアプリとして追加しました。','Sail Browser');
+ const imageIcon=typeof icon==='string'&&/^(https?:|data:|blob:)/i.test(icon);
+ const app={...(existing||{}),id:existing?.id||('sail-webapp-'+Date.now()+'-'+Math.random().toString(36).slice(2,7)),type:'sail-webapp',title:name,url:normalized,icon:imageIcon?'🌐':icon,iconImage:imageIcon?icon:'',favicon:imageIcon?icon:'',pwa:true,displayMode,displayOverride:Array.isArray(manifest?.display_override)?manifest.display_override:[],manifest:manifest||null,manifestURL:metadata.manifestURL||'',startURL:metadata.startURL||normalized,scope:metadata.scope||'',installedAt:existing?.installedAt||Date.now()};
+ const idx=apps.findIndex(a=>a.url===normalized);if(idx>=0)apps[idx]=app;else apps.push(app);saveJSON(WEBAPP_KEY,apps);
+ if(!Array.isArray(menuItems))window.menuItems=[];const found=menuItems.findIndex(x=>x&&x.type==='sail-webapp'&&x.url===normalized);if(found>=0)menuItems[found]=app;else menuItems.push(app);
+ try{localStorage.setItem('winconMenuItems',JSON.stringify(menuItems));}catch(_){}try{renderMenu();}catch(_){}
+ showInWinconAlert('「'+name+'」をPWAアプリとしてWinconに追加しました。\n表示モード: '+app.displayMode+'\n※Wincon内のアプリ登録です。OSへのPWAインストールには、元サイト側のManifest/Service WorkerとHTTPS対応が必要です。','Sail Browser');
 }
 function openSailInstalledWebApp(app){
  const url=normalizeWebURL(app.url);if(!url)return;
  const id='sailApp'+(++sailWindowSerial);
- const win=createWindow({title:app.title||pageTitleFromURL(url),icon:app.iconImage||app.favicon||'🌐',width:1050,height:720,content:`<div class="w12-sail-installed" id="${id}"><div class="w12-sail-appbar"><button type="button" data-reload title="再読み込み">⟳</button><input type="text" readonly aria-label="URL" value="${esc(url)}"><span>Sail Browser</span></div><iframe title="${esc(app.title||'Web App')}" src="${esc(url)}" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-downloads allow-modals"></iframe></div>`});
- const root=win.querySelector('#'+id);root.querySelector('[data-reload]').onclick=()=>{const frame=root.querySelector('iframe');try{frame.contentWindow.location.reload();}catch(_){frame.src=url;}};
-}
-function openBrowser(){
- const id='sailBrowser'+(++sailWindowSerial);
- const content=`<div class="w12-sail-browser" id="${id}"><div class="w12-sail-tabs" data-tabs></div><div class="w12-sail-toolbar"><button type="button" data-back title="戻る">←</button><button type="button" data-forward title="進む">→</button><button type="button" data-reload title="再読み込み">⟳</button><input data-url type="text" placeholder="URLまたは検索語を入力"><button type="button" data-go>移動</button><button type="button" data-install>＋ アプリとしてインストール</button><button type="button" data-newtab title="新しいタブ">＋</button></div><div class="w12-sail-views" data-views></div><div class="w12-sail-status" data-status>Sail Browser</div></div>`;
- const win=createWindow({title:'Sail Browser',icon:'🌐',width:1220,height:760,content});const root=win.querySelector('#'+id);if(!root)return;
- const tabsEl=root.querySelector('[data-tabs]'),views=root.querySelector('[data-views]'),urlBox=root.querySelector('[data-url]'),status=root.querySelector('[data-status]');
- const tabs=[];let active=0;
- function newTab(url='https://www.google.com/search?igu=1'){
-  const tab={url,history:[url],index:0};const frame=document.createElement('iframe');frame.className='w12-sail-frame';frame.src=url;frame.title='Sail Browser tab';frame.setAttribute('sandbox','allow-scripts allow-forms allow-popups allow-downloads allow-modals');frame.referrerPolicy='no-referrer';tab.frame=frame;tabs.push(tab);views.appendChild(frame);switchTab(tabs.length-1);
+ const safeTitle=String(app.title||pageTitleFromURL(url));
+ const mode=String(app.displayMode||'standalone').toLowerCase();
+ const isTabbed=mode==='tabbed';
+ const isStandalone=mode==='standalone';
+ const showAppbar=!isStandalone&&!isTabbed;
+ const win=createWindow({title:safeTitle,icon:app.iconImage||app.favicon||app.icon||'🌐',width:1080,height:740,content:`<div class="w12-sail-installed ${isStandalone?'mode-standalone':''} ${isTabbed?'mode-tabbed':''}" id="${id}"><div class="w12-sail-pwa-tabs" data-tabs ${isTabbed?'':'hidden'}></div><div class="w12-sail-appbar" data-appbar ${showAppbar?'':'hidden'}><button type="button" data-back title="戻る">←</button><button type="button" data-reload title="再読み込み">⟳</button><input type="text" data-url readonly aria-label="URL" value="${esc(url)}"><span>PWA · ${esc(mode)}</span></div><div class="w12-sail-pwa-views" data-views></div></div>`});
+ const root=win.querySelector('#'+id);if(!root)return;
+ const views=root.querySelector('[data-views]'),tabs=root.querySelector('[data-tabs]'),urlBox=root.querySelector('[data-url]');
+ const pages=[];let active=0;
+ function render(){
+  pages.forEach((page,i)=>page.frame.hidden=i!==active);
+  if(isTabbed){
+   tabs.replaceChildren();
+   pages.forEach((page,i)=>{
+    const button=document.createElement('button');button.type='button';button.dataset.tab='';button.className=i===active?'active':'';button.textContent=page.label||safeTitle;button.title=page.url;button.addEventListener('click',()=>{active=i;render();});tabs.appendChild(button);
+   });
+   const add=document.createElement('button');add.type='button';add.dataset.addtab='';add.title='新しいタブ';add.textContent='＋';add.addEventListener('click',()=>addPage(app.startURL||url,safeTitle));tabs.appendChild(add);
+  }
+  if(urlBox)urlBox.value=pages[active]?.url||url;
  }
- function switchTab(index){if(index<0||index>=tabs.length)return;active=index;tabs.forEach((t,i)=>t.frame.hidden=i!==index);renderTabs();urlBox.value=tabs[active].url;status.textContent='Sail Browser';}
- function renderTabs(){tabsEl.replaceChildren();tabs.forEach((tab,i)=>{const b=document.createElement('button');b.type='button';b.className='w12-sail-tab'+(i===active?' active':'');b.textContent=pageTitleFromURL(tab.url);b.title=tab.url;b.onclick=()=>switchTab(i);const close=document.createElement('span');close.textContent='×';close.title='タブを閉じる';close.onclick=e=>{e.stopPropagation();closeTab(i);};b.appendChild(close);tabsEl.appendChild(b);});}
- function closeTab(index){if(tabs.length===1){tabs[index].frame.src='about:blank';tabs[index].url='about:blank';tabs[index].history=['about:blank'];tabs[index].index=0;switchTab(0);return;}tabs[index].frame.remove();tabs.splice(index,1);switchTab(Math.min(active,tabs.length-1));}
- function navigate(raw,replace=false){const url=normalizeWebURL(raw);if(!url){showInWinconAlert('URLまたは検索語を確認してください。');return;}const t=tabs[active];t.url=url;if(replace)t.history[t.index]=url;else{t.history=t.history.slice(0,t.index+1);t.history.push(url);t.index=t.history.length-1;}t.frame.src=url;urlBox.value=url;renderTabs();}
- root.querySelector('[data-go]').onclick=()=>navigate(urlBox.value);urlBox.addEventListener('keydown',e=>{if(e.key==='Enter')navigate(urlBox.value);});
- root.querySelector('[data-back]').onclick=()=>{const t=tabs[active];if(t.index>0){t.index--;t.url=t.history[t.index];t.frame.src=t.url;urlBox.value=t.url;renderTabs();}};
- root.querySelector('[data-forward]').onclick=()=>{const t=tabs[active];if(t.index<t.history.length-1){t.index++;t.url=t.history[t.index];t.frame.src=t.url;urlBox.value=t.url;renderTabs();}};
- root.querySelector('[data-reload]').onclick=()=>{const t=tabs[active];try{t.frame.contentWindow.location.reload();}catch(_){t.frame.src=t.url;}};
- root.querySelector('[data-install]').onclick=()=>installSailPage(tabs[active].url);
- root.querySelector('[data-newtab]').onclick=()=>newTab();
- newTab();
+ function addPage(target=(app.startURL||url),label=safeTitle){
+  const frame=document.createElement('iframe');frame.src=target;frame.title=label;frame.referrerPolicy='no-referrer';frame.setAttribute('sandbox','allow-scripts allow-forms allow-popups allow-downloads allow-modals');frame.className='w12-sail-pwa-frame';pages.push({frame,url:target,label});views.appendChild(frame);active=pages.length-1;render();
+ }
+ root.querySelector('[data-reload]')?.addEventListener('click',()=>{const page=pages[active];if(page)page.frame.src=page.url;});
+ root.querySelector('[data-back]')?.addEventListener('click',()=>{try{pages[active]?.frame.contentWindow.history.back();}catch(_){}});
+ addPage(app.startURL||url,safeTitle);
 }
-window.openBrowser=openBrowser;window.openSailInstalledWebApp=openSailInstalledWebApp;
+function openBrowser(initialURL='',initialMeta={}){
+ const id='sailBrowser'+(++sailWindowSerial);const content=`<div class="w12-sail-browser" id="${id}"><div class="w12-sail-tabs" data-tabs></div><div class="w12-sail-toolbar"><button type="button" data-back title="戻る">←</button><button type="button" data-forward title="進む">→</button><button type="button" data-reload title="再読み込み">⟳</button><input data-url type="text" placeholder="URL・検索語・file:///..."><button type="button" data-go>移動</button><button type="button" data-install>＋ PWAとして追加</button><button type="button" data-localfile title="PC内のファイルを開く">📂</button><input type="file" data-local-input hidden accept=".html,.htm,.xhtml,.svg,.txt,.pdf,image/*"><button type="button" data-newtab title="新しいタブ">＋</button></div><div class="w12-sail-views" data-views></div><div class="w12-sail-status" data-status>Sail Browser · PWA / Tabbed 対応</div></div>`;
+ const win=createWindow({title:'Sail Browser',icon:'🌐',width:1220,height:760,content});const root=win.querySelector('#'+id);if(!root)return;const tabsEl=root.querySelector('[data-tabs]'),views=root.querySelector('[data-views]'),urlBox=root.querySelector('[data-url]'),status=root.querySelector('[data-status]');const tabs=[];let active=0;
+ function renderTabs(){tabsEl.replaceChildren();tabs.forEach((tab,i)=>{const b=document.createElement('button');b.type='button';b.className='w12-sail-tab'+(i===active?' active':'');const img=document.createElement('img');img.className='w12-sail-tab-icon';img.alt='';if(tab.icon)img.src=tab.icon;else img.hidden=true;img.onerror=()=>{img.hidden=true;};const label=document.createElement('span');label.className='w12-sail-tab-title';label.textContent=tab.title||pageTitleFromURL(tab.url);const close=document.createElement('span');close.className='w12-sail-tab-close';close.textContent='×';close.title='タブを閉じる';close.onclick=e=>{e.stopPropagation();closeTab(i);};b.append(img,label,close);b.title=tab.url;b.onclick=()=>switchTab(i);tabsEl.appendChild(b);});}
+ function switchTab(index){if(index<0||index>=tabs.length)return;active=index;tabs.forEach((t,i)=>t.frame.hidden=i!==index);renderTabs();urlBox.value=tabs[active].url;status.textContent=tabs[active].title||'Sail Browser';}
+ function closeTab(index){if(tabs.length===1){tabs[index].frame.src='about:blank';tabs[index].url='about:blank';tabs[index].title='新しいタブ';tabs[index].history=['about:blank'];tabs[index].index=0;tabs[index].icon='';switchTab(0);return;}tabs[index].frame.remove();tabs.splice(index,1);switchTab(Math.min(active,tabs.length-1));}
+ function updateMetadata(tab){readSailPageMetadata(tab.url,tab.frame).then(meta=>{if(!tabs.includes(tab))return;tab.title=tab.localTitle||meta.title;tab.icon=tab.localIcon||meta.icon;tab.manifest=meta.manifest;tab.display=meta.display;renderTabs();if(tabs[active]===tab)status.textContent=tab.title;});}
+ function newTab(url='https://www.google.com/search?igu=1',meta={}){const tab={url,history:[url],index:0,title:meta.title||pageTitleFromURL(url),icon:meta.icon||'',localTitle:meta.title||'',localIcon:meta.icon||'',manifest:null};const frame=document.createElement('iframe');frame.className='w12-sail-frame';frame.src=url;frame.title=tab.title;frame.referrerPolicy='no-referrer';frame.setAttribute('sandbox','allow-scripts allow-forms allow-popups allow-downloads allow-modals');tab.frame=frame;frame.addEventListener('load',()=>updateMetadata(tab));tabs.push(tab);views.appendChild(frame);switchTab(tabs.length-1);updateMetadata(tab);}
+ function navigate(raw,replace=false){const url=normalizeWebURL(raw);if(!url){showInWinconAlert('URL・検索語・file:/// の指定を確認してください。');return;}const t=tabs[active];t.url=url;t.title=pageTitleFromURL(url);t.icon=faviconForURL(url);t.localTitle='';t.localIcon='';if(replace)t.history[t.index]=url;else{t.history=t.history.slice(0,t.index+1);t.history.push(url);t.index=t.history.length-1;}t.frame.src=url;urlBox.value=url;renderTabs();updateMetadata(t);}
+ root.querySelector('[data-go]').onclick=()=>navigate(urlBox.value);urlBox.addEventListener('keydown',e=>{if(e.key==='Enter')navigate(urlBox.value);});root.querySelector('[data-back]').onclick=()=>{const t=tabs[active];if(t.index>0){t.index--;t.url=t.history[t.index];t.frame.src=t.url;urlBox.value=t.url;renderTabs();updateMetadata(t);}};root.querySelector('[data-forward]').onclick=()=>{const t=tabs[active];if(t.index<t.history.length-1){t.index++;t.url=t.history[t.index];t.frame.src=t.url;urlBox.value=t.url;renderTabs();updateMetadata(t);}};root.querySelector('[data-reload]').onclick=()=>{const t=tabs[active];try{t.frame.contentWindow.location.reload();}catch(_){t.frame.src=t.url;}};root.querySelector('[data-install]').onclick=()=>{const t=tabs[active];readSailPageMetadata(t.url,t.frame).then(meta=>installSailPage(t.url,meta));};root.querySelector('[data-localfile]').onclick=()=>root.querySelector('[data-local-input]').click();root.querySelector('[data-local-input]').onchange=ev=>{const file=ev.target.files?.[0];if(!file)return;const localURL=URL.createObjectURL(file);newTab(localURL,{title:file.name,icon:'📄'});ev.target.value='';};root.querySelector('[data-newtab]').onclick=()=>newTab();newTab(initialURL||'https://www.google.com/search?igu=1',initialMeta);
+}
+function openSailLocalBlob(blob,name){const url=URL.createObjectURL(blob);openBrowser(url,{title:String(name||'ローカルHTML'),icon:'📄'});return url;}
+window.openBrowser=openBrowser;window.openSailInstalledWebApp=openSailInstalledWebApp;window.WinconSailOpenBlob=openSailLocalBlob;
 // Restore installed web apps into menuItems on boot/re-render without duplicating entries.
 function restoreSailApps(){const apps=readJSON(WEBAPP_KEY,[]);if(!Array.isArray(menuItems))return;for(const app of apps){if(!app||!app.url)continue;const i=menuItems.findIndex(x=>x&&x.type==='sail-webapp'&&x.url===app.url);if(i>=0)menuItems[i]=app;else menuItems.push(app);}}
 restoreSailApps();
@@ -20865,9 +21099,9 @@ const css=document.createElement('style');css.id='wincon12-sail-start-styles';cs
 #menu{display:none;box-sizing:border-box!important;width:min(850px,calc(100vw - 12px))!important;height:min(620px,calc(100vh - 58px))!important;min-width:520px!important;min-height:360px!important;resize:both!important;overflow:hidden!important;padding:0!important;position:fixed!important;left:0!important;bottom:48px!important;top:auto!important;background:#202020!important;border:1px solid #424242!important;border-radius:0!important;box-shadow:0 14px 42px #000a!important;color:#fff!important;z-index:999999!important;}
 .w12-start-shell{height:100%;display:grid;grid-template-columns:48px minmax(220px,275px) minmax(220px,1fr);grid-template-rows:minmax(0,1fr) 52px;background:#202020;font-family:'Segoe UI',sans-serif;}
 .w12-start-rail{grid-column:1;grid-row:1/3;background:#191919;display:flex;flex-direction:column;align-items:center;padding:14px 0;box-sizing:border-box}.w12-start-rail-top{font-size:20px;color:#eee}.w12-start-rail-bottom{margin-top:auto;writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;letter-spacing:.08em;color:#ddd}
-.w12-start-list-pane{grid-column:2;grid-row:1;background:#202020;display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 10px 8px;box-sizing:border-box}.w12-start-heading,.w12-start-tile-heading{font-size:13px;font-weight:600;color:#f5f5f5;padding:0 7px 10px}.w12-start-search{height:34px;box-sizing:border-box;width:100%;padding:6px 9px;margin:0 0 8px;background:#303030;border:1px solid #555;color:#fff;border-radius:0;outline:none}.w12-start-search:focus{border-color:#1683d8}.w12-start-list{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:1px}.w12-start-app{height:36px;min-height:36px;width:100%;display:flex;align-items:center;gap:12px;padding:4px 8px;border:0;background:transparent;color:#eee;text-align:left;font-size:13px;cursor:pointer}.w12-start-app:hover{background:#3b3b3b}.w12-start-app-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.w12-start-icon{width:25px;height:25px;display:inline-flex;flex:0 0 25px;align-items:center;justify-content:center;font-size:19px;overflow:hidden}.w12-start-icon img{width:100%;height:100%;object-fit:contain}.w12-start-tile-pane{grid-column:3;grid-row:1;background:#202020;display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 14px 10px;box-sizing:border-box}.w12-start-tile-heading{padding:0 0 10px}.w12-start-tile-grid{flex:1;min-height:0;overflow:auto;display:grid;align-content:start;grid-template-columns:repeat(3,minmax(75px,1fr));grid-auto-rows:122px;gap:7px}.w12-start-tile{position:relative;min-width:0;border:1px solid #ffffff18;background:#2675b9;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:8px 5px 24px}.w12-start-tile:nth-child(4n+2){background:#267d66}.w12-start-tile:nth-child(4n+3){background:#674a94}.w12-start-tile:nth-child(4n){background:#a65b32}.w12-start-tile:hover{filter:brightness(1.17);outline:1px solid #ffffff80}.w12-start-icon-large{width:66px;height:66px;flex-basis:66px;font-size:52px}.w12-start-icon-large img{width:100%;height:100%;object-fit:contain}.w12-start-tile-name{position:absolute;left:7px;bottom:5px;right:5px;text-align:left;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.w12-start-empty,.w12-start-no-match{font-size:12px;color:#aaa;padding:10px;line-height:1.5}.w12-start-footer{grid-column:2/4;grid-row:2;background:#191919;border-top:1px solid #333;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;box-sizing:border-box}.w12-start-profile{font-size:12px;color:#eee}.w12-start-power{display:flex;align-items:center;gap:7px}.w12-start-power span{font-size:12px;color:#bbb;margin-right:4px}.w12-start-power button{height:34px;padding:0 12px;border:1px solid #555;background:#292929;color:#fff;font-size:12px;cursor:pointer}.w12-start-power button:hover{background:#414141}.w12-start-power button:first-of-type{border-color:#8a4a28}.w12-start-power button:disabled{opacity:.4;cursor:not-allowed}
+.w12-start-list-pane{grid-column:2;grid-row:1;background:#202020;display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 10px 8px;box-sizing:border-box}.w12-start-heading,.w12-start-tile-heading{font-size:13px;font-weight:600;color:#f5f5f5;padding:0 7px 10px}.w12-start-search{height:34px;box-sizing:border-box;width:100%;padding:6px 9px;margin:0 0 8px;background:#303030;border:1px solid #555;color:#fff;border-radius:0;outline:none}.w12-start-search:focus{border-color:#1683d8}.w12-start-list{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:1px}.w12-start-app{height:36px;min-height:36px;width:100%;display:flex;align-items:center;gap:12px;padding:4px 8px;border:0;background:transparent;color:#eee;text-align:left;font-size:13px;cursor:pointer}.w12-start-app:hover{background:#3b3b3b}.w12-start-app-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.w12-start-icon{width:25px;height:25px;display:inline-flex;flex:0 0 25px;align-items:center;justify-content:center;font-size:19px;overflow:hidden}.w12-start-icon img{width:100%;height:100%;object-fit:contain}.w12-start-tile-pane{grid-column:3;grid-row:1;background:#202020;display:flex;flex-direction:column;min-width:0;min-height:0;padding:14px 14px 10px;box-sizing:border-box}.w12-start-tile-heading{padding:0 0 10px}.w12-start-tile-grid{flex:1;min-height:0;overflow:auto;display:grid;align-content:start;grid-template-columns:repeat(3,minmax(75px,1fr));grid-auto-rows:122px;gap:7px}.w12-start-tile{position:relative;min-width:0;border:1px solid #ffffff18;background:#2675b9;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:8px 5px 24px}.w12-start-tile:nth-child(4n+2){background:#267d66}.w12-start-tile:nth-child(4n+3){background:#674a94}.w12-start-tile:nth-child(4n){background:#a65b32}.w12-start-tile:hover{filter:brightness(1.17);outline:1px solid #ffffff80}.w12-start-icon-large{width:66px;height:66px;flex-basis:66px;font-size:52px}.w12-start-icon-large img{width:100%;height:100%;object-fit:contain}.w12-start-tile-name{position:absolute;left:7px;bottom:5px;right:5px;text-align:left;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.w12-start-empty,.w12-start-no-match{font-size:12px;color:#aaa;padding:10px;line-height:1.5}.w12-start-footer{grid-column:2/4;grid-row:2;background:#191919;border-top:1px solid #333;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;box-sizing:border-box}.w12-start-profile{font-size:12px;color:#eee}.w12-start-power{display:flex;align-items:center;gap:7px}.w12-start-power span{font-size:12px;color:#bbb;margin-right:4px}.w12-start-power button{height:34px;padding:0 10px;border:1px solid #555;background:#292929;color:#fff;font-size:12px;cursor:pointer}.w12-start-power button:hover{background:#414141}.w12-start-power button:first-of-type{border-color:#8a4a28}.w12-start-power button:disabled{opacity:.4;cursor:not-allowed}
 .w12-alert-body{display:flex;flex-direction:column;gap:18px;padding:18px;min-height:100%;box-sizing:border-box}.w12-alert-message{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;flex:1}.w12-alert-actions{display:flex;justify-content:flex-end}.w12-alert-actions button{min-width:82px}
-.w12-sail-browser{height:100%;display:flex;flex-direction:column;min-height:0;background:#f2f4f7;color:#222;font-family:'Segoe UI',sans-serif}.w12-sail-tabs{height:36px;flex:0 0 36px;display:flex;align-items:stretch;gap:3px;padding:3px 5px 0;background:#26364a;overflow-x:auto}.w12-sail-tab{min-width:90px;max-width:190px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px;border:0;background:#34485f;color:#e8edf4;cursor:pointer;white-space:nowrap;overflow:hidden}.w12-sail-tab.active{background:#f2f4f7;color:#202833}.w12-sail-tab span{font-size:17px}.w12-sail-toolbar{height:46px;flex:0 0 46px;display:flex;align-items:center;gap:5px;padding:5px 8px;background:#e6eaf0;box-sizing:border-box}.w12-sail-toolbar button,.w12-sail-appbar button{height:32px;min-width:34px;border:1px solid #c3cad4;background:#f8fafc;color:#263447;cursor:pointer}.w12-sail-toolbar button:hover,.w12-sail-appbar button:hover{background:#dce8f7}.w12-sail-toolbar input{height:32px;flex:1;min-width:80px;box-sizing:border-box;padding:0 10px;border:1px solid #b8c1cd;background:#fff;color:#202833}.w12-sail-toolbar [data-install]{white-space:nowrap;padding:0 10px}.w12-sail-views{flex:1;min-height:0;position:relative;background:#fff}.w12-sail-frame{width:100%;height:100%;border:0;background:#fff}.w12-sail-frame[hidden]{display:none}.w12-sail-status{height:20px;flex:0 0 20px;padding:2px 8px;background:#e6eaf0;color:#596779;font-size:12px;box-sizing:border-box}
+.w12-sail-browser{height:100%;display:flex;flex-direction:column;min-height:0;background:#f2f4f7;color:#222;font-family:'Segoe UI',sans-serif}.w12-sail-tabs{height:36px;flex:0 0 36px;display:flex;align-items:stretch;gap:3px;padding:3px 5px 0;background:#26364a;overflow-x:auto}.w12-sail-tab{min-width:90px;max-width:190px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px;border:0;background:#34485f;color:#e8edf4;cursor:pointer;white-space:nowrap;overflow:hidden}.w12-sail-tab.active{background:#f2f4f7;color:#202833}.w12-sail-tab span{font-size:17px}.w12-sail-tab-icon{width:16px;height:16px;object-fit:contain;flex:0 0 16px}.w12-sail-tab-title{overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;text-align:left}.w12-sail-tab-close{flex:0 0 auto}.w12-sail-pwa-tabs{height:38px;flex:0 0 38px;display:flex;gap:4px;align-items:stretch;padding:4px 6px 0;background:#26364a;overflow:auto}.w12-sail-pwa-tabs [data-tab],.w12-sail-pwa-tabs [data-addtab]{border:0;background:#34485f;color:#fff;padding:0 14px;min-width:90px;cursor:pointer}.w12-sail-pwa-tabs [data-tab].active{background:#fff;color:#202833}.w12-sail-pwa-views{position:relative;display:flex;flex:1;min-height:0;background:#fff}.w12-sail-pwa-frame{width:100%;height:100%;border:0;flex:1}.w12-sail-pwa-frame[hidden]{display:none}.w12-sail-toolbar{height:46px;flex:0 0 46px;display:flex;align-items:center;gap:5px;padding:5px 8px;background:#e6eaf0;box-sizing:border-box}.w12-sail-toolbar button,.w12-sail-appbar button{height:32px;min-width:34px;border:1px solid #c3cad4;background:#f8fafc;color:#263447;cursor:pointer}.w12-sail-toolbar button:hover,.w12-sail-appbar button:hover{background:#dce8f7}.w12-sail-toolbar input{height:32px;flex:1;min-width:80px;box-sizing:border-box;padding:0 10px;border:1px solid #b8c1cd;background:#fff;color:#202833}.w12-sail-toolbar [data-install]{white-space:nowrap;padding:0 10px}.w12-sail-views{flex:1;min-height:0;position:relative;background:#fff}.w12-sail-frame{width:100%;height:100%;border:0;background:#fff}.w12-sail-frame[hidden]{display:none}.w12-sail-status{height:20px;flex:0 0 20px;padding:2px 8px;background:#e6eaf0;color:#596779;font-size:12px;box-sizing:border-box}
 .w12-sail-installed{height:100%;display:flex;flex-direction:column;background:#fff}.w12-sail-appbar{height:42px;flex:0 0 42px;display:flex;align-items:center;gap:8px;padding:5px 9px;background:#e8edf3;box-sizing:border-box}.w12-sail-appbar input{height:30px;flex:1;min-width:0;padding:0 10px;border:1px solid #c3cad4;background:#f8fafc;color:#344054}.w12-sail-appbar span{font-size:12px;color:#526174;white-space:nowrap}.w12-sail-installed iframe{flex:1;width:100%;min-height:0;border:0;background:#fff}
 @media(max-width:620px){#menu{min-width:0!important;width:calc(100vw - 8px)!important}.w12-start-shell{grid-template-columns:38px minmax(145px,42%) minmax(120px,1fr)}.w12-start-tile-grid{grid-template-columns:repeat(2,minmax(55px,1fr))}.w12-start-power button{padding:0 6px;font-size:10px}.w12-sail-toolbar [data-install]{font-size:0}.w12-sail-toolbar [data-install]::after{content:'＋';font-size:16px}}
 `;
@@ -20877,26 +21111,453 @@ console.log('[Wincon] Start menu and Sail Browser improvements loaded');
 </script>
 
 <script>
-/* Wincon 12 Horizon - guest session cleanup */
+/* Wincon 12.0.1 Patch 1 - per-user storage isolation and guest cleanup */
 (function(){
  'use strict';
- const BACKUP='wincon12_guest_backup';
- function restoreGuestStorage(){
-  if(sessionStorage.getItem('wincon12_guest_active')!=='1')return false;
-  try{
-   const raw=sessionStorage.getItem(BACKUP);const snapshot=raw?JSON.parse(raw):{};
-   localStorage.clear();for(const [key,value] of Object.entries(snapshot))localStorage.setItem(key,String(value));
-   sessionStorage.removeItem(BACKUP);sessionStorage.removeItem('wincon12_guest_active');window.__WINCON12_GUEST_SESSION__=false;window.__WINCON12_GUEST_RESTORED_FOR_EXIT__=true;
-   if(Array.isArray(window.menuItems)){} // menuItems is a lexical binding in the main document; reload follows.
-   return true;
-  }catch(error){console.error('[Guest] storage restore failed',error);return false;}
+ const proto=Storage.prototype;
+ const rawGet=proto.getItem,rawSet=proto.setItem,rawRemove=proto.removeItem,rawKey=proto.key,rawClear=proto.clear;
+ const rawLength=Object.getOwnPropertyDescriptor(proto,'length')?.get;
+ const PREFIX='__wincon12_user_scope__';
+ const DB_PREFIX='Wincon12User_';
+ const nativeIDBOpen=window.indexedDB?.open?.bind(window.indexedDB);
+ const nativeIDBDelete=window.indexedDB?.deleteDatabase?.bind(window.indexedDB);
+ const GLOBAL_KEYS=new Set([
+  'wincon12_users','wincon12_selected_user','wincon10_user','wincon10_session',
+  'winconMenuItems','winconEnterpriseApps','winconMiniAppsInstalled','winconNativeApps','winconInstalledMiniApps',
+  'winconSailInstalledWebApps','wincon12_oobe_migration','wincon12_oobe_defaults','wincon12_oobe_password_configured',
+  'wincon10_oobe_completed','winconLastPowerAction'
+ ]);
+ const isLocal=storage=>storage===window.localStorage;
+ const scope=()=>{try{return sessionStorage.getItem('wincon12_storage_scope')||'';}catch(_){return '';}};
+ const isGlobal=key=>GLOBAL_KEYS.has(String(key));
+ window.__WINCON12_ACTIVATE_STORAGE_SCOPE__=id=>{
+  const target=PREFIX+String(id)+'::',storage=window.localStorage;
+  // One-time compatibility migration: assign old unscoped app data to the first profile that logs in.
+  for(let i=(rawLength?rawLength.call(storage):0)-1;i>=0;i--){
+   const key=rawKey.call(storage,i);
+   if(key!==null&&!isGlobal(key)&&!key.startsWith(PREFIX)&&rawGet.call(storage,target+key)===null){
+    const value=rawGet.call(storage,key);if(value!==null)rawSet.call(storage,target+key,value);
+   }
+  }
+ };
+ // IndexedDB is namespaced too, so databases opened by apps are separated per account.
+ if(nativeIDBOpen&&nativeIDBDelete){
+  try{window.indexedDB.open=function(name,version){const id=scope();return nativeIDBOpen(id?DB_PREFIX+id+'_'+String(name):name,version);};}catch(e){console.warn('[Wincon Storage] IndexedDB open isolation unavailable',e);}
+  try{window.indexedDB.deleteDatabase=function(name){const id=scope();return nativeIDBDelete(id?DB_PREFIX+id+'_'+String(name):name);};}catch(e){console.warn('[Wincon Storage] IndexedDB delete isolation unavailable',e);}
  }
- const originalShutdown=window.shutdownSystem;const originalRestart=window.restartSystem;
- window.shutdownSystem=function(){if(restoreGuestStorage())return originalShutdown?.apply(this,arguments);return originalShutdown?.apply(this,arguments);};
- window.restartSystem=function(){if(restoreGuestStorage())return originalRestart?.apply(this,arguments);return originalRestart?.apply(this,arguments);};
- window.addEventListener('beforeunload',()=>{if(sessionStorage.getItem('wincon12_guest_active')==='1')restoreGuestStorage();});
- if(sessionStorage.getItem('wincon12_guest_active')==='1')window.__WINCON12_GUEST_SESSION__=true;
+ const physicalKey=(storage,key)=>{
+  const k=String(key);if(!isLocal(storage)||isGlobal(k))return k;
+  const id=scope();return id?PREFIX+id+'::'+k:k;
+ };
+ window.__WINCON12_RAW_STORAGE_CLEAR__=()=>rawClear.call(window.localStorage);
+ proto.getItem=function(key){return rawGet.call(this,physicalKey(this,key));};
+ proto.setItem=function(key,value){return rawSet.call(this,physicalKey(this,key),value);};
+ proto.removeItem=function(key){return rawRemove.call(this,physicalKey(this,key));};
+ proto.key=function(index){
+  if(!isLocal(this))return rawKey.call(this,index);
+  const id=scope(),wanted=id?PREFIX+id+'::':'';
+  const visible=[];
+  const total=rawLength?rawLength.call(this):0;
+  for(let i=0;i<total;i++){
+   const k=rawKey.call(this,i);if(k===null)continue;
+   if(isGlobal(k))visible.push(k);
+   else if(id&&k.startsWith(wanted))visible.push(k.slice(wanted.length));
+   else if(!id&&!k.startsWith(PREFIX))visible.push(k);
+  }
+  return visible[index]??null;
+ };
+ if(rawLength){
+  try{Object.defineProperty(proto,'length',{configurable:true,get:function(){
+   if(!isLocal(this))return rawLength.call(this);
+   let n=0;const id=scope(),wanted=id?PREFIX+id+'::':'';
+   for(let i=0;i<rawLength.call(this);i++){
+    const k=rawKey.call(this,i);if(k===null)continue;
+    if(isGlobal(k)||(id&&k.startsWith(wanted))||(!id&&!k.startsWith(PREFIX)))n++;
+   }
+   return n;
+  }});}catch(e){console.warn('[Wincon Storage] length wrapper failed',e);}
+ }
+ proto.clear=function(){
+  if(!isLocal(this))return rawClear.call(this);
+  const id=scope(),total=rawLength?rawLength.call(this):0;
+  if(!id){for(let i=total-1;i>=0;i--){const k=rawKey.call(this,i);if(k!==null&&!isGlobal(k)&&!k.startsWith(PREFIX))rawRemove.call(this,k);}return;}
+  const prefix=PREFIX+id+'::';
+  for(let i=total-1;i>=0;i--){const k=rawKey.call(this,i);if(k&&k.startsWith(prefix))rawRemove.call(this,k);}
+ };
+ window.__WINCON12_CLEAR_STORAGE_SCOPE__=id=>{
+  const prefix=PREFIX+String(id)+'::';
+  for(let i=(rawLength?rawLength.call(window.localStorage):0)-1;i>=0;i--){const k=rawKey.call(window.localStorage,i);if(k&&k.startsWith(prefix))rawRemove.call(window.localStorage,k);}
+ };
+ function cleanupGuest(){
+  try{
+   if(sessionStorage.getItem('wincon12_guest_active')!=='1')return false;
+   const guest=sessionStorage.getItem('wincon12_guest_scope');
+   if(guest)window.__WINCON12_CLEAR_STORAGE_SCOPE__(guest);
+   sessionStorage.removeItem('wincon12_guest_scope');sessionStorage.removeItem('wincon12_storage_scope');
+   sessionStorage.removeItem('wincon12_guest_active');sessionStorage.removeItem('wincon12_guest_backup');
+   window.__WINCON12_GUEST_SESSION__=false;window.__WINCON12_GUEST_RESTORED_FOR_EXIT__=true;
+   return true;
+  }catch(error){console.error('[Guest] cleanup failed',error);return false;}
+ }
+ const oldShutdown=window.shutdownSystem,oldRestart=window.restartSystem;
+ window.shutdownSystem=function(){const result=oldShutdown?.apply(this,arguments);cleanupGuest();return result;};
+ window.restartSystem=function(){const result=oldRestart?.apply(this,arguments);cleanupGuest();return result;};
+ window.addEventListener('beforeunload',cleanupGuest);
+ if(sessionStorage.getItem('wincon12_guest_active')==='1'){
+  window.__WINCON12_GUEST_SESSION__=true;const guest=sessionStorage.getItem('wincon12_guest_scope');if(guest)sessionStorage.setItem('wincon12_storage_scope',guest);
+ }else{
+  try{const session=JSON.parse(rawGet.call(window.localStorage,'wincon10_session')||'null');if(session?.userId)sessionStorage.setItem('wincon12_storage_scope',session.userId);}catch(_){}
+ }
+ console.log('[Wincon Storage] per-user localStorage isolation enabled');
 })();
 </script>
+
+<script>
+/* =========================================================
+   WINCON 12.0.1 PATCH 3 - SERVICE WORKER UPDATE APP
+   Update flow: SW check -> cache delete -> reload -> rebuild cache
+========================================================= */
+(() => {
+  "use strict";
+
+  if (window.__WINCON_PATCH3_UPDATE_APP__) return;
+  window.__WINCON_PATCH3_UPDATE_APP__ = true;
+
+  const CACHE_NAME = "wincon-cache-v1";
+  const PENDING_KEY = "winconPatch3UpdatePending";
+  const RESULT_KEY = "winconPatch3UpdateResult";
+  const PRECACHE_URLS = ["./", "./index.html"];
+
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  function setProgress(screen, value, status, detail, remaining) {
+    if (!screen || !screen.isConnected) return;
+    const bar = screen.querySelector("#winconPatch3ProgressBar");
+    const root = screen.querySelector(".wincon10-Horizon-progress");
+    const statusNode = screen.querySelector("#winconPatch3Status");
+    const detailNode = screen.querySelector("#winconPatch3Detail");
+    const etaNode = screen.querySelector("#winconPatch3ETA");
+    const n = Math.max(0, Math.min(100, Number(value) || 0));
+    if (bar) bar.style.width = n + "%";
+    if (root) root.setAttribute("aria-valuenow", String(Math.round(n)));
+    if (statusNode && status) statusNode.textContent = status;
+    if (detailNode && detail) detailNode.textContent = detail;
+    if (etaNode && remaining) etaNode.textContent = remaining;
+  }
+
+  function showProgressScreen(status, detail, progress, remaining) {
+    try {
+      if (typeof installHorizonProcessCSS === "function") {
+        installHorizonProcessCSS();
+      }
+    } catch (_) {}
+
+    const old = document.getElementById("wincon10HorizonProcess");
+    if (old) old.remove();
+
+    const screen = document.createElement("div");
+    screen.id = "wincon10HorizonProcess";
+    screen.innerHTML = `
+      <div class="wincon10-Horizon-process-inner w12-patch3-update-inner">
+        <img src="wincon.png" class="wincon10-Horizon-logo" draggable="false"
+             onerror="this.style.display='none'">
+        <div class="wincon10-Horizon-brand">Wincon</div>
+        <div class="wincon10-Horizon-version">12 Horizon · Software Update</div>
+        <div class="wincon10-Horizon-progress" role="progressbar"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}">
+          <div class="wincon10-Horizon-progress-bar" id="winconPatch3ProgressBar"
+               style="width:${progress}%"></div>
+        </div>
+        <div class="wincon10-Horizon-status" id="winconPatch3Status">${status}</div>
+        <div class="wincon10-Horizon-substatus" id="winconPatch3Detail">${detail}</div>
+        <div class="w12-patch3-update-eta" id="winconPatch3ETA">${remaining}</div>
+      </div>`;
+    document.body.appendChild(screen);
+    return screen;
+  }
+
+  function updateAppMarkup() {
+    return `
+      <div class="w12-patch3-update-app">
+        <div class="w12-patch3-update-hero">
+          <div class="w12-patch3-update-icon">↻</div>
+          <div>
+            <div class="w12-patch3-update-title">Wincon Update</div>
+            <div class="w12-patch3-update-subtitle">Service Worker によるシステム更新</div>
+          </div>
+        </div>
+        <div class="setting-group">
+          <b>アップデート方式</b>
+          <p>専用のバージョン管理サーバーは使用しません。</p>
+          <p>ブラウザーが Service Worker（sw.js）の更新を確認し、キャッシュを再生成します。</p>
+        </div>
+        <div class="setting-group">
+          <b>現在の状態</b>
+          <div id="w12Patch3UpdateState" class="w12-patch3-state">状態を確認しています...</div>
+          <div id="w12Patch3UpdateDetail" class="w12-patch3-muted">Service Worker の登録状況を取得中</div>
+        </div>
+        <div class="setting-group">
+          <b>更新の流れ</b>
+          <ol class="w12-patch3-steps">
+            <li>Service Worker の更新確認</li>
+            <li>旧キャッシュの削除</li>
+            <li>Wincon の再読み込み</li>
+            <li>キャッシュの再生成</li>
+            <li>再起動</li>
+          </ol>
+        </div>
+        <button class="action" id="w12Patch3UpdateButton">アップデートを確認して適用</button>
+        <div class="w12-patch3-muted" id="w12Patch3UpdateNote">
+          更新中はWinconが自動的に再起動します。処理が終わるまでページを閉じないでください。
+        </div>
+      </div>`;
+  }
+
+  function addAppStyles() {
+    if (document.getElementById("w12Patch3UpdateStyles")) return;
+    const style = document.createElement("style");
+    style.id = "w12Patch3UpdateStyles";
+    style.textContent = `
+      .w12-patch3-update-app{color:var(--text,#fff);padding:4px}
+      .w12-patch3-update-hero{display:flex;align-items:center;gap:16px;margin:4px 0 22px}
+      .w12-patch3-update-icon{width:58px;height:58px;border-radius:16px;background:linear-gradient(145deg,#3b82f6,#1d4ed8);display:grid;place-items:center;font-size:34px;color:#fff;box-shadow:0 8px 22px #0004}
+      .w12-patch3-update-title{font-size:24px;font-weight:650}
+      .w12-patch3-update-subtitle,.w12-patch3-muted{font-size:12px;opacity:.72;margin-top:6px;line-height:1.55}
+      .w12-patch3-state{font-size:16px;margin-top:9px}
+      .w12-patch3-steps{line-height:1.9;padding-left:22px;margin:10px 0 0}
+      .w12-patch3-update-eta{margin-top:14px;font-size:13px;color:#aeb7c4;letter-spacing:.02em}
+      .w12-patch3-update-inner .wincon10-Horizon-status{margin-top:18px}
+      .w12-patch3-update-inner .wincon10-Horizon-substatus{margin-top:8px}
+      .w12-patch3-update-inner .wincon10-Horizon-progress{margin-top:34px}
+    `;
+    document.head.appendChild(style);
+  }
+
+  async function getRegistration() {
+    if (!("serviceWorker" in navigator)) {
+      throw new Error("この環境では Service Worker を利用できません。HTTPS のサイトで起動してください。");
+    }
+    if (!("caches" in window)) {
+      throw new Error("CacheStorage を利用できません。");
+    }
+    const registration = await navigator.serviceWorker.register("./sw.js", {
+      updateViaCache: "none"
+    });
+    await registration.update();
+    return registration;
+  }
+
+  function waitForWorker(worker, timeoutMs = 25000) {
+    if (!worker) return Promise.resolve();
+    if (worker.state === "activated") return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("Service Worker の有効化がタイムアウトしました。"));
+      }, timeoutMs);
+      const onState = () => {
+        if (worker.state === "activated") {
+          cleanup();
+          resolve();
+        } else if (worker.state === "redundant") {
+          cleanup();
+          reject(new Error("Service Worker の更新に失敗しました。"));
+        }
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        worker.removeEventListener("statechange", onState);
+      };
+      worker.addEventListener("statechange", onState);
+      onState();
+    });
+  }
+
+  async function runUpdate() {
+    if (window.__WINCON_PATCH3_UPDATE_RUNNING__) return;
+    window.__WINCON_PATCH3_UPDATE_RUNNING__ = true;
+
+    const screen = showProgressScreen(
+      "アップデートを確認しています...",
+      "Service Worker の更新情報を確認しています",
+      4,
+      "残り約1分"
+    );
+
+    try {
+      setProgress(screen, 12, "Service Worker に接続しています...", "更新プログラムを確認中", "残り約1分");
+      const registration = await getRegistration();
+
+      setProgress(screen, 30, "更新ファイルを確認しています...", "sw.js の更新状態を確認しました", "残り約1分");
+      await wait(450);
+
+      const candidate = registration.installing || registration.waiting;
+      if (candidate) {
+        setProgress(screen, 48, "更新をダウンロードしています...", "新しい Service Worker をインストールしています", "残り約1分");
+        await waitForWorker(candidate);
+      } else {
+        setProgress(screen, 48, "最新の Service Worker を確認しました...", "新しい sw.js がない場合もキャッシュを再生成します", "残り約1分");
+        await wait(550);
+      }
+
+      if (!registration.active && !navigator.serviceWorker.controller) {
+        await navigator.serviceWorker.ready;
+      }
+
+      setProgress(screen, 68, "旧キャッシュを削除しています...", "古い画面データをクリアしています", "残り約1分");
+      sessionStorage.setItem(PENDING_KEY, "rebuild");
+      sessionStorage.removeItem(RESULT_KEY);
+
+      await caches.delete(CACHE_NAME);
+
+      setProgress(screen, 88, "再起動しています...", "キャッシュ削除が完了しました。Wincon を再読み込みします", "まもなく再起動します");
+      await wait(700);
+      location.reload();
+    } catch (error) {
+      console.error("[Wincon Update] Update failed:", error);
+      sessionStorage.removeItem(PENDING_KEY);
+      sessionStorage.setItem(RESULT_KEY, JSON.stringify({
+        result: "failure",
+        detail: error?.message || "アップデートに失敗しました"
+      }));
+      setProgress(screen, 100, "アップデートを開始できませんでした", error?.message || "不明なエラー", "通常起動に戻ります");
+      await wait(2200);
+      location.reload();
+    }
+  }
+
+  async function rebuildAfterReload() {
+    const phase = sessionStorage.getItem(PENDING_KEY);
+    if (phase !== "rebuild") return;
+
+    // The first reload has happened. Rebuild the cache before allowing the normal boot.
+    const screen = showProgressScreen(
+      "アップデートを適用しています...",
+      "キャッシュを再生成しています",
+      8,
+      "残り約1分"
+    );
+
+    try {
+      setProgress(screen, 18, "Service Worker を起動しています...", "更新後の制御状態を確認しています", "残り約1分");
+      const registration = await navigator.serviceWorker.ready;
+      if (!registration.active) throw new Error("有効な Service Worker が見つかりません。");
+
+      setProgress(screen, 38, "更新ファイルをダウンロードしています...", "Wincon の起動ファイルを取得しています", "残り約1分");
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(PRECACHE_URLS);
+
+      setProgress(screen, 82, "キャッシュを再生成しています...", "起動ファイルをキャッシュに保存しました", "残り数秒");
+      await wait(600);
+
+      sessionStorage.setItem(RESULT_KEY, JSON.stringify({
+        result: "success",
+        detail: "キャッシュの削除・再読み込み・再生成が完了しました"
+      }));
+      sessionStorage.removeItem(PENDING_KEY);
+
+      setProgress(screen, 100, "アップデートが完了しました", "キャッシュの再生成が完了しました。Wincon を起動しています", "まもなく起動します");
+      await wait(700);
+      // Cache rebuild is complete. Resume the normal Horizon boot flow without another page reload.
+      if (typeof startHorizonBootFlow === "function") {
+        window.__WINCON10_BOOT_RUNNING__ = false;
+        startHorizonBootFlow();
+      } else {
+        screen.remove();
+      }
+    } catch (error) {
+      console.error("[Wincon Update] Cache rebuild failed:", error);
+      sessionStorage.removeItem(PENDING_KEY);
+      sessionStorage.setItem(RESULT_KEY, JSON.stringify({
+        result: "failure",
+        detail: error?.message || "キャッシュ再生成に失敗しました"
+      }));
+      setProgress(screen, 100, "キャッシュの再生成に失敗しました", error?.message || "不明なエラー", "通常起動に戻ります");
+      await wait(2200);
+      if (typeof startHorizonBootFlow === "function") {
+        window.__WINCON10_BOOT_RUNNING__ = false;
+        startHorizonBootFlow();
+      } else {
+        screen.remove();
+      }
+    }
+  }
+
+  function open() {
+    addAppStyles();
+    const content = updateAppMarkup();
+    const win = createWindow({
+      title: "Wincon Update",
+      icon: "↻",
+      width: 760,
+      height: 650,
+      content
+    });
+
+    const state = win.querySelector("#w12Patch3UpdateState");
+    const detail = win.querySelector("#w12Patch3UpdateDetail");
+    const button = win.querySelector("#w12Patch3UpdateButton");
+
+    if (!("serviceWorker" in navigator)) {
+      state.textContent = "Service Worker を利用できません";
+      detail.textContent = "GitHub Pages など HTTPS の環境で起動してください。file:/// では動作しません。";
+      button.disabled = true;
+      button.style.opacity = ".55";
+      return;
+    }
+
+    navigator.serviceWorker.getRegistration("./")
+      .then(reg => {
+        state.textContent = reg?.active ? "Service Worker 稼働中" : "Service Worker 未登録";
+        detail.textContent = reg?.active
+          ? "キャッシュ名: " + CACHE_NAME + " · スクリプト: sw.js"
+          : "アップデート実行時に sw.js を登録します。";
+      })
+      .catch(() => {
+        state.textContent = "状態を取得できません";
+        detail.textContent = "アップデート実行時に再確認します。";
+      });
+
+    button.addEventListener("click", () => {
+      if (confirm("Service Worker の更新確認、キャッシュ削除、再読み込み、キャッシュ再生成を実行しますか？")) {
+        runUpdate();
+      }
+    });
+  }
+
+  window.WinconUpdateManager = { open, run: runUpdate };
+
+  function registerMenuApp() {
+    if (typeof menuItems === "undefined" || !Array.isArray(menuItems)) return false;
+    if (!menuItems.some(item => item && item.type === "wincon-update")) {
+      menuItems.push({
+        id: "wincon-update",
+        title: "Wincon Update",
+        icon: "↻",
+        type: "wincon-update",
+        system: true,
+        hidden: false
+      });
+    }
+    if (typeof renderMenu === "function") renderMenu();
+    return true;
+  }
+
+  // Register after the original menu system has initialized.
+  const registerTimer = setInterval(() => {
+    if (registerMenuApp()) clearInterval(registerTimer);
+  }, 250);
+  setTimeout(() => clearInterval(registerTimer), 15000);
+
+  // On the first reload, regenerate cache with the same Horizon progress-gauge design.
+  const startRebuild = () => rebuildAfterReload();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startRebuild, { once: true });
+  } else {
+    setTimeout(startRebuild, 0);
+  }
+})();
+</script>
+
 </body>
 </html>
