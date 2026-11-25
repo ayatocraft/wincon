@@ -2740,7 +2740,7 @@ width:900,
 height:650,
 content:`
 
-<h1>Wincon 12 Horizon</h1>
+<h1>Wincon 12.0 Horizon</h1>
 
 <div class="badge">
 SYSTEM PROCESS
@@ -2754,13 +2754,13 @@ SYSTEM PROCESS
 
 <b>Product Name</b>
 <br>
-Wincon 12 Horizon
+Wincon 12.0 Horizon
 
 <br><br>
 
 <b>Version</b>
 <br>
-Stable 12.0.1
+Stable 12.0
 
 <br><br>
 
@@ -21245,6 +21245,27 @@ console.log('[Wincon] Start menu and Sail Browser improvements loaded');
     if (etaNode && remaining) etaNode.textContent = remaining;
   }
 
+  // Keep the gauge moving at a deliberate pace and update the estimated time.
+  // These timed phases make the simulated maintenance sequence feel like a real OS update.
+  async function runProgressPhase(screen, from, to, durationMs, status, detail, totalRemainingMs) {
+    const started = Date.now();
+    const ends = started + durationMs;
+    while (Date.now() < ends) {
+      const elapsed = Date.now() - started;
+      const ratio = Math.min(1, elapsed / durationMs);
+      const value = from + (to - from) * ratio;
+      const remainingMs = Math.max(0, totalRemainingMs - elapsed);
+      const minutes = Math.ceil(remainingMs / 60000);
+      const remainingText = minutes >= 2
+        ? `残り約${minutes}分`
+        : minutes === 1 ? "残り約1分" : "残りわずか";
+      setProgress(screen, value, status, detail, remainingText);
+      await wait(Math.min(1000, ends - Date.now()));
+    }
+    setProgress(screen, to, status, detail,
+      totalRemainingMs <= durationMs ? "残りわずか" : `残り約${Math.ceil((totalRemainingMs - durationMs) / 60000)}分`);
+  }
+
   function showProgressScreen(status, detail, progress, remaining) {
     try {
       if (typeof installHorizonProcessCSS === "function") {
@@ -21377,41 +21398,44 @@ console.log('[Wincon] Start menu and Sail Browser improvements loaded');
     if (window.__WINCON_PATCH3_UPDATE_RUNNING__) return;
     window.__WINCON_PATCH3_UPDATE_RUNNING__ = true;
 
+    // 約2分45秒を目安に、確認・取得・削除を段階的に表示します。
     const screen = showProgressScreen(
       "アップデートを確認しています...",
-      "Service Worker の更新情報を確認しています",
-      4,
-      "残り約1分"
+      "システム構成と Service Worker の状態を確認しています",
+      2,
+      "残り約3分"
     );
 
     try {
-      setProgress(screen, 12, "Service Worker に接続しています...", "更新プログラムを確認中", "残り約1分");
+      const totalBeforeReload = 115000;
+      await runProgressPhase(screen, 2, 12, 15000,
+        "アップデートを確認しています...",
+        "Service Worker の登録情報と更新日時を確認しています", totalBeforeReload);
+
       const registration = await getRegistration();
 
-      setProgress(screen, 30, "更新ファイルを確認しています...", "sw.js の更新状態を確認しました", "残り約1分");
-      await wait(450);
+      await runProgressPhase(screen, 12, 47, 65000,
+        "更新ファイルをダウンロードしています...",
+        "Wincon の更新コンポーネントを取得・検証しています", totalBeforeReload - 15000);
 
       const candidate = registration.installing || registration.waiting;
-      if (candidate) {
-        setProgress(screen, 48, "更新をダウンロードしています...", "新しい Service Worker をインストールしています", "残り約1分");
-        await waitForWorker(candidate);
-      } else {
-        setProgress(screen, 48, "最新の Service Worker を確認しました...", "新しい sw.js がない場合もキャッシュを再生成します", "残り約1分");
-        await wait(550);
-      }
+      if (candidate) await waitForWorker(candidate);
 
       if (!registration.active && !navigator.serviceWorker.controller) {
         await navigator.serviceWorker.ready;
       }
 
-      setProgress(screen, 68, "旧キャッシュを削除しています...", "古い画面データをクリアしています", "残り約1分");
+      await runProgressPhase(screen, 47, 68, 25000,
+        "旧キャッシュを削除しています...",
+        "古い画面データと一時ファイルを整理しています", 35000);
+
       sessionStorage.setItem(PENDING_KEY, "rebuild");
       sessionStorage.removeItem(RESULT_KEY);
-
       await caches.delete(CACHE_NAME);
 
-      setProgress(screen, 88, "再起動しています...", "キャッシュ削除が完了しました。Wincon を再読み込みします", "まもなく再起動します");
-      await wait(700);
+      setProgress(screen, 88, "再起動の準備をしています...",
+        "キャッシュの削除が完了しました。Wincon を再読み込みします", "まもなく再起動します");
+      await wait(5000);
       location.reload();
     } catch (error) {
       console.error("[Wincon Update] Update failed:", error);
@@ -21430,25 +21454,29 @@ console.log('[Wincon] Start menu and Sail Browser improvements loaded');
     const phase = sessionStorage.getItem(PENDING_KEY);
     if (phase !== "rebuild") return;
 
-    // The first reload has happened. Rebuild the cache before allowing the normal boot.
     const screen = showProgressScreen(
       "アップデートを適用しています...",
-      "キャッシュを再生成しています",
-      8,
+      "システムキャッシュを再構築しています",
+      70,
       "残り約1分"
     );
 
     try {
-      setProgress(screen, 18, "Service Worker を起動しています...", "更新後の制御状態を確認しています", "残り約1分");
+      await runProgressPhase(screen, 70, 78, 12000,
+        "Service Worker を起動しています...",
+        "更新後の制御状態と必要なリソースを確認しています", 60000);
       const registration = await navigator.serviceWorker.ready;
       if (!registration.active) throw new Error("有効な Service Worker が見つかりません。");
 
-      setProgress(screen, 38, "更新ファイルをダウンロードしています...", "Wincon の起動ファイルを取得しています", "残り約1分");
+      await runProgressPhase(screen, 78, 91, 35000,
+        "更新ファイルを再取得しています...",
+        "Wincon の起動ファイルと基本リソースをダウンロードしています", 48000);
       const cache = await caches.open(CACHE_NAME);
       await cache.addAll(PRECACHE_URLS);
 
-      setProgress(screen, 82, "キャッシュを再生成しています...", "起動ファイルをキャッシュに保存しました", "残り数秒");
-      await wait(600);
+      await runProgressPhase(screen, 91, 98, 12000,
+        "キャッシュを再生成しています...",
+        "取得したファイルの保存状態を確認しています", 12000);
 
       sessionStorage.setItem(RESULT_KEY, JSON.stringify({
         result: "success",
@@ -21456,9 +21484,9 @@ console.log('[Wincon] Start menu and Sail Browser improvements loaded');
       }));
       sessionStorage.removeItem(PENDING_KEY);
 
-      setProgress(screen, 100, "アップデートが完了しました", "キャッシュの再生成が完了しました。Wincon を起動しています", "まもなく起動します");
-      await wait(700);
-      // Cache rebuild is complete. Resume the normal Horizon boot flow without another page reload.
+      setProgress(screen, 100, "アップデートが完了しました",
+        "キャッシュの再生成が完了しました。Wincon を起動しています", "まもなく起動します");
+      await wait(5000);
       if (typeof startHorizonBootFlow === "function") {
         window.__WINCON10_BOOT_RUNNING__ = false;
         startHorizonBootFlow();
