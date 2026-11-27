@@ -1,6 +1,58 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<script>
+/* Wincon Early Boot Guard: must remain the first executable script. */
+(()=>{
+ 'use strict';
+ const RECOVERY_REQUEST='__WINCON_EARLY_RECOVERY_REQUEST__';
+ const BOOT_STARTED_AT=performance.now();
+ window.__WINCON_BOOT_STARTED_AT__=BOOT_STARTED_AT;
+ const STARTUP_ERROR_IGNORE_MS=5000;
+ let fatalShown=false;
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function earlyBSOD(message,detail){
+  if(fatalShown)return;fatalShown=true;
+  try{
+   const draw=()=>{
+    if(!document.body){setTimeout(draw,10);return;}
+    let el=document.getElementById('w12BSOD');if(el)return;
+    el=document.createElement('div');el.id='w12BSOD';
+    el.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#0877c9;color:#fff;padding:8vh 9vw;font-family:Segoe UI,sans-serif;box-sizing:border-box;overflow:auto';
+    el.innerHTML=`<div style="font-size:76px;font-weight:200">:(</div><h1 style="font-size:28px;font-weight:400;margin:20px 0">Wincon で回復できないエラーが発生しました。</h1><p>起動処理で致命的な問題が発生しました。10秒後に再起動します。</p><p style="margin:22px 0">停止コード: WINCON_EARLY_BOOT_FAILURE</p><pre style="white-space:pre-wrap;background:#005ca5;padding:12px;max-height:25vh;overflow:auto">${esc(String(message)+'\\n'+String(detail||''))}</pre><p id="w12EarlyRestart" style="margin-top:20px">再起動まで 10 秒</p>`;
+    document.body.appendChild(el);
+    let n=10;const timer=setInterval(()=>{n--;const x=document.getElementById('w12EarlyRestart');if(x)x.textContent=`再起動まで ${n} 秒`;if(n<=0){clearInterval(timer);try{sessionStorage.setItem('wincon12_last_bsod',String(message)+'\\n'+String(detail||''))}catch(_){}location.reload()}},1000);
+   };
+   draw();
+  }catch(_){try{location.reload()}catch(__){}}
+ }
+ window.__WINCON_EARLY_BSOD__=earlyBSOD;
+ window.addEventListener('error',e=>{
+  if(performance.now()-BOOT_STARTED_AT<STARTUP_ERROR_IGNORE_MS)return;
+  const msg=e.message||'起動時スクリプトでエラーが発生しました';
+  console.error('[Wincon Early Boot Error]',e.error||msg);
+  // A syntax/runtime error in the earliest boot layer is treated as a boot-critical failure.
+  if(e.filename&&e.filename===location.href&&e.lineno<20)earlyBSOD(msg,e.error?.stack||`${e.filename}:${e.lineno}:${e.colno}`);
+ });
+ window.addEventListener('unhandledrejection',e=>{
+  if(performance.now()-BOOT_STARTED_AT<STARTUP_ERROR_IGNORE_MS)return;
+  const r=e.reason;console.error('[Wincon Early Promise Error]',r);
+  if(r?.winconCritical===true)earlyBSOD(r.message||String(r),r.stack||'');
+ });
+ window.addEventListener('keydown',e=>{
+  // Rare, dedicated shortcut: Ctrl + Alt + Shift + F10.
+  // Do not cancel or stop propagation, so normal Wincon/browser shortcuts remain untouched.
+  if(e.ctrlKey&&e.altKey&&e.shiftKey&&e.code==='F10'&&!e.repeat){
+   try{sessionStorage.setItem(RECOVERY_REQUEST,'1')}catch(_){}
+   const launch=()=>{if(typeof window.openRecovery==='function'){window.openRecovery();try{sessionStorage.removeItem(RECOVERY_REQUEST)}catch(_){}return true}return false};
+   if(!launch())document.addEventListener('DOMContentLoaded',()=>{if(!launch())setTimeout(launch,250)},{once:true});
+  }
+ },true);
+ // A previous local boot override remains authoritative until the user rebuilds boot settings.
+ try{const k='wincon12_recovery_boot_source_v1';const html=localStorage.getItem(k);if(html&&document.readyState==='loading'&&sessionStorage.getItem('wincon12_local_boot_replayed')!=='1'){sessionStorage.setItem('wincon12_local_boot_replayed','1');document.open();document.write(html);document.close();}}catch(e){console.error('[Wincon local boot loader]',e)}
+})();
+</script>
+
 <meta charset="UTF-8">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="91b385cc-f385-40f6-919f-2cd4e6d7e2c7"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -1085,7 +1137,7 @@ onclick="executePower()">
 
 
 <script>
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.protocol === "http:")) {
     window.addEventListener("load", async () => {
         try {
             await navigator.serviceWorker.register("./sw.js");
@@ -1094,16 +1146,17 @@ if ("serviceWorker" in navigator) {
             console.error("Service Worker登録失敗", e);
         }
     });
+} else if (location.protocol === "file:") {
+    console.info("Service Workerはfile://では利用できません。HTTPS環境で有効になります。");
 }
 const ENTERPRISE_STORAGE_KEY="winconEnterpriseApps";
-const ably = new Ably.Realtime({
-  token:"YOUR_TOKEN"
-});
-
-const ablyChannel =
-ably.channels.get(
-  "wincon-appcenter"
-);
+// Ablyは有効な認証設定がある場合のみ接続する。プレースホルダーで401を発生させない。
+const WINCON_ABLY_TOKEN = "YOUR_TOKEN";
+const ably = (typeof Ably !== "undefined" && WINCON_ABLY_TOKEN && WINCON_ABLY_TOKEN !== "YOUR_TOKEN")
+  ? new Ably.Realtime({ token: WINCON_ABLY_TOKEN })
+  : null;
+const ablyChannel = ably ? ably.channels.get("wincon-appcenter") : null;
+if (!ably) console.info("[Wincon Ably] 未設定のためリアルタイム連携は無効です。");
 function loadEnterpriseApps(){
 
 try{
@@ -1248,9 +1301,15 @@ hidden:true
 }
  ];
 
+// Later classic-script modules access the shared app registry through window.menuItems.
+try { Object.defineProperty(window, "menuItems", { configurable:true, get:()=>menuItems, set:value=>{ if(Array.isArray(value)) menuItems=value; } }); } catch (_) { window.menuItems=menuItems; }
+
 // Module Center Gameはデスクトップからも起動できる独立アプリ。
 if (!menuItems.some(item => item && item.type === "gamecenter")) {
     menuItems.push({ title:"Module Center Game", icon:"🎮", type:"gamecenter", system:true });
+}
+if (!menuItems.some(item => item && item.type === "wincon-game-mode")) {
+    menuItems.push({ id:"wincon-game-mode", title:"Game Mode", icon:"🎮", type:"wincon-game-mode", system:true });
 }
 
 function mergeEnterpriseApps(){
@@ -1290,7 +1349,8 @@ restoreState();
 
 setupSecurityShortcut();
 
-startTutorial();
+// First-run blocking tutorial removed; detailed guidance is available in the Hint app.
+try { localStorage.setItem("tutorialDone", "true"); } catch (_) {}
 
 }
 
@@ -1310,15 +1370,17 @@ function setupSecurityShortcut(){
 
 window.addEventListener("keydown",e=>{
 
-if(e.ctrlKey&&e.shiftKey){
-openSecurityOptions();
+if(e.ctrlKey&&e.shiftKey&&!e.repeat){
+    e.preventDefault();
+    e.stopPropagation();
+    openSecurityOptions();
 }
 
-if(e.key==="Escape"){
+if(e.key==="Escape"&&!window.__W12_KIOSK_ACTIVE__){
 openSystemSettings(true);
 }
 
-});
+},true);
 
 }
 function fullFactoryReset(){
@@ -1490,6 +1552,9 @@ case "appcenter":
   break;
 case "gamecenter":
   openGameCenter();
+  break;
+case "wincon-game-mode":
+  window.openWinconGameMode?.();
   break;
 
 case "appcenterdev":
@@ -1789,42 +1854,31 @@ content:`
 }
 
 function openSecurityOptions(){
-
-createWindow({
-title:"セキュリティオプション",
-icon:"🛡️",
-popup:true,
-content:`
-
-<button class='action'
-onclick='shutdownSystem()'>
-電源OFF
-</button>
-
-<br><br>
-
-<button class='action'
-onclick='restartSystem()'>
-再起動
-</button>
-
-<br><br>
-
-<button class='action'
-onclick='openTaskManager()'>
-タスクマネージャ
-</button>
-
-<br><br>
-
-<button class='action'
-onclick='openRecovery()'>
-リカバリ
-</button>
-
-`
-});
-
+    // Kiosk mode keeps the shell locked, but this dedicated system popup remains available.
+    document.getElementById('w12KioskSecurityMenu')?.remove();
+    const win=createWindow({
+        title:"セキュリティオプション",
+        icon:"🛡️",
+        popup:true,
+        systemLayer:true,
+        noTaskbar:true,
+        content:`
+          <div style="display:flex;flex-direction:column;gap:12px;padding:18px;background:#202936;color:#fff;height:100%;box-sizing:border-box">
+            <h2 style="margin:0 0 6px">セキュリティオプション</h2>
+            <button class="action" onclick="shutdownSystem()">⏻ 電源を切る</button>
+            <button class="action" onclick="restartSystem()">↻ 再起動</button>
+            <button class="action" onclick="openTaskManager()">▤ タスクマネージャ</button>
+            <button class="action" onclick="openRecovery()">🛠 リカバリ</button>
+            <button class="action" onclick="document.getElementById('w12KioskSecurityMenu')?.remove()">閉じる</button>
+          </div>`
+    });
+    if(!win)return;
+    win.id='w12KioskSecurityMenu';
+    win.classList.add('w12-kiosk-security-menu');
+    Object.assign(win.style,{position:'fixed',left:'50%',top:'50%',transform:'translate(-50%,-50%)',width:'min(560px,calc(100vw - 32px))',height:'min(430px,calc(100vh - 32px))',zIndex:'2147483646',display:'flex'});
+    win.querySelector('.titlebar')?.style.setProperty('display','flex','important');
+    win.querySelector('.content')?.style.setProperty('height','calc(100% - 42px)');
+    return win;
 }
 
 function openTaskManager(){
@@ -2154,142 +2208,55 @@ function startFactoryReset(){
 }
 
 function openBrowser(){
-
-createWindow({
+const win=createWindow({
 title:"Sail Browser",
 icon:"🌐",
 width:1200,
 height:750,
 content:`
-
-<div style="
-height:100%;
-display:flex;
-flex-direction:column;
-">
-
-<div style="
-height:52px;
-display:flex;
-gap:8px;
-padding:8px;
-background:#39414d;
-">
-
-<button
-class="action"
-id="browserBack"
-style="width:70px;"
->
-←
-</button>
-
-<input
-id="browserUrl"
-placeholder="URLまたは検索"
-style="flex:1;"
->
-
-<button
-class="action"
-id="browserGo"
-style="width:90px;"
->
-移動
-</button>
-
-</div>
-
-<iframe
-id="browserFrame"
-style="
-flex:1;
-border:none;
-background:white;
-"
-src="https://www.google.com/search?igu=1"
-></iframe>
-
-</div>
-
-`
+<div class="sail-browser" style="height:100%;min-height:0;display:flex;flex-direction:column;background:#fff;color:#17202a">
+  <div style="display:flex;gap:6px;align-items:center;padding:8px;background:#263241;flex-shrink:0">
+    <button id="browserBack" class="action" style="width:42px">←</button>
+    <button id="browserForward" class="action" style="width:42px">→</button>
+    <button id="browserReload" class="action" style="width:42px">↻</button>
+    <input id="browserUrl" aria-label="URLまたは検索語句" placeholder="URLまたは検索語句を入力" style="flex:1;min-width:80px;margin:0">
+    <button id="browserGo" class="action" style="width:68px">移動</button>
+    <button id="browserExternal" class="action" style="width:112px;background:#0f766e">別タブで開く</button>
+  </div>
+  <div id="browserNotice" style="padding:7px 12px;background:#fff7d6;color:#624b00;font-size:12px;flex-shrink:0">
+    表示できないサイトは「別タブで開く」を使用してください。サイト側の埋め込み制限はWinconから解除できません。
+  </div>
+  <iframe id="browserFrame" title="Sail Browser web page" referrerpolicy="strict-origin-when-cross-origin" style="flex:1;min-height:0;width:100%;border:0;background:white" src="https://www.google.com/search?igu=1"></iframe>
+</div>`
 });
-
-setTimeout(setupBrowser,100);
-
+if(!win)return;
+const root=win.querySelector('.content')||win;
+const frame=root.querySelector('#browserFrame');
+const urlBox=root.querySelector('#browserUrl');
+const backBtn=root.querySelector('#browserBack');
+const forwardBtn=root.querySelector('#browserForward');
+const reloadBtn=root.querySelector('#browserReload');
+const goBtn=root.querySelector('#browserGo');
+const externalBtn=root.querySelector('#browserExternal');
+const history=['https://www.google.com/search?igu=1'];
+let historyIndex=0;
+function resolveURL(raw){
+  const value=String(raw||'').trim();if(!value)return '';
+  if(/^https?:\/\//i.test(value))return value;
+  if(/^localhost(?::\d+)?(?:\/|$)/i.test(value)||/^127\.0\.0\.1(?::\d+)?(?:\/|$)/.test(value))return 'http://'+value;
+  if(/^[\w.-]+\.[a-z]{2,}(?::\d+)?(?:[\/?#].*)?$/i.test(value))return 'https://'+value;
+  return 'https://www.google.com/search?igu=1&q='+encodeURIComponent(value);
 }
-function setupBrowser(){
-
-const frame=
-document.getElementById("browserFrame");
-
-const urlBox=
-document.getElementById("browserUrl");
-
-const backBtn=
-document.getElementById("browserBack");
-
-const history=[];
-
-function navigate(url){
-
-if(!url)return;
-
-if(
-!url.startsWith("http://") &&
-!url.startsWith("https://")
-){
-
-url=
-"https://www.google.com/search?q="+
-encodeURIComponent(url);
-
-}
-
-history.push(url);
-
-frame.src=url;
-
-urlBox.value=url;
-
-}
-
-document
-.getElementById("browserGo")
-.onclick=()=>{
-
-navigate(urlBox.value);
-
-};
-
-urlBox.addEventListener(
-"keydown",
-e=>{
-
-if(e.key==="Enter"){
-
-navigate(urlBox.value);
-
-}
-
-});
-
-backBtn.onclick=()=>{
-
-if(history.length<2)
-return;
-
-history.pop();
-
-const prev=
-history[history.length-1];
-
-frame.src=prev;
-
-urlBox.value=prev;
-
-};
-
+function updateButtons(){backBtn.disabled=historyIndex<=0;forwardBtn.disabled=historyIndex>=history.length-1;backBtn.style.opacity=backBtn.disabled?'.45':'1';forwardBtn.style.opacity=forwardBtn.disabled?'.45':'1';}
+function navigate(raw,replace=false){const url=resolveURL(raw);if(!url)return;if(replace)history[historyIndex]=url;else{history.splice(historyIndex+1);history.push(url);historyIndex=history.length-1;}urlBox.value=url;frame.src=url;updateButtons();}
+function openExternal(){const url=resolveURL(urlBox.value||history[historyIndex]);if(!url)return;const tab=window.open(url,'_blank','noopener,noreferrer');if(!tab){root.querySelector('#browserNotice').textContent='ポップアップがブロックされました。ブラウザのポップアップ許可を確認してください。';}}
+goBtn.addEventListener('click',()=>navigate(urlBox.value));
+urlBox.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();navigate(urlBox.value);}});
+backBtn.addEventListener('click',()=>{if(historyIndex>0){historyIndex--;urlBox.value=history[historyIndex];frame.src=history[historyIndex];updateButtons();}});
+forwardBtn.addEventListener('click',()=>{if(historyIndex<history.length-1){historyIndex++;urlBox.value=history[historyIndex];frame.src=history[historyIndex];updateButtons();}});
+reloadBtn.addEventListener('click',()=>{try{frame.contentWindow.location.reload()}catch(_){frame.src=history[historyIndex]}});
+externalBtn.addEventListener('click',openExternal);
+urlBox.value=history[0];updateButtons();
 }
 function openTerminal(){
 
@@ -2740,7 +2707,7 @@ width:900,
 height:650,
 content:`
 
-<h1>Wincon 12.0 Horizon</h1>
+<h1>Wincon 12 Horizon</h1>
 
 <div class="badge">
 SYSTEM PROCESS
@@ -2754,19 +2721,19 @@ SYSTEM PROCESS
 
 <b>Product Name</b>
 <br>
-Wincon 12.0 Horizon
+Wincon 12 Horizon
 
 <br><br>
 
 <b>Version</b>
 <br>
-Stable 12.0
+Stable 12.2
 
 <br><br>
 
 <b>Core Service Version</b>
 <br>
-12.0
+12.2
 
 <br><br>
 
@@ -3140,8 +3107,7 @@ renderMenu();
 }
 
 function openExternalHTML(item){
-
-createWindow({
+return createWindow({
 title:item.title,
 icon:item.icon,
 width:1000,
@@ -3151,8 +3117,8 @@ content:`
 <iframe src="${normalizeGitHubPages(item.source)}"></iframe>
 `
 });
-
 }
+window.openExternalHTML=openExternalHTML;
 let transferPeer=null;
 let transferChannel=null;
 function getAllStorage(){
@@ -4240,14 +4206,11 @@ JSON.stringify(apps)
 
 }
 function unpublishApp(id){
-
-ablyChannel.publish(
-"unpublish",
-{
-id
-}
-);
-
+  if (!ablyChannel) {
+    console.warn("[Wincon Ably] 認証設定がないためリアルタイム公開停止通知を送信できません。");
+    return false;
+  }
+  return ablyChannel.publish("unpublish", { id });
 }
 
 function saveState(){
@@ -4356,10 +4319,6 @@ location.href="index.html";
 boot();
 
 <\/script>
-
-
-
-
 
 
 
@@ -10654,6 +10613,17 @@ function loginHorizon(
         localStorage.setItem(HORIZON_SELECTED_USER_KEY,user.id);
         astWrite(Horizon_KEYS.user,user);
     }catch(_){}
+    // Kiosk entry is triggered from the actual authenticated login write,
+    // rather than depending on a chain of replaceable UI callbacks.
+    if(user.kioskMode){
+        setTimeout(()=>{
+            try{
+                const enter=window.__W12_ENTER_KIOSK_MODE__;
+                if(typeof enter==="function")enter(user);
+                else console.error("[Kiosk] entry handler is not ready");
+            }catch(error){console.error("[Kiosk] login-triggered entry failed",error);}
+        },450);
+    }
     return true;
 
 }
@@ -11338,7 +11308,7 @@ body.wincon10-oobe-isolated #winconSystemWindowLayer .wincon-system-window{
 
 
 
-/* Wincon 12.0.1 Patch 1 - macOS-inspired lock screen */
+/* Wincon 12.2 Patch 1 - macOS-inspired lock screen */
 #wincon10LoginOverlay{
     position:fixed !important;inset:0 !important;z-index:2147483001 !important;
     display:flex !important;flex-direction:column !important;justify-content:space-between !important;
@@ -12062,7 +12032,7 @@ function renderHorizonOOBEStep(){
         html=`<h1 class="wincon10-oobe-title">ユーザーを作成</h1><p class="wincon10-oobe-description">ユーザーアイコンと名前を設定します。</p><div class="wincon10-oobe-avatar-preview" id="wincon10OOBEAvatarPreview">${oobeData.icon?`<img src="${oobeData.icon}" alt="">`:"👤"}</div><label class="wincon10-oobe-label">ユーザーアイコン（任意）</label><input type="file" id="wincon10Icon" accept="image/png,image/jpeg,image/webp,image/gif"><label class="wincon10-oobe-label">ユーザー名</label><input id="wincon10Username" class="wincon10-oobe-input" autocomplete="username" placeholder="ユーザー名" value="${escapeHorizonHTML(oobeData.username||"")}">`;
         break;
       case "apps":
-        html=`<h1 class="wincon10-oobe-title">最初にインストールするアプリ</h1><p class="wincon10-oobe-description">Module Centerからアプリ情報を取得しています。最初から使いたいアプリを選択してください。</p><div id="w12OobeAppsList" class="w12-oobe-apps-list">読み込み中...</div>`;
+        html=`<h1 class="wincon10-oobe-title">最初にインストールするアプリ</h1><p class="wincon10-oobe-description">Module Centerからアプリ情報を取得しています。最初から使いたいアプリを選択してください。</p><button type="button" class="wincon10-oobe-button secondary" id="w12OobeOpenModuleCenter" style="margin:0 0 10px">📦 Module Centerを開く</button><div id="w12OobeAppsList" class="w12-oobe-apps-list">読み込み中...</div>`;
         loadOOBEDefaultApps();
         break;
       case "password":
@@ -12093,7 +12063,7 @@ async function loadOOBEDefaultApps(){
  list.textContent="Supabaseからアプリ情報を取得しています...";
  try{
   const endpoint=(typeof MODULE_API!=="undefined"&&MODULE_API)?MODULE_API:"https://tjyyqwihwgxdjpzgccyc.supabase.co/functions/v1/quick-worker";
-  const response=await fetch(endpoint,{method:"GET",cache:"no-store",headers:{"Accept":"application/json"}});
+  const response=await fetch(endpoint+"?catalog=1",{method:"GET",cache:"no-store",headers:{"Accept":"application/json"}});
   if(!response.ok)throw new Error("Supabase Edge Function HTTP "+response.status);
   const json=await response.json();
   if(json&&((json.success===false)||json.error))throw new Error(typeof json.error==="string"?json.error:JSON.stringify(json.error||json));
@@ -12105,7 +12075,7 @@ async function loadOOBEDefaultApps(){
   oobeAvailableModules=rows.map(raw=>{
    const id=raw?.id??raw?.app_id??raw?.appId??raw?.uuid;
    const title=raw?.title??raw?.name??raw?.app_name??"名称未設定";
-   const source=raw?.source??raw?.url??raw?.app_url??raw?.link??raw?.html_url??"";
+   const source=raw?.source??raw?.web_source??raw?.url??raw?.app_url??raw?.link??raw?.html_url??"";
    return {...raw,id,title,source,
     icon:raw?.icon??raw?.emoji??"📦",
     iconImage:raw?.iconImage??raw?.icon_image??raw?.iconimage??raw?.icon_base64??"",
@@ -12144,6 +12114,13 @@ async function loadOOBEDefaultApps(){
 
 function setupHorizonOOBEStepEvents(){
  const step=oobeFlow[oobeStep];
+ const openOobeModuleCenter=document.getElementById("w12OobeOpenModuleCenter");
+ if(openOobeModuleCenter)openOobeModuleCenter.onclick=()=>{
+  try{
+   if(typeof window.openAppCenter!=="function")throw new Error("Module Centerの起動機能が読み込まれていません。");
+   window.openAppCenter();
+  }catch(error){console.error("[OOBE] Module Center launch failed",error);alert("Module Centerを開けませんでした。\\n"+(error?.message||error));}
+ };
  const language=document.getElementById("wincon10Language");if(language)language.onchange=()=>oobeData.language=language.value;
  const transferYes=document.getElementById("w12OobeTransferYes");const transferNo=document.getElementById("w12OobeTransferNo");
  if(transferYes)transferYes.onclick=()=>{oobeData.transferChoice="transfer";transferYes.classList.add("selected");transferNo?.classList.remove("selected");try{const openTransfer=window.winconDataTransfer?.open||(typeof openTransferApp==="function"?openTransferApp:null);if(typeof openTransfer==="function")openTransfer();else throw new Error("Wincon お引越しを初期化できませんでした。");}catch(e){console.warn("[OOBE] transfer app could not open",e);alert("Wincon お引越しを開けませんでした。\n"+(e?.message||e));}};
@@ -12570,7 +12547,7 @@ function startHorizonDesktop(){
 
 
 /* =========================================================
-   Wincon 12.0.1 Patch 1 - Multi-user management
+   Wincon 12.2 Patch 1 - Multi-user management
 ========================================================= */
 
 function readHorizonImage(file,maxWidth=1280,maxHeight=720){
@@ -12604,13 +12581,16 @@ function openHorizonAddUserMini(){
         <label>ユーザーネーム</label><input id="w12MiniName" maxlength="32" placeholder="ユーザーネーム">
         <label style="display:block;margin-top:12px">アイコン</label><input id="w12MiniIcon" type="file" accept="image/*">
         <div id="w12MiniPreview" style="width:64px;height:64px;border-radius:50%;background:#475569;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;margin-top:8px">👤</div>
-        <label style="display:block;margin-top:12px">パスワード（任意）</label><input id="w12MiniPassword" type="password" autocomplete="new-password" placeholder="設定しない場合は空欄">
+        <label style="display:block;margin-top:12px">パスワード（任意）</label><input id="w12MiniPassword" type="password" autocomplete="new-password" placeholder="設定しない場合は空欄"><label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input id="w12MiniKiosk" type="checkbox" style="width:18px;height:18px">キオスクユーザーにする</label><div id="w12MiniKioskAppsWrap" hidden style="margin-top:8px"><label>起動できるアプリ</label><select id="w12MiniKioskApp" style="width:100%"></select></div>
         <div id="w12MiniError" style="color:#fca5a5;min-height:22px;margin-top:8px;font-size:13px"></div>
         <button class="action" id="w12MiniCreate">ユーザーを追加</button>
       </div>`;
     const win=createWindow({title:"ユーザー追加",icon:"＋",width:470,height:500,popup:false,content,systemLayer:true,noTaskbar:true});
     if(!win)return;
     const file=win.querySelector("#w12MiniIcon");
+    const kioskCheck=win.querySelector("#w12MiniKiosk"),kioskWrap=win.querySelector("#w12MiniKioskAppsWrap"),kioskSelect=win.querySelector("#w12MiniKioskApp");
+    const fillKioskApps=()=>{const apps=(typeof menuItems!=="undefined"&&Array.isArray(menuItems)?menuItems:[]).filter(a=>a&&a.type!=="user-config"&&a.type!=="recovery");kioskSelect.innerHTML=apps.map(a=>`<option value="${String(a.appId||a.id||a.title).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))}">${String(a.icon||"📦")} ${String(a.title||a.name||a.type||"アプリ")}</option>`).join("");};
+    kioskCheck.onchange=()=>{kioskWrap.hidden=!kioskCheck.checked;if(kioskCheck.checked)fillKioskApps();};
     let iconData=null;
     file.onchange=async()=>{
         try{iconData=await readHorizonImage(file.files?.[0],512,512);win.querySelector("#w12MiniPreview").innerHTML=iconData?`<img src="${iconData}" style="width:100%;height:100%;object-fit:cover">`:"👤";}
@@ -12625,7 +12605,7 @@ function openHorizonAddUserMini(){
         const button=win.querySelector("#w12MiniCreate");button.disabled=true;
         try{
             const record=password?await createPasswordRecord(password):null;
-            const user=createHorizonUser(name,record,{icon:iconData||null});
+            const user=createHorizonUser(name,record,{icon:iconData||null,kioskMode:!!kioskCheck.checked,kioskAppId:kioskCheck.checked?(kioskSelect.value||null):null});
             win.remove();
             if(document.getElementById("wincon10LoginOverlay")){
                 localStorage.setItem(HORIZON_SELECTED_USER_KEY,user.id);
@@ -12651,7 +12631,7 @@ function openHorizonUserConfig(){
           <div id="w12UserPreview" style="width:64px;height:64px;border-radius:50%;background:#475569;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;margin-top:8px">👤</div>
           <label style="display:block;margin-top:10px">パスワード（空欄なら変更しない）</label><input id="w12UserPassword" type="password" autocomplete="new-password">
           <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px"><input id="w12UserPasswordClear" type="checkbox" style="width:18px;height:18px;margin:0">パスワードを削除する</label>
-          <label style="display:block;margin-top:10px">ロック画面の背景（任意）</label><input id="w12UserWallpaper" type="file" accept="image/*">
+          <label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input id="w12UserKiosk" type="checkbox" style="width:18px;height:18px">キオスクユーザーにする</label><div id="w12UserKioskAppsWrap" hidden style="margin-top:8px"><label>起動できるアプリ</label><select id="w12UserKioskApp" style="width:100%"></select><small>このユーザーでログインすると、選択したアプリだけを表示します。</small></div><label style="display:block;margin-top:10px">ロック画面の背景（任意）</label><input id="w12UserWallpaper" type="file" accept="image/*">
           <div id="w12UserError" style="color:#fca5a5;min-height:24px;margin-top:8px;font-size:13px"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="action" id="w12UserSave">保存</button>
@@ -12669,6 +12649,9 @@ function openHorizonUserConfig(){
     const preview=win.querySelector("#w12UserPreview");
     const error=win.querySelector("#w12UserError");
     const deleteBtn=win.querySelector("#w12UserDelete");
+    const kioskCheck=win.querySelector("#w12UserKiosk"),kioskWrap=win.querySelector("#w12UserKioskAppsWrap"),kioskSelect=win.querySelector("#w12UserKioskApp");
+    const fillKioskApps=(selected)=>{const apps=(typeof menuItems!=="undefined"&&Array.isArray(menuItems)?menuItems:[]).filter(a=>a&&a.type!=="user-config"&&a.type!=="recovery");kioskSelect.innerHTML=apps.map(a=>{const id=String(a.appId||a.id||a.title);const opt=document.createElement("option");opt.value=id;opt.textContent=(a.icon||"📦")+" "+(a.title||a.name||a.type||"アプリ");return opt.outerHTML;}).join("");if(selected)kioskSelect.value=selected;};
+    kioskCheck.onchange=()=>{kioskWrap.hidden=!kioskCheck.checked;if(kioskCheck.checked)fillKioskApps(kioskSelect.value);};
     const userById=id=>getHorizonUsers().find(u=>u.id===id)||null;
     const renderList=()=>{
         list.innerHTML="";
@@ -12684,7 +12667,7 @@ function openHorizonUserConfig(){
     const showUser=user=>{
         selectedId=user?.id||null;iconData=user?.icon||null;wallpaperData=user?.wallpaper||null;
         win.querySelector("#w12UserFormTitle").textContent=user?"ユーザーを編集":"新しいユーザー";
-        nameEl.value=user?.name||"";passEl.value="";error.textContent="";
+        nameEl.value=user?.name||"";passEl.value="";error.textContent="";kioskCheck.checked=!!user?.kioskMode;kioskWrap.hidden=!kioskCheck.checked;fillKioskApps(user?.kioskAppId||"");
         preview.innerHTML=iconData?`<img src="${iconData}" style="width:100%;height:100%;object-fit:cover">`:"👤";
         deleteBtn.style.display=user?"":"none";
         renderList();
@@ -12705,7 +12688,7 @@ function openHorizonUserConfig(){
         const button=win.querySelector("#w12UserSave");button.disabled=true;
         try{
             const old=selectedId?userById(selectedId):null;
-            const patch={name,icon:iconData||null};
+            const patch={name,icon:iconData||null,kioskMode:!!kioskCheck.checked,kioskAppId:kioskCheck.checked?(kioskSelect.value||null):null};
             if(wallpaperData!==null)patch.wallpaper=wallpaperData;
             if(password)patch.passwordHash=await createPasswordRecord(password);
             else if(win.querySelector("#w12UserPasswordClear").checked)patch.passwordHash=null;
@@ -12714,7 +12697,7 @@ function openHorizonUserConfig(){
                 saveHorizonUsers(users);
                 if(getHorizonSession()?.userId===old.id)astWrite(Horizon_KEYS.user,{...old,...patch});
             }else{
-                const created=createHorizonUser(name,password?await createPasswordRecord(password):null,{icon:iconData||null,wallpaper:wallpaperData||null});
+                const created=createHorizonUser(name,password?await createPasswordRecord(password):null,{icon:iconData||null,wallpaper:wallpaperData||null,kioskMode:!!kioskCheck.checked,kioskAppId:kioskCheck.checked?(kioskSelect.value||null):null});
                 selectedId=created.id;
             }
             showUser(userById(selectedId)||getHorizonUsers().find(u=>u.name===name));
@@ -13010,7 +12993,7 @@ function createHorizonProcessScreen(
 >
 
     <img
-        src="wincon.png"
+        src="wincon.png" onerror="this.style.display='none'"
         class="wincon10-Horizon-logo"
         draggable="false"
         onerror="
@@ -15856,7 +15839,10 @@ console.log(
         pinnedApps.push({
             title: item.title,
             type: item.type,
-            icon: item.icon || "🪟"
+            appId: item.appId || item.id || null,
+            icon: item.icon || "🪟",
+            iconImage: item.iconImage || item.iconBase64 || "",
+            appClip: item.appClip === true
         });
 
         savePinnedApps();
@@ -15883,7 +15869,15 @@ console.log(
 
             button.className = "wincon-pinned-app";
             button.type = "button";
-            button.textContent = app.icon || "🪟";
+            const sourceApp = (Array.isArray(menuItems) ? menuItems : []).find(x => x && x.title === app.title && x.type === app.type);
+            const iconSource = sourceApp?.iconImage || sourceApp?.iconBase64 || app.iconImage || "";
+            if (iconSource) {
+                const image = document.createElement("img");
+                image.src = iconSource; image.alt = ""; image.draggable = false;
+                image.style.cssText = "width:26px;height:26px;object-fit:contain";
+                button.appendChild(image);
+            } else button.textContent = sourceApp?.icon || app.icon || "🪟";
+            if (sourceApp?.appClip === true || app.appClip === true) button.classList.add("w12mc-clip-icon");
             button.title = app.title;
             button.draggable = true;
             button.dataset.index = String(index);
@@ -16259,7 +16253,7 @@ console.log(
             }
         });
 
-        resetIdleTimer();
+        if (typeof resetIdleTimer === "function") resetIdleTimer();
     }
 
     // 既存の起動・ログイン処理には介入しない。
@@ -16291,8 +16285,6 @@ console.log(
         pin: pinApp,
         unpin: unpinApp,
         renderPinnedApps,
-        showScreenSaver,
-        hideScreenSaver,
         setTabletMode
     };
 
@@ -16300,6 +16292,156 @@ console.log(
 
 </script>
 
+
+<!-- Wincon 12 Horizon: Recovery / diagnostics / boot history layer -->
+<script>
+
+(()=>{
+ 'use strict';
+ try{sessionStorage.removeItem('wincon12_local_boot_replayed')}catch(_){}
+ const BOOT_KEY='wincon12_recovery_boot_source_v1';
+ const BOOT_MODE_KEY='wincon12_recovery_boot_mode_v1';
+ const SAFE_KEY='wincon12_safe_boot_once_v1';
+ try{localStorage.removeItem('wincon12_version_history_v1')}catch(_){}
+ const RECOVERY_CSS=`
+ #w12Recovery{position:fixed;inset:0;z-index:2147483000;background:#8bd7ef;color:#102b38;font-family:Segoe UI,sans-serif;overflow:auto;padding:34px;}
+ #w12Recovery .w12r-shell{max-width:980px;margin:0 auto;min-height:calc(100% - 68px);display:flex;flex-direction:column;gap:18px}
+ #w12Recovery h1{font-size:30px;font-weight:600;margin:0}#w12Recovery p{line-height:1.55}
+ #w12Recovery .w12r-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+ #w12Recovery button{border:1px solid #6ebbd3;background:rgba(139,215,239,.42);color:#164456;border-radius:8px;padding:16px;text-align:left;cursor:pointer;font:inherit;min-height:64px}
+ #w12Recovery button:hover{background:rgba(255,255,255,.35)}
+ #w12Recovery .w12r-panel{padding:16px;border:1px solid #70bfd7;background:rgba(255,255,255,.12);border-radius:8px}
+ #w12Recovery input{color:#102b38;background:#d9f4fb}#w12Recovery pre{white-space:pre-wrap;max-height:220px;overflow:auto}
+ body.w12-recovery-mode{background:#8bd7ef!important}body.w12-recovery-mode *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transition:none!important;animation:none!important}
+ body.w12-recovery-mode::after{content:"";position:fixed;inset:0;z-index:2147483601;pointer-events:none;opacity:.19;background-image:linear-gradient(90deg,rgba(0,35,58,.20) 50%,rgba(255,255,255,.10) 50%),linear-gradient(rgba(0,35,58,.16) 50%,rgba(255,255,255,.08) 50%);background-size:8px 8px,8px 8px;background-position:0 0,4px 4px;mix-blend-mode:multiply}
+ #w12ErrorPopup{position:fixed;inset:0;z-index:2147483646;background:#0008;display:grid;place-items:center;font-family:Segoe UI,sans-serif}
+ #w12ErrorPopup .card{width:min(520px,calc(100vw - 32px));background:#252b34;color:white;border-radius:12px;box-shadow:0 20px 70px #0009;padding:22px;border-top:5px solid #eab308}
+ #w12ErrorPopup .head{display:flex;gap:12px;align-items:center;font-size:20px;font-weight:600;margin-bottom:12px}
+ #w12ErrorPopup .symbol{font-size:30px}#w12ErrorPopup pre{white-space:pre-wrap;overflow:auto;max-height:180px;background:#171b21;padding:10px;border-radius:7px;font-size:12px}
+ #w12BSOD{position:fixed;inset:0;z-index:2147483647;background:#0877c9;color:white;padding:9vh 10vw;font-family:Segoe UI,sans-serif}
+ #w12BSOD .face{font-size:76px;font-weight:200}#w12BSOD h1{font-size:28px;font-weight:400;margin:20px 0}
+ #w12BSOD pre{white-space:pre-wrap;font:13px Consolas,monospace;background:#005ca5;padding:12px;max-height:22vh;overflow:auto}
+ `;
+ function css(){if(document.getElementById('w12RecoveryCSS'))return;const st=document.createElement('style');st.id='w12RecoveryCSS';st.textContent=RECOVERY_CSS;document.head.appendChild(st)}
+ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+ function showError(title,message,level='caution',detail=''){
+  css();document.getElementById('w12ErrorPopup')?.remove();
+  const cfg=level==='critical'?{icon:'⛔',label:'重大なエラー',color:'#ef4444'}:level==='warning'?{icon:'⚠️',label:'警告',color:'#ef4444'}:{icon:'🟡',label:'CAUTION',color:'#eab308'};
+  const el=document.createElement('div');el.id='w12ErrorPopup';el.innerHTML=`<div class="card" style="border-color:${cfg.color}"><div class="head"><span class="symbol">${cfg.icon}</span><span>${cfg.label} — ${esc(title)}</span></div><p>${esc(message)}</p>${detail?`<pre>${esc(detail)}</pre>`:''}<button class="action" id="w12ErrorClose" style="margin-top:16px">閉じる</button></div>`;
+  document.body.appendChild(el);el.querySelector('#w12ErrorClose').onclick=()=>el.remove();
+ }
+ window.WinconError={show:showError,caution:(t,m,d)=>showError(t,m,'caution',d),warning:(t,m,d)=>showError(t,m,'warning',d),critical:(t,m,d)=>showError(t,m,'critical',d)};
+ // Automatic script-error popups are intentionally disabled; diagnostics remain in the console.
+ window.addEventListener('error',e=>console.error('[Wincon Runtime Error]',e.error||e.message));
+ window.addEventListener('unhandledrejection',e=>console.error('[Wincon Promise Error]',e.reason));
+ window.WinconCriticalError=(message,error)=>window.__WINCON_EARLY_BSOD__?.(message,error?.stack||String(error||''));
+ // Deliberate test hook for DevTools Console; never called automatically.
+ window.WinconTestBSOD=()=>window.WinconCriticalError('ブルースクリーン表示テスト',new Error('WINCON_TEST_BSOD: Console test requested')); 
+ // A local boot source takes precedence over the network/SW after the next navigation.
+ // This is a controlled self-contained HTML boot, not an attempt to bypass browser security.
+ const pendingBoot=(()=>{try{return localStorage.getItem(BOOT_KEY)}catch(_){return null}})();
+ if(pendingBoot && !window.__W12_LOCAL_BOOT_REPLAY__){
+  window.__W12_LOCAL_BOOT_REPLAY__=true;
+  // The early bootstrap below handles subsequent reloads; current document is already executing.
+ }
+ window.WinconBootSource={activate(html,mode='custom'){
+  if(typeof html!=='string'||!html.trim().toLowerCase().startsWith('<!doctype html')&&!html.trim().toLowerCase().startsWith('<html'))throw new Error('HTMLファイルとして認識できません');
+  localStorage.setItem(BOOT_KEY,html);localStorage.setItem(BOOT_MODE_KEY,mode);location.reload();
+ },rebuild(){localStorage.removeItem(BOOT_KEY);localStorage.removeItem(BOOT_MODE_KEY);sessionStorage.removeItem(SAFE_KEY);location.reload()},clearSafe(){sessionStorage.removeItem(SAFE_KEY)}};
+ // Replace the old placeholder recovery page with a standalone recovery shell.
+ window.openRecovery=function(){
+  try{sessionStorage.removeItem('__WINCON_EARLY_RECOVERY_REQUEST__')}catch(_){}
+  css();document.body.classList.add('w12-recovery-mode');document.getElementById('wincon10LoginOverlay')?.remove();document.getElementById('taskbar')?.style.setProperty('display','none','important');document.getElementById('w12Recovery')?.remove();
+  const root=document.createElement('main');root.id='w12Recovery';root.innerHTML=`<div class="w12r-shell"><div><div style="font-size:13px;letter-spacing:.16em">WINCON RECOVERY ENVIRONMENT</div><h1>回復環境</h1><p>システムの起動に問題がある場合、ここから修復・診断できます。</p></div><div class="w12r-actions"><button data-action="terminal">⌨ ターミナルを開く<br><small>Wincon標準のTerminalウィンドウを使用</small></button><button data-action="safe">セーフブート<br><small>最小構成で今回のみ起動</small></button><button data-action="rebuild">⚙ ブート設定を再構築<br><small>LocalStorage起動上書きを解除</small></button></div><section class="w12r-panel" id="w12RecoveryPanel"><b>回復ステータス</b><p>LocalStorage起動: ${localStorage.getItem(BOOT_KEY)?'有効':'無効'}</p><p>表示モード: 通常描画</p></section><button data-action="exit">通常起動へ戻る</button></div>`;document.body.appendChild(root);
+  root.addEventListener('click',async e=>{const b=e.target.closest('button[data-action]');if(!b)return;const a=b.dataset.action;const panel=root.querySelector('#w12RecoveryPanel');
+   if(a==='exit'){location.reload();return}
+   if(a==='rebuild'){if(confirm('保存された起動HTMLとセーフブート設定を解除し、Web/Service Workerから起動しますか？'))window.WinconBootSource.rebuild();return}
+   if(a==='safe'){sessionStorage.setItem(SAFE_KEY,'1');location.reload();return}
+   if(a==='terminal'){try{if(typeof window.openTerminal==='function'){window.openTerminal();return}const term=(Array.isArray(window.menuItems)?window.menuItems:[]).find(x=>String(x.type||'').toLowerCase()==='terminal'||String(x.id||'').toLowerCase()==='terminal');if(term&&typeof window.launchWinconItem==='function'){window.launchWinconItem(term);return}if(term&&typeof window.launchItem==='function'){window.launchItem(term);return}showError('Terminalを開けません','Wincon標準のTerminal起動関数が見つかりません。','warning')}catch(err){showError('Terminal起動エラー',err.message,'warning')}return}
+  });
+ };
+ // Honor Ctrl+Alt+R if it was pressed before the recovery UI finished loading.
+ try{if(sessionStorage.getItem('__WINCON_EARLY_RECOVERY_REQUEST__')==='1'){sessionStorage.removeItem('__WINCON_EARLY_RECOVERY_REQUEST__');if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>window.openRecovery?.(),{once:true});else setTimeout(()=>window.openRecovery?.(),0)}}catch(_){}
+ // One-shot safe mode: keep system apps, hide Module Center and every user-installed app in memory only.
+ // Persistent LocalStorage records are deliberately untouched and return on the next normal boot.
+ if(sessionStorage.getItem(SAFE_KEY)==='1'){
+  sessionStorage.removeItem(SAFE_KEY);
+  document.documentElement.classList.add('w12-safe-boot');
+  const st=document.createElement('style');
+  st.textContent=`
+   #taskbar{display:flex!important;visibility:visible!important;opacity:1!important}
+   #menu,#controlCenter,#winconNotificationLayer{display:none!important}
+   .w12-safe-boot .window{filter:none!important}
+   .w12-safe-boot .w12-user-installed,.w12-safe-boot [data-user-installed="true"]{display:none!important}
+  `;
+  document.head.appendChild(st);
+  const excludedTypes=new Set(['appcenter','appcenterdev','gamecenter']);
+  const applySafeAppFilter=()=>{
+   try{
+    if(typeof menuItems!=='undefined'&&Array.isArray(menuItems)){
+     menuItems=menuItems.filter(item=>item&&item.system===true&&!item.enterprise&&!excludedTypes.has(String(item.type||'').toLowerCase()));
+     if(typeof renderMenu==='function')renderMenu();
+    }
+    // Remove only generated launch shortcuts that identify themselves as user-installed.
+    document.querySelectorAll('[data-user-installed="true"],.w12-user-installed').forEach(el=>el.remove());
+   }catch(err){console.warn('[Wincon Safe Mode] app filtering:',err)}
+  };
+  // The original boot() merges installed modules after 1.2 seconds; filter after that merge.
+  applySafeAppFilter();
+  setTimeout(applySafeAppFilter,1400);
+  setTimeout(applySafeAppFilter,1900);
+  window.addEventListener('load',()=>{
+   applySafeAppFilter();
+   showError('セーフモード','システム標準アプリのみ表示しています。Module Centerとユーザーが追加したアプリは、この起動中だけ非表示です。保存データは保持されています。','caution');
+  },{once:true});
+ }
+ // Improve app routing for all known app types. Preserve the native launcher when present.
+ window.launchWinconItem=function(item){
+  if(!item)throw new Error('起動対象が指定されていません');
+  const map={'media-player':()=>window.openWinconMediaPlayer?.(),'wincon-update':()=>window.WinconUpdateManager?.open(),'horizon-directory':()=>window.openHorizonDirectory?.(),'horizon-note':()=>window.openHorizonNote?.(),'miniapps-builder':()=>window.openWinconMiniAppsBuilder?.(),'miniapps-utility':()=>window.openWinconMiniAppsUtility?.(),'wincon-native-app':()=>window.openWinconNativeApp?.(item),'sail-webapp':()=>window.openSailInstalledWebApp?.(item),'wincon-intelligence':()=>window.WinconIntelligence?.open?.(),'externalHTML':()=>window.openExternalHTML?.(item),'appcenter':()=>window.openAppCenter?.(),'gamecenter':()=>window.openGameCenter?.(),'wincon-game-mode':()=>window.openWinconGameMode?.(),'appcenterdev':()=>window.openAppCenterDeveloper?.(),'terminal':()=>window.openTerminal?.(),'recovery':()=>window.openRecovery?.(),'browser':()=>window.openBrowser?.(),'settings':()=>window.openSystemSettings?.(false),'task':()=>window.openTaskManager?.(),'transfer':()=>window.openTransferApp?.(),'reset':()=>window.openResetCenter?.(),'coreservice':()=>window.openCoreService?.(),'file':()=>window.openFileManager?.(),'diskutility':()=>window.openDiskUtility?.(),'window':()=>window.openTestWindow?.(),'popup':()=>window.openTestPopup?.()};
+  if(map[item.type]){const result=map[item.type]();if(result===undefined&&['wincon-update','horizon-directory','horizon-note','miniapps-builder','miniapps-utility','wincon-native-app','sail-webapp','wincon-intelligence','externalHTML','appcenter','gamecenter','wincon-game-mode','appcenterdev','terminal','recovery','browser','settings','task','transfer','reset','coreservice','file','diskutility','window','popup'].includes(item.type)){/* void-returning launchers are valid */}return true}
+  if(typeof item.onClick==='function'){item.onClick();return true}
+  throw new Error(`未対応のアプリタイプ: ${item.type||'unknown'}`);
+ };
+ // Route the existing Start-menu dispatcher through the compatibility adapter and surface failures.
+ const priorStartLauncher=window.launchItem;
+ if(typeof priorStartLauncher==='function'){window.launchItem=function(item){try{return window.launchWinconItem(item)}catch(error){console.error('[Wincon App Launch]',item,error);showError('アプリを起動できません',`${item?.title||'アプリ'}を開けませんでした。`,'warning',error?.stack||error?.message||String(error));return false}}}
+ // Make the terminal's openapp command resolve by ID, title, and modern Horizon type.
+ const oldOpenAppCommand=window.openAppCommand;
+ window.openAppCommand=function(args,print){const name=args.slice(1).filter(a=>!a.startsWith('type=')).join(' ').trim();const app=(window.menuItems||[]).find(m=>m.title?.toLowerCase()===name.toLowerCase()||m.id?.toLowerCase()===name.toLowerCase());if(!app){print('モジュールが見つかりません: '+name);return}try{window.launchWinconItem(app);print(`${app.title} を起動しました`)}catch(e){console.error('[Terminal openapp]',e);showError('アプリを起動できません',e.message,'warning',e.stack);print('起動エラー: '+e.message)}};
+
+ // Media Player: minimal upload-and-play app; Directory file associations use the same player.
+ window.openWinconMediaPlayer=function(initialBlob=null,initialName=''){
+  const content=`<div class="w12-media-player" style="height:100%;box-sizing:border-box;padding:16px;display:flex;flex-direction:column;gap:12px;background:#171b22;color:#f5f7fa"><div style="display:flex;align-items:center;gap:10px"><strong style="font-size:20px">▶ Media Player</strong><span data-media-name style="opacity:.7;font-size:13px">${esc(initialName||'メディアを選択してください')}</span></div><input type="file" data-media-file accept="audio/*,video/*"><div data-media-stage style="flex:1;min-height:0;display:grid;place-items:center;background:#090b0e;border-radius:8px;overflow:hidden"><p style="opacity:.65">メディアをアップロードして再生</p></div><div style="font-size:12px;opacity:.65">音声・動画ファイルに対応（ブラウザが再生可能な形式）</div></div>`;
+  const win=window.createWindow({title:'Media Player',icon:'▶️',width:760,height:520,content});if(!win)return;const c=win.querySelector('.content')||win;const input=c.querySelector('[data-media-file]'),stage=c.querySelector('[data-media-stage]'),label=c.querySelector('[data-media-name]');let url=null;
+  const play=(blob,name)=>{if(!blob)return;if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(blob instanceof Blob?blob:new Blob([blob]));label.textContent=name||'メディア';const isVideo=/\.(mp4|webm|mov|m4v)$/i.test(name||'')||(blob.type||'').startsWith('video/');const el=document.createElement(isVideo?'video':'audio');el.src=url;el.controls=true;el.autoplay=false;el.style.maxWidth='100%';el.style.maxHeight='100%';el.style.width=isVideo?'100%':'90%';stage.replaceChildren(el);};
+  input.onchange=()=>{const f=input.files?.[0];if(f)play(f,f.name);};if(initialBlob)play(initialBlob,initialName);win.addEventListener?.('remove',()=>{if(url)URL.revokeObjectURL(url)});return win;
+ };
+ // Register Media Player in the Start menu without touching installed app records.
+ const mediaRegister=setInterval(()=>{try{if(typeof menuItems==='undefined'||!Array.isArray(menuItems))return;if(!menuItems.some(x=>x&&x.type==='media-player')){menuItems.push({id:'wincon-media-player',title:'Media Player',icon:'▶️',type:'media-player',system:true});localStorage.setItem('winconMenuItems',JSON.stringify(menuItems));if(typeof renderMenu==='function')renderMenu();}clearInterval(mediaRegister)}catch(e){console.warn('[Media Player registration]',e)}},300);setTimeout(()=>clearInterval(mediaRegister),12000);
+
+ // Kiosk user: hide shell chrome and restrict window creation to the selected app plus security options.
+ const KIOSK_STYLE_ID='w12KioskModeStyle';
+ function resolveKioskApp(user){const items=(typeof menuItems!=='undefined'&&Array.isArray(menuItems))?menuItems:[];return items.find(a=>a&&(String(a.appId||a.id||a.title)===String(user.kioskAppId)||String(a.type)===String(user.kioskAppId)||String(a.title)===String(user.kioskAppId)))||null;}
+ function enterKioskMode(user){
+  if(!user?.kioskMode)return false;const app=resolveKioskApp(user);if(!app){showError('キオスク設定エラー','このユーザーに設定されたアプリが見つかりません。ユーザーコンフィグで起動アプリを選び直してください。','warning');return false;}
+  window.__W12_KIOSK_ACTIVE__=true;window.__W12_KIOSK_APP__=app;window.__W12_KIOSK_LAUNCHING__=true;
+  if(!document.getElementById(KIOSK_STYLE_ID)){const st=document.createElement('style');st.id=KIOSK_STYLE_ID;st.textContent=`#taskbar,#menu,#controlCenter,.taskbar,.window-titlebar,.titlebar,.window-header,.title-bar{display:none!important}body.w12-kiosk-mode{overflow:hidden!important}body.w12-kiosk-mode .window{border:0!important;box-shadow:none!important}body.w12-kiosk-mode .window .titlebar,body.w12-kiosk-mode .window .window-titlebar{display:none!important}body.w12-kiosk-mode #w12KioskSecurityMenu{display:flex!important;position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;z-index:2147483646!important;pointer-events:auto!important}body.w12-kiosk-mode #w12KioskSecurityMenu .titlebar{display:flex!important}body.w12-kiosk-mode #w12KioskSecurityMenu .content{display:block!important;pointer-events:auto!important}`;document.head.appendChild(st)}
+  document.body.classList.add('w12-kiosk-mode');document.getElementById('taskbar')?.style.setProperty('display','none','important');document.getElementById('wincon10LoginOverlay')?.remove();
+  setTimeout(()=>{try{window.launchWinconItem(app)}catch(e){console.error('[Kiosk app launch]',e);showError('キオスクアプリを起動できません',e.message,'critical',e.stack)}finally{window.__W12_KIOSK_LAUNCHING__=false}},250);return true;
+ }
+ window.__W12_ENTER_KIOSK_MODE__=enterKioskMode;
+ // Preserve existing Ctrl+Shift security options; all other window requests are blocked in kiosk mode.
+ if(typeof window.createWindow==='function'&&!window.__W12_KIOSK_CREATE_GUARD__){window.__W12_KIOSK_CREATE_GUARD__=true;const originalCreateWindow=window.createWindow;window.createWindow=function(options={}){if(window.__W12_KIOSK_ACTIVE__&&!window.__W12_KIOSK_LAUNCHING__&&!/セキュリティオプション/.test(String(options.title||''))){console.warn('[Kiosk] blocked window:',options.title);return null;}return originalCreateWindow.call(this,options)};}
+ // Launch kiosk mode after a successful user login. Normal users are unaffected.
+ const originalContinueAfterLogin=window.continueHorizonAfterLogin;
+ if(typeof originalContinueAfterLogin==='function'&&!window.__W12_KIOSK_LOGIN_HOOK__){window.__W12_KIOSK_LOGIN_HOOK__=true;window.continueHorizonAfterLogin=function(){const user=typeof getHorizonUser==='function'?getHorizonUser():null;if(user?.kioskMode){if(window.__WINCON12_LOCK_CLOCK__){clearInterval(window.__WINCON12_LOCK_CLOCK__);window.__WINCON12_LOCK_CLOCK__=null;}document.getElementById('wincon10LoginOverlay')?.remove();enterKioskMode(user);return;}return originalContinueAfterLogin.apply(this,arguments)};}
+
+ // Existing function declarations are lexical globals; route terminal calls through the global adapter.
+ window.addEventListener('DOMContentLoaded',()=>{const last=sessionStorage.getItem('wincon12_last_bsod');if(last){sessionStorage.removeItem('wincon12_last_bsod');showError('前回の異常終了','前回の起動で重大エラーが発生しました。','warning',last)}}, {once:true});
+})();
+
+</script>
 <script>
 /* =====================================================
    Wincon お引越し — DAT版 統合スクリプト
@@ -20273,6 +20415,8 @@ console.log("[Wincon] Extended installer loaded");
         state.gamepadRAF = requestAnimationFrame(poll);
     }
 
+    // Public entry point used by the Start menu and the taskbar.
+    window.openWinconGameMode = enterGameMode;
     console.log("[Wincon] Game Mode initialized (isGame)");
 })();
 
@@ -20348,7 +20492,7 @@ async function openDirectory(){style();const win=createWindow({title:'Horizon Di
  async function deleteEntryConfirm(e){if(!confirm(`「${e.name}」を削除しますか？`))return;const all=await allEntries();for(const x of all.filter(x=>x.path===e.path||x.path.startsWith(e.path+'/')))await deleteEntry(x.path);render();}
  async function downloadEntry(e){if(e.type==='folder'){alert('フォルダのダウンロードはZIP圧縮を使用してください');return;}const blob=e.blob instanceof Blob?e.blob:new Blob([e.blob||'']);downloadBlob(blob,e.name);}
  async function openWithDialog(e,always){const apps=[{title:'Horizon Note',icon:'📝',type:'horizon-note',fileExtensions:['txt','md','json','csv','xml','html','css','js']} ,...(Array.isArray(menuItems)?menuItems.filter(a=>a&&a.fileExtensions&&a.type==='externalHTML'):[])];const body=`<p>「${esc(e.name)}」を開くアプリを選択してください。</p><select data-app>${apps.map((a,i)=>`<option value="${i}">${esc(a.icon||'📄')} ${esc(a.title)}</option>`).join('')}</select>`;showModal(always?'常にこのアプリで開く':'アプリを選択',body,[{label:'キャンセル'},{label:'開く',onClick:async back=>{const i=Number(back.querySelector('[data-app]').value),a=apps[i];if(always){const assoc=getAssociations();assoc[ext(e.name)]=a.id||a.type;localStorage.setItem(LS_ASSOC,JSON.stringify(assoc));}if(a.type==='horizon-note')openNoteForPath(e.path);else if(a.type==='externalHTML')openExternalHTML(a);}}]);}
- async function openStoredFile(p){const e=await getEntry(p);if(!e)return;if(ext(p)==='wincapps'){const txt=await e.blob.text();try{await window.WinconMiniAppsUtility.open(JSON.parse(txt),p);}catch(err){alert('wincappsを読み込めません: '+err.message);}return;}const assoc=getAssociations()[ext(p)];if(assoc){if(assoc==='horizon-note')return openNoteForPath(p);const app=menuItems.find(a=>a&&((a.id===assoc)||(a.type===assoc)));if(app&&app.type==='externalHTML')return openExternalHTML(app);}
+ async function openStoredFile(p){const e=await getEntry(p);if(!e)return;if(['mp3','wav','ogg','m4a','aac','flac','mp4','webm','mov','m4v'].includes(ext(p))){return window.openWinconMediaPlayer?.(e.blob,basename(p));}if(ext(p)==='wincapps'){const txt=await e.blob.text();try{await window.WinconMiniAppsUtility.open(JSON.parse(txt),p);}catch(err){alert('wincappsを読み込めません: '+err.message);}return;}const assoc=getAssociations()[ext(p)];if(assoc){if(assoc==='horizon-note')return openNoteForPath(p);const app=menuItems.find(a=>a&&((a.id===assoc)||(a.type===assoc)));if(app&&app.type==='externalHTML')return openExternalHTML(app);}
  if(['html','htm','svg'].includes(ext(p))){if(typeof window.WinconSailOpenBlob==='function')return window.WinconSailOpenBlob(e.blob instanceof Blob?e.blob:new Blob([e.blob||''],{type:'text/html'}),basename(p));}if(['txt','md','json','csv','xml','css','js','log'].includes(ext(p)))return openNoteForPath(p);if(ext(p)==='zip')return extractZip(p);downloadEntry(e);}
  root.querySelector('[data-act=back]').onclick=()=>{current=dirname(current);selected=null;render();};root.querySelector('[data-act=up]').onclick=()=>{current=dirname(current);selected=null;render();};root.querySelector('[data-act=refresh]').onclick=render;
  root.querySelector('[data-act=newfolder]').onclick=async()=>{const n=prompt('フォルダ名');if(!n)return;await ensureFolder(current?current+'/'+n:n);render();};
@@ -20681,7 +20825,7 @@ function showPowerScreen(){
  document.body.classList.add('wincon12-power-running');
  document.getElementById('wincon12PowerScreen')?.remove();
  const screen=document.createElement('div');screen.id='wincon12PowerScreen';
- screen.innerHTML='<img class="power-logo" src="wincon.png" alt="" onerror="this.remove()"><div class="power-brand">Wincon</div><div class="power-caption"></div><div class="power-dots" aria-label="処理中">'+Array.from({length:7},()=>'<i></i>').join('')+'</div>';
+ screen.innerHTML='<img class="power-logo" src="wincon.png" onerror="this.remove()" alt=""><div class="power-brand">Wincon</div><div class="power-caption"></div><div class="power-dots" aria-label="処理中">'+Array.from({length:7},()=>'<i></i>').join('')+'</div>';
  document.body.appendChild(screen);
  const dots=screen.querySelector('.power-dots');
  setTimeout(()=>{if(screen.isConnected&&dots)dots.style.opacity='1';},1000);
@@ -20894,7 +21038,7 @@ const setPins=v=>saveJSON(PIN_KEY,v);
 function launchItem(item){
  switch(item.type){
   case 'window':openTestWindow();break; case 'coreservice':openCoreService();break; case 'popup':openTestPopup();break;
-  case 'file':case 'diskutility':openDiskUtility();break;case 'horizon-directory':openHorizonDirectory();break;case 'horizon-note':openHorizonNote();break;
+  case 'file':case 'diskutility':openDiskUtility();break;case 'wincon-hints':window.openWinconHints?.();break;case 'wincon-game-mode':window.openWinconGameMode?.();break;case 'horizon-directory':openHorizonDirectory();break;case 'horizon-note':openHorizonNote();break;
   case 'miniapps-builder':openWinconMiniAppsBuilder();break;case 'miniapps-utility':openWinconMiniAppsUtility();break;
   case 'wincon-native-app':if(typeof window.openWinconNativeApp==='function')window.openWinconNativeApp(item);break;
   case 'task':openTaskManager();break;case 'settings':openSystemSettings(false);break;case 'recovery':openRecovery();break;
@@ -20918,10 +21062,10 @@ function launchItem(item){
  }
 }
 function visibleMenuItems(){
- return (Array.isArray(menuItems)?menuItems:[]).filter(item=>item&&!item.hidden&&item.type!=='tv'&&!String(item.title||'').includes('TVモード')&&!((item.type==='window'||item.type==='popup')&&/テスト|test/i.test(String(item.title||''))));
+ return (Array.isArray(menuItems)?menuItems:[]).filter(item=>item&&!item.hidden&&item.type!=='keymap'&&String(item.title||'').trim()!=='キーマップ'&&item.type!=='tv'&&!String(item.title||'').includes('TVモード')&&!((item.type==='window'||item.type==='popup')&&/テスト|test/i.test(String(item.title||''))));
 }
 function iconNode(item,large=false){
- const holder=document.createElement('span');holder.className=large?'w12-start-icon w12-start-icon-large':'w12-start-icon';
+ const holder=document.createElement('span');holder.className=(large?'w12-start-icon w12-start-icon-large':'w12-start-icon')+(item.appClip===true?' w12mc-clip-icon':'');
  const src=item.iconImage||item.iconBase64||item.favicon||'';
  if(src){const img=document.createElement('img');img.src=src;img.alt='';img.referrerPolicy='no-referrer';img.onerror=()=>{img.remove();holder.textContent=item.icon||'🧩';};holder.appendChild(img);}
  else holder.textContent=item.icon||'🧩';
@@ -21079,15 +21223,15 @@ function openSailInstalledWebApp(app){
  addPage(app.startURL||url,safeTitle);
 }
 function openBrowser(initialURL='',initialMeta={}){
- const id='sailBrowser'+(++sailWindowSerial);const content=`<div class="w12-sail-browser" id="${id}"><div class="w12-sail-tabs" data-tabs></div><div class="w12-sail-toolbar"><button type="button" data-back title="戻る">←</button><button type="button" data-forward title="進む">→</button><button type="button" data-reload title="再読み込み">⟳</button><input data-url type="text" placeholder="URL・検索語・file:///..."><button type="button" data-go>移動</button><button type="button" data-install>＋ PWAとして追加</button><button type="button" data-localfile title="PC内のファイルを開く">📂</button><input type="file" data-local-input hidden accept=".html,.htm,.xhtml,.svg,.txt,.pdf,image/*"><button type="button" data-newtab title="新しいタブ">＋</button></div><div class="w12-sail-views" data-views></div><div class="w12-sail-status" data-status>Sail Browser · PWA / Tabbed 対応</div></div>`;
+ const id='sailBrowser'+(++sailWindowSerial);const content=`<div class="w12-sail-browser" id="${id}"><div class="w12-sail-tabs" data-tabs></div><div class="w12-sail-toolbar"><button type="button" data-back title="戻る">←</button><button type="button" data-forward title="進む">→</button><button type="button" data-reload title="再読み込み">⟳</button><input data-url type="text" placeholder="URL・検索語・file:///..."><button type="button" data-go>移動</button><button type="button" data-open-external title="埋め込みに対応しないサイトを別タブで開く">↗ 別タブ</button><button type="button" data-install>＋ PWAとして追加</button><button type="button" data-localfile title="PC内のファイルを開く">📂</button><input type="file" data-local-input hidden accept=".html,.htm,.xhtml,.svg,.txt,.pdf,image/*"><button type="button" data-newtab title="新しいタブ">＋</button></div><div class="w12-sail-views" data-views></div><div class="w12-sail-status" data-status>Sail Browser · PWA / Tabbed 対応</div></div>`;
  const win=createWindow({title:'Sail Browser',icon:'🌐',width:1220,height:760,content});const root=win.querySelector('#'+id);if(!root)return;const tabsEl=root.querySelector('[data-tabs]'),views=root.querySelector('[data-views]'),urlBox=root.querySelector('[data-url]'),status=root.querySelector('[data-status]');const tabs=[];let active=0;
  function renderTabs(){tabsEl.replaceChildren();tabs.forEach((tab,i)=>{const b=document.createElement('button');b.type='button';b.className='w12-sail-tab'+(i===active?' active':'');const img=document.createElement('img');img.className='w12-sail-tab-icon';img.alt='';if(tab.icon)img.src=tab.icon;else img.hidden=true;img.onerror=()=>{img.hidden=true;};const label=document.createElement('span');label.className='w12-sail-tab-title';label.textContent=tab.title||pageTitleFromURL(tab.url);const close=document.createElement('span');close.className='w12-sail-tab-close';close.textContent='×';close.title='タブを閉じる';close.onclick=e=>{e.stopPropagation();closeTab(i);};b.append(img,label,close);b.title=tab.url;b.onclick=()=>switchTab(i);tabsEl.appendChild(b);});}
  function switchTab(index){if(index<0||index>=tabs.length)return;active=index;tabs.forEach((t,i)=>t.frame.hidden=i!==index);renderTabs();urlBox.value=tabs[active].url;status.textContent=tabs[active].title||'Sail Browser';}
  function closeTab(index){if(tabs.length===1){tabs[index].frame.src='about:blank';tabs[index].url='about:blank';tabs[index].title='新しいタブ';tabs[index].history=['about:blank'];tabs[index].index=0;tabs[index].icon='';switchTab(0);return;}tabs[index].frame.remove();tabs.splice(index,1);switchTab(Math.min(active,tabs.length-1));}
  function updateMetadata(tab){readSailPageMetadata(tab.url,tab.frame).then(meta=>{if(!tabs.includes(tab))return;tab.title=tab.localTitle||meta.title;tab.icon=tab.localIcon||meta.icon;tab.manifest=meta.manifest;tab.display=meta.display;renderTabs();if(tabs[active]===tab)status.textContent=tab.title;});}
- function newTab(url='https://www.google.com/search?igu=1',meta={}){const tab={url,history:[url],index:0,title:meta.title||pageTitleFromURL(url),icon:meta.icon||'',localTitle:meta.title||'',localIcon:meta.icon||'',manifest:null};const frame=document.createElement('iframe');frame.className='w12-sail-frame';frame.src=url;frame.title=tab.title;frame.referrerPolicy='no-referrer';frame.setAttribute('sandbox','allow-scripts allow-forms allow-popups allow-downloads allow-modals');tab.frame=frame;frame.addEventListener('load',()=>updateMetadata(tab));tabs.push(tab);views.appendChild(frame);switchTab(tabs.length-1);updateMetadata(tab);}
+ function newTab(url='https://www.google.com/search?igu=1',meta={}){const tab={url,history:[url],index:0,title:meta.title||pageTitleFromURL(url),icon:meta.icon||'',localTitle:meta.title||'',localIcon:meta.icon||'',manifest:null};const frame=document.createElement('iframe');frame.className='w12-sail-frame';frame.src=url;frame.title=tab.title;frame.referrerPolicy='no-referrer';frame.setAttribute('sandbox','allow-scripts allow-forms allow-popups allow-downloads allow-modals');tab.frame=frame;frame.addEventListener('load',()=>{updateMetadata(tab);setTimeout(()=>{if(tabs.includes(tab)&&tabs[active]===tab&&tab.url!=='about:blank'){status.textContent='表示できないサイトは「↗ 別タブ」で開いてください（サイト側の埋め込み制限により表示できない場合があります）。';}},1800);});tabs.push(tab);views.appendChild(frame);switchTab(tabs.length-1);updateMetadata(tab);}
  function navigate(raw,replace=false){const url=normalizeWebURL(raw);if(!url){showInWinconAlert('URL・検索語・file:/// の指定を確認してください。');return;}const t=tabs[active];t.url=url;t.title=pageTitleFromURL(url);t.icon=faviconForURL(url);t.localTitle='';t.localIcon='';if(replace)t.history[t.index]=url;else{t.history=t.history.slice(0,t.index+1);t.history.push(url);t.index=t.history.length-1;}t.frame.src=url;urlBox.value=url;renderTabs();updateMetadata(t);}
- root.querySelector('[data-go]').onclick=()=>navigate(urlBox.value);urlBox.addEventListener('keydown',e=>{if(e.key==='Enter')navigate(urlBox.value);});root.querySelector('[data-back]').onclick=()=>{const t=tabs[active];if(t.index>0){t.index--;t.url=t.history[t.index];t.frame.src=t.url;urlBox.value=t.url;renderTabs();updateMetadata(t);}};root.querySelector('[data-forward]').onclick=()=>{const t=tabs[active];if(t.index<t.history.length-1){t.index++;t.url=t.history[t.index];t.frame.src=t.url;urlBox.value=t.url;renderTabs();updateMetadata(t);}};root.querySelector('[data-reload]').onclick=()=>{const t=tabs[active];try{t.frame.contentWindow.location.reload();}catch(_){t.frame.src=t.url;}};root.querySelector('[data-install]').onclick=()=>{const t=tabs[active];readSailPageMetadata(t.url,t.frame).then(meta=>installSailPage(t.url,meta));};root.querySelector('[data-localfile]').onclick=()=>root.querySelector('[data-local-input]').click();root.querySelector('[data-local-input]').onchange=ev=>{const file=ev.target.files?.[0];if(!file)return;const localURL=URL.createObjectURL(file);newTab(localURL,{title:file.name,icon:'📄'});ev.target.value='';};root.querySelector('[data-newtab]').onclick=()=>newTab();newTab(initialURL||'https://www.google.com/search?igu=1',initialMeta);
+ root.querySelector('[data-go]').onclick=()=>navigate(urlBox.value);root.querySelector('[data-open-external]').onclick=()=>{const t=tabs[active];try{const opened=window.open(t.url,'_blank','noopener,noreferrer');if(!opened)status.textContent='ポップアップがブロックされました。ブラウザの許可設定を確認してください。';else status.textContent='別タブで開きました。';}catch(err){status.textContent='別タブを開けません: '+err.message;}};urlBox.addEventListener('keydown',e=>{if(e.key==='Enter')navigate(urlBox.value);});root.querySelector('[data-back]').onclick=()=>{const t=tabs[active];if(t.index>0){t.index--;t.url=t.history[t.index];t.frame.src=t.url;urlBox.value=t.url;renderTabs();updateMetadata(t);}};root.querySelector('[data-forward]').onclick=()=>{const t=tabs[active];if(t.index<t.history.length-1){t.index++;t.url=t.history[t.index];t.frame.src=t.url;urlBox.value=t.url;renderTabs();updateMetadata(t);}};root.querySelector('[data-reload]').onclick=()=>{const t=tabs[active];try{t.frame.contentWindow.location.reload();}catch(_){t.frame.src=t.url;}};root.querySelector('[data-install]').onclick=()=>{const t=tabs[active];readSailPageMetadata(t.url,t.frame).then(meta=>installSailPage(t.url,meta));};root.querySelector('[data-localfile]').onclick=()=>root.querySelector('[data-local-input]').click();root.querySelector('[data-local-input]').onchange=ev=>{const file=ev.target.files?.[0];if(!file)return;const localURL=URL.createObjectURL(file);newTab(localURL,{title:file.name,icon:'📄'});ev.target.value='';};root.querySelector('[data-newtab]').onclick=()=>newTab();newTab(initialURL||'https://www.google.com/search?igu=1',initialMeta);
 }
 function openSailLocalBlob(blob,name){const url=URL.createObjectURL(blob);openBrowser(url,{title:String(name||'ローカルHTML'),icon:'📄'});return url;}
 window.openBrowser=openBrowser;window.openSailInstalledWebApp=openSailInstalledWebApp;window.WinconSailOpenBlob=openSailLocalBlob;
@@ -21111,7 +21255,7 @@ console.log('[Wincon] Start menu and Sail Browser improvements loaded');
 </script>
 
 <script>
-/* Wincon 12.0.1 Patch 1 - per-user storage isolation and guest cleanup */
+/* Wincon 12.2 Patch 1 - per-user storage isolation and guest cleanup */
 (function(){
  'use strict';
  const proto=Storage.prototype;
@@ -21214,7 +21358,7 @@ console.log('[Wincon] Start menu and Sail Browser improvements loaded');
 
 <script>
 /* =========================================================
-   WINCON 12.0.1 PATCH 3 - SERVICE WORKER UPDATE APP
+   WINCON 12.2 PATCH 3 - SERVICE WORKER UPDATE APP
    Update flow: SW check -> cache delete -> reload -> rebuild cache
 ========================================================= */
 (() => {
@@ -21280,7 +21424,7 @@ console.log('[Wincon] Start menu and Sail Browser improvements loaded');
     screen.id = "wincon10HorizonProcess";
     screen.innerHTML = `
       <div class="wincon10-Horizon-process-inner w12-patch3-update-inner">
-        <img src="wincon.png" class="wincon10-Horizon-logo" draggable="false"
+        <img src="wincon.png" onerror="this.style.display='none'" class="wincon10-Horizon-logo" draggable="false"
              onerror="this.style.display='none'">
         <div class="wincon10-Horizon-brand">Wincon</div>
         <div class="wincon10-Horizon-version">12 Horizon · Software Update</div>
@@ -21587,5 +21731,846 @@ console.log('[Wincon] Start menu and Sail Browser improvements loaded');
 })();
 </script>
 
+
+<script>
+/* Wincon 12 Horizon - Recovery coexistence, pixel mosaic and notification center */
+(()=>{
+ 'use strict';
+ if(window.__W12_RECOVERY_NOTIFY_PATCH__)return;
+ window.__W12_RECOVERY_NOTIFY_PATCH__=true;
+
+ // Keep Recovery behind native Wincon windows, and never show the lock screen over it.
+ const RECOVERY_ID='w12Recovery';
+ const RECOVERY_ACTIVE='__W12_RECOVERY_ACTIVE__';
+ const RECOVERY_CSS_ID='w12RecoveryPixelAndLayerCSS';
+ const safeRemoveLogin=()=>document.getElementById('wincon10LoginOverlay')?.remove();
+ function installRecoveryCSS(){
+  if(document.getElementById(RECOVERY_CSS_ID))return;
+  const st=document.createElement('style');st.id=RECOVERY_CSS_ID;
+  st.textContent=`
+   #${RECOVERY_ID}{position:fixed!important;inset:0!important;z-index:2147483000!important;}
+   #winconSystemWindowLayer{z-index:2147483200!important;}
+   body.w12-recovery-mode #${RECOVERY_ID}{z-index:2147483000!important;}
+   body.w12-recovery-mode::after{content:none!important;display:none!important;}
+   body.w12-recovery-mode #desktop,body.w12-recovery-mode .window,body.w12-recovery-mode #menu,body.w12-recovery-mode .control-center,body.w12-recovery-mode #taskbar{filter:none!important;}
+   body.w12-recovery-mode #w12RecoveryPixelMosaic{display:block!important;}
+   #w12RecoveryPixelMosaic{display:none;position:fixed;inset:0;z-index:2147483400;pointer-events:none;opacity:.13;mix-blend-mode:soft-light;
+    background-image:linear-gradient(90deg,rgba(0,0,0,.28) 0 2px,rgba(255,255,255,.12) 2px 4px,rgba(0,0,0,.08) 4px 6px,transparent 6px 8px),linear-gradient(0deg,rgba(255,255,255,.10) 0 2px,rgba(0,0,0,.16) 2px 4px,transparent 4px 8px);background-size:8px 8px;}
+   #w12NotificationCenter{position:fixed;top:0;right:18px;width:min(390px,calc(100vw - 24px));max-height:min(72vh,680px);z-index:2147483600;background:rgba(27,32,40,.97);color:#f8fafc;border:1px solid #ffffff24;box-shadow:0 18px 60px #0008;backdrop-filter:blur(18px);border-radius:0 0 14px 14px;overflow:hidden;transform:translateY(-110%);opacity:0;pointer-events:none;transition:transform .24s ease,opacity .24s ease;display:flex;flex-direction:column;}
+   #w12NotificationCenter.open{transform:translateY(0);opacity:1;pointer-events:auto;}
+   #w12NotificationCenter .w12nc-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #ffffff20;font-weight:650;}
+   #w12NotificationCenter .w12nc-head button{border:1px solid #ffffff30;background:#ffffff12;color:#fff;border-radius:7px;padding:6px 9px;cursor:pointer;}
+   #w12NotificationCenter .w12nc-list{overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
+   .w12nc-item{background:#ffffff0c;border:1px solid #ffffff1c;border-radius:10px;padding:11px 12px;}
+   .w12nc-title{font-size:13px;font-weight:650;margin-bottom:4px;}
+   .w12nc-body{font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:#e2e8f0;}
+   .w12nc-time{font-size:10px;color:#aab5c4;margin-top:7px;}
+   .w12nc-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+   .w12nc-actions button{border:1px solid #ffffff30;background:#ffffff14;color:#fff;border-radius:7px;padding:6px 9px;font-size:11px;cursor:pointer;}
+   .w12nc-empty{padding:28px 12px;text-align:center;color:#aab5c4;font-size:13px;}
+   #winconNotificationLayer .wincon-notification{pointer-events:auto;}
+   #winconNotificationLayer .w12-toast-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+   #winconNotificationLayer .w12-toast-actions button{background:#ffffff18;color:#fff;border:1px solid #ffffff35;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:11px;}
+   #controlCenter .w12-notification-center-button{width:100%;margin:0 0 12px;padding:10px 12px;border:1px solid #ffffff25;border-radius:9px;background:#ffffff12;color:inherit;text-align:left;cursor:pointer;font:inherit;}
+   body.w12-recovery-mode #w12NotificationCenter{z-index:2147483600;}
+   @media(prefers-reduced-motion:reduce){#w12NotificationCenter{transition:none}}
+  `;
+  document.head.appendChild(st);
+ }
+ function ensurePixelMosaic(){installRecoveryCSS();if(!document.getElementById('w12RecoveryPixelMosaic')){const x=document.createElement('div');x.id='w12RecoveryPixelMosaic';document.body.appendChild(x);}}
+ function openRecoveryFixed(){
+  window[RECOVERY_ACTIVE]=true;
+  installRecoveryCSS();ensurePixelMosaic();
+  document.body.classList.add('w12-recovery-mode');
+  safeRemoveLogin();
+  document.getElementById('taskbar')?.style.setProperty('display','none','important');
+  document.getElementById(RECOVERY_ID)?.remove();
+  const root=document.createElement('main');root.id=RECOVERY_ID;
+  root.innerHTML=`<div class="w12r-shell"><div><div style="font-size:13px;letter-spacing:.16em">WINCON RECOVERY ENVIRONMENT</div><h1>回復環境</h1><p>システムの診断や起動設定の再構築を行います。</p></div><div class="w12r-actions"><button data-action="terminal">⌨ Terminal を開く<br><small>Wincon標準のウィンドウで起動</small></button><button data-action="safe">セーフブート<br><small>標準機能のみで今回の起動を開始</small></button><button data-action="rebuild">⚙ ブート設定を再構築<br><small>LocalStorage起動上書きを解除</small></button></div><section class="w12r-panel"><b>回復ステータス</b><p>起動元: ${localStorage.getItem('wincon12_recovery_boot_source_v1')?'LocalStorage':'Web / Service Worker'}</p><p>画面効果: ピクセルモザイクを適用</p></section><button data-action="exit">通常起動へ戻る</button></div>`;
+  document.body.appendChild(root);
+  root.addEventListener('click',e=>{
+   const b=e.target.closest('button[data-action]');if(!b)return;
+   if(b.dataset.action==='exit'){window[RECOVERY_ACTIVE]=false;document.body.classList.remove('w12-recovery-mode');document.getElementById('w12RecoveryPixelMosaic')?.remove();location.reload();return;}
+   if(b.dataset.action==='rebuild'){if(confirm('保存された起動HTMLとセーフブート設定を解除し、Web / Service Workerから起動しますか？'))window.WinconBootSource?.rebuild?.();return;}
+   if(b.dataset.action==='safe'){try{sessionStorage.setItem('wincon12_safe_boot_once_v1','1')}catch(_){}location.reload();return;}
+   if(b.dataset.action==='terminal'){
+    try{
+     const prev=!!window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__;
+     window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__=true;
+     try{if(typeof window.openTerminal==='function')window.openTerminal();else throw new Error('標準Terminalが見つかりません');}
+     finally{window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__=prev;}
+    }catch(err){window.WinconError?.warning?.('Terminalを開けません',err.message,err.stack);}
+   }
+  });
+  // Any late lock-screen creation is suppressed while Recovery is active.
+  safeRemoveLogin();
+ }
+ window.openRecovery=openRecoveryFixed;
+ if(typeof window.showHorizonLogin==='function'&&!window.__W12_RECOVERY_LOGIN_GUARD__){
+  window.__W12_RECOVERY_LOGIN_GUARD__=true;const old=window.showHorizonLogin;
+  window.showHorizonLogin=function(...args){if(window[RECOVERY_ACTIVE]){safeRemoveLogin();return;}return old.apply(this,args);};
+ }
+ if(typeof window.continueHorizonAfterLogin==='function'&&!window.__W12_RECOVERY_CONTINUE_GUARD__){
+  window.__W12_RECOVERY_CONTINUE_GUARD__=true;const old=window.continueHorizonAfterLogin;
+  window.continueHorizonAfterLogin=function(...args){if(window[RECOVERY_ACTIVE]){safeRemoveLogin();return;}return old.apply(this,args);};
+ }
+ const loginObserver=new MutationObserver(()=>{if(window[RECOVERY_ACTIVE])safeRemoveLogin();});
+ loginObserver.observe(document.documentElement,{childList:true,subtree:true});
+ // Every normal Wincon window opened from Recovery is placed above the RE surface.
+ if(typeof window.createWindow==='function'&&!window.__W12_RECOVERY_WINDOW_LAYER_GUARD__){
+  window.__W12_RECOVERY_WINDOW_LAYER_GUARD__=true;const old=window.createWindow;
+  window.createWindow=function(options={}){
+   if(!window[RECOVERY_ACTIVE])return old.call(this,options);
+   const prev=!!window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__;
+   window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__=true;
+   try{return old.call(this,{...options,systemLayer:true,noTaskbar:true});}
+   finally{window.__WINCON12_FORCE_SYSTEM_WINDOW_LAYER__=prev;}
+  };
+ }
+
+ // Notification center: all in-app Web Notifications become Wincon notifications.
+ const notificationRecords=[];let notificationSeq=0;
+ const appItems=()=>{try{return typeof menuItems!=='undefined'&&Array.isArray(menuItems)?menuItems:[];}catch(_){return []}};
+ function inferApp(){
+  const wins=[...document.querySelectorAll('.window')].filter(w=>w.isConnected&&getComputedStyle(w).display!=='none');
+  wins.sort((a,b)=>(Number(b.style.zIndex)||0)-(Number(a.style.zIndex)||0));
+  const title=wins[0]?.dataset?.title;
+  if(!title)return null;
+  return appItems().find(a=>String(a.title||'').toLowerCase()===String(title).toLowerCase())||{title,id:title};
+ }
+ function findApp(ref){
+  if(!ref)return null;const s=String(ref).toLowerCase();
+  return appItems().find(a=>[a.id,a.type,a.title,a.name].some(v=>v!=null&&String(v).toLowerCase()===s))||null;
+ }
+ function launchForRecord(rec,action){
+  const key=action&&typeof action==='object'?(action.action||action.id||action.title):action;
+  const app=findApp(key)||findApp(rec.appId)||findApp(rec.appName)||rec.appFallback;
+  if(app&&typeof window.launchWinconItem==='function'){
+   try{window.launchWinconItem(app);return true;}catch(err){console.error('[Wincon Notification] app launch failed',err);}
+  }
+  if(rec.appName){const app2=findApp(rec.appName);if(app2){try{window.launchWinconItem(app2);return true;}catch(_){}}}
+  return false;
+ }
+ function renderNotificationCenter(){
+  const panel=document.getElementById('w12NotificationCenter');if(!panel)return;
+  const list=panel.querySelector('.w12nc-list');list.replaceChildren();
+  if(!notificationRecords.length){const empty=document.createElement('div');empty.className='w12nc-empty';empty.textContent='新しい通知はありません';list.appendChild(empty);return;}
+  [...notificationRecords].reverse().forEach(rec=>{
+   const item=document.createElement('article');item.className='w12nc-item';
+   const title=document.createElement('div');title.className='w12nc-title';title.textContent=rec.title;
+   const body=document.createElement('div');body.className='w12nc-body';body.textContent=rec.body;
+   const time=document.createElement('div');time.className='w12nc-time';time.textContent=rec.time.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+   item.append(title,body);
+   if(rec.actions.length){const actions=document.createElement('div');actions.className='w12nc-actions';rec.actions.forEach(a=>{const b=document.createElement('button');b.textContent=a.title||a.action||'開く';b.onclick=ev=>{ev.stopPropagation();rec.onAction?.(a.action);launchForRecord(rec,a.action);};actions.appendChild(b);});item.appendChild(actions);}
+   time.style.cursor='pointer';time.title='クリックして関連アプリを開く';time.onclick=()=>launchForRecord(rec);item.appendChild(time);
+   item.addEventListener('dblclick',()=>launchForRecord(rec));list.appendChild(item);
+  });
+ }
+ function ensureNotificationCenter(){
+  installRecoveryCSS();let panel=document.getElementById('w12NotificationCenter');if(panel)return panel;
+  panel=document.createElement('aside');panel.id='w12NotificationCenter';
+  panel.innerHTML=`<div class="w12nc-head"><span>通知センター</span><div style="display:flex;gap:7px"><button type="button" data-clear>すべて削除</button><button type="button" data-close aria-label="閉じる">✕</button></div></div><div class="w12nc-list"></div>`;
+  document.body.appendChild(panel);
+  panel.querySelector('[data-clear]').onclick=()=>{notificationRecords.length=0;renderNotificationCenter();};
+  panel.querySelector('[data-close]').onclick=()=>panel.classList.remove('open');
+  renderNotificationCenter();return panel;
+ }
+ window.WinconNotificationCenter={open(){ensureNotificationCenter().classList.add('open');renderNotificationCenter();},close(){document.getElementById('w12NotificationCenter')?.classList.remove('open');},clear(){notificationRecords.length=0;renderNotificationCenter();},list(){return notificationRecords.map(x=>({title:x.title,body:x.body,time:x.time,actions:x.actions}));}};
+ function addRecord(title,body,options={}){
+  const data=options.data&&typeof options.data==='object'?options.data:{};
+  const inferred=inferApp();
+  const rec={id:++notificationSeq,title:String(title||'Wincon'),body:String(body||''),time:new Date(),actions:Array.isArray(options.actions)?options.actions.slice(0,4):[],appId:data.appId||data.app_id||options.appId||null,appName:data.appName||data.appTitle||options.appName||null,appFallback:inferred,onAction:options.onAction||null,onClick:options.onClick||null,toastElement:null};
+  notificationRecords.push(rec);if(notificationRecords.length>50)notificationRecords.shift();renderNotificationCenter();return rec;
+ }
+ function toast(title,body,duration=4000,options={}){
+  const layer=document.getElementById('winconNotificationLayer')||(()=>{const x=document.createElement('div');x.id='winconNotificationLayer';document.body.appendChild(x);return x;})();
+  document.body.appendChild(layer);
+  const rec=addRecord(title,body,options);
+  const el=document.createElement('div');rec.toastElement=el;el.className='wincon-notification';
+  const t=document.createElement('div');t.className='wincon-notification-title';t.textContent=rec.title;
+  const m=document.createElement('div');m.className='wincon-notification-message';m.textContent=rec.body;
+  el.append(t,m);
+  if(rec.actions.length){const box=document.createElement('div');box.className='w12-toast-actions';rec.actions.forEach(a=>{const b=document.createElement('button');b.textContent=a.title||a.action||'開く';b.onclick=ev=>{ev.stopPropagation();rec.onAction?.(a.action);launchForRecord(rec,a.action);};box.appendChild(b);});el.appendChild(box);}
+  el.onclick=()=>{rec.onClick?.();launchForRecord(rec);};layer.appendChild(el);requestAnimationFrame(()=>el.classList.add('visible'));
+  const ms=Math.max(0,Number(duration)||0);if(ms){setTimeout(()=>{el.classList.add('removing');setTimeout(()=>el.remove(),260);},ms);}return rec;
+ }
+ window.showWinconNotification=toast;
+ // Replace the browser Notification constructor with a Wincon-backed implementation.
+ const NativeNotification=window.Notification;
+ class WinconWebNotification extends EventTarget{
+  constructor(title,options={}){
+   super();this.title=String(title||'Wincon');this.body=String(options.body||'');this.icon=options.icon||'';this.tag=options.tag||'';this.data=options.data||{};this.actions=Array.isArray(options.actions)?options.actions.slice(0,4):[];this.onclick=null;this.onclose=null;this.onerror=null;this.onshow=null;this.closed=false;
+   this._rec=toast(this.title,this.body,Number(options.duration)||6000,{...options,actions:this.actions,data:this.data,onClick:()=>{const ev=new Event('click');this.dispatchEvent(ev);this.onclick?.(ev);},onAction:a=>{const ev=new Event('click');try{Object.defineProperty(ev,'action',{value:a});}catch(_){}this.dispatchEvent(ev);this.onclick?.(ev);}});
+   setTimeout(()=>{if(!this.closed){const ev=new Event('show');this.dispatchEvent(ev);this.onshow?.(ev);}},0);
+  }
+  close(){this.closed=true;this._rec?.toastElement?.remove();this.dispatchEvent(new Event('close'));this.onclose?.(new Event('close'));}
+  _click(action){const ev=new Event('click');try{Object.defineProperty(ev,'action',{value:action||''});}catch(_){}this.dispatchEvent(ev);this.onclick?.(ev);launchForRecord(this._rec,action);}
+ }
+ Object.defineProperty(WinconWebNotification,'permission',{get:()=> 'granted'});
+ WinconWebNotification.requestPermission=callback=>{const p=Promise.resolve('granted');if(typeof callback==='function')p.then(callback);return p;};
+ WinconWebNotification.maxActions=4;
+ try{Object.defineProperty(window,'Notification',{configurable:true,writable:true,value:WinconWebNotification});}catch(err){console.warn('[Wincon Notification] could not replace Notification API',err);}
+ // Page code that uses ServiceWorkerRegistration.showNotification is routed into Wincon too.
+ try{
+  const proto=window.ServiceWorkerRegistration?.prototype;
+  if(proto&&typeof proto.showNotification==='function'&&!proto.__w12Wrapped){
+   const old=proto.showNotification;proto.showNotification=function(title,options={}){toast(title,options.body||'',Number(options.duration)||6000,options);return Promise.resolve();};
+   Object.defineProperty(proto,'__w12Wrapped',{value:true});
+  }
+ }catch(err){console.warn('[Wincon Notification] service worker bridge unavailable',err);}
+
+ // Insert a Notification Center button in Control Center.
+ function addControlCenterButton(){
+  const cc=document.getElementById('controlCenter');if(!cc||cc.querySelector('.w12-notification-center-button'))return;
+  const b=document.createElement('button');b.type='button';b.className='w12-notification-center-button';b.textContent='🔔 通知センターを開く';b.onclick=()=>{window.WinconNotificationCenter.open();};
+  const h=cc.querySelector('h2');if(h)h.insertAdjacentElement('afterend',b);else cc.prepend(b);
+ }
+ addControlCenterButton();
+ const ccObserver=new MutationObserver(addControlCenterButton);ccObserver.observe(document.body,{childList:true,subtree:true});
+ // A downward swipe starting at the top-right edge opens the floating notification panel.
+ let swipe=null;
+ window.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.clientX>innerWidth-85&&e.clientY<38)swipe={x:e.clientX,y:e.clientY,id:e.pointerId};},{passive:true});
+ window.addEventListener('pointerup',e=>{if(!swipe||swipe.id!==e.pointerId)return;const dy=e.clientY-swipe.y,dx=Math.abs(e.clientX-swipe.x);if(dy>75&&dx<70)window.WinconNotificationCenter.open();swipe=null;},{passive:true});
+ window.addEventListener('pointercancel',()=>{swipe=null;},{passive:true});
+ window.addEventListener('keydown',e=>{if(e.key==='Escape')window.WinconNotificationCenter.close();});
+
+ // Keep Directory's existing media file association, and ensure the player is available as a system app.
+ const registerMedia=()=>{try{if(typeof menuItems==='undefined'||!Array.isArray(menuItems))return false;if(!menuItems.some(x=>x&&x.type==='media-player')){menuItems.push({id:'wincon-media-player',title:'Media Player',icon:'▶️',type:'media-player',system:true});try{localStorage.setItem('winconMenuItems',JSON.stringify(menuItems));}catch(_){}if(typeof renderMenu==='function')renderMenu();}return true;}catch(_){return false;}};
+ if(!registerMedia()){let tries=0;const timer=setInterval(()=>{tries++;if(registerMedia()||tries>30)clearInterval(timer);},250);}
+})();
+</script>
+
+<script>
+/* =========================================================
+   Wincon 12 Horizon - reliability fixes
+   Media Player / Kiosk / OOBE app access / quiet script errors
+========================================================= */
+(()=>{
+ 'use strict';
+ if(window.__W12_RELIABILITY_FIXES_V2__)return;
+ window.__W12_RELIABILITY_FIXES_V2__=true;
+
+ // 1) Normalize Media Player app IDs/types and always launch the real player.
+ const originalLaunchAdapter=window.launchWinconItem;
+ window.launchWinconItem=function(item){
+  if(!item)throw new Error('起動対象が指定されていません');
+  const type=String(item.type||'').toLowerCase().replace(/[_\s]/g,'-');
+  const id=String(item.id||'').toLowerCase();
+  if(type==='media-player'||type==='mediaplayer'||id==='wincon-media-player'){
+   if(typeof window.openWinconMediaPlayer!=='function')throw new Error('Media Playerの初期化が完了していません');
+   const win=window.openWinconMediaPlayer();
+   if(!win)throw new Error('Media Playerウィンドウを作成できませんでした');
+   return win;
+  }
+  return typeof originalLaunchAdapter==='function'?originalLaunchAdapter.call(this,item):(()=>{throw new Error('アプリ起動ルーターがありません')})();
+ };
+ // Keep the built-in app registered, correcting a stale/incorrect menu entry if one exists.
+ function ensureMediaPlayerEntry(){
+  try{
+   if(typeof menuItems==='undefined'||!Array.isArray(menuItems))return false;
+   let entry=menuItems.find(x=>x&&(x.type==='media-player'||x.id==='wincon-media-player'||String(x.title||'').toLowerCase()==='media player'));
+   if(!entry){entry={id:'wincon-media-player',title:'Media Player',icon:'▶️',type:'media-player',system:true};menuItems.push(entry);}
+   else{entry.id='wincon-media-player';entry.title='Media Player';entry.icon='▶️';entry.type='media-player';entry.system=true;entry.hidden=false;}
+   try{localStorage.setItem('winconMenuItems',JSON.stringify(menuItems));}catch(_){}
+   if(typeof renderMenu==='function')renderMenu();
+   return true;
+  }catch(e){console.warn('[Media Player] registration retry:',e);return false;}
+ }
+ if(!ensureMediaPlayerEntry()){
+  let n=0;const t=setInterval(()=>{if(ensureMediaPlayerEntry()||++n>=60)clearInterval(t);},250);
+ }
+ // Expose a predictable entry point for Horizon Directory's audio/video associations.
+ window.openMediaPlayer=window.openWinconMediaPlayer;
+ // The Start menu's lexical launchItem may retain its original dispatcher; intercept only this app.
+ document.addEventListener('click',e=>{
+  const button=e.target.closest('#menu .w12-start-app, #menu .w12-start-tile, #menu .menu-item');
+  const item=button?.__winconItem;
+  if(!item)return;
+  const t=String(item.type||'').toLowerCase().replace(/[_\s]/g,'-');
+  if(t==='media-player'||t==='mediaplayer'||String(item.id||'').toLowerCase()==='wincon-media-player'){
+   e.preventDefault();e.stopImmediatePropagation();
+   const menu=document.getElementById('menu');if(menu)menu.style.display='none';
+   try{window.launchWinconItem(item);}catch(err){console.error('[Media Player launch]',err);alert('Media Playerを起動できませんでした: '+(err.message||err));}
+  }
+ },true);
+
+ // 2) Make kiosk login deterministic: evaluate the authenticated session user,
+ // then launch only the selected app after the normal desktop boot has settled.
+ function getLoggedInHorizonUser(){
+  try{
+   const session=typeof getHorizonSession==='function'?getHorizonSession():null;
+   const users=typeof getHorizonUsers==='function'?getHorizonUsers():[];
+   if(!session?.userId)return null;
+   return users.find(u=>u&&String(u.id)===String(session.userId))||null;
+  }catch(e){console.warn('[Kiosk] user lookup failed',e);return null;}
+ }
+ function launchKioskForCurrentUser(){
+  const user=getLoggedInHorizonUser();
+  if(!user?.kioskMode||window.__W12_KIOSK_ACTIVE__)return false;
+  if(typeof window.__W12_ENTER_KIOSK_MODE__!=='function')return false;
+  return window.__W12_ENTER_KIOSK_MODE__(user);
+ }
+ const prevContinue=window.continueHorizonAfterLogin;
+ if(typeof prevContinue==='function'&&!window.__W12_KIOSK_LOGIN_HOOK_V2__){
+  window.__W12_KIOSK_LOGIN_HOOK_V2__=true;
+  window.continueHorizonAfterLogin=function(...args){
+   const user=getLoggedInHorizonUser();
+   if(user?.kioskMode){
+    if(window.__WINCON12_LOCK_CLOCK__){clearInterval(window.__WINCON12_LOCK_CLOCK__);window.__WINCON12_LOCK_CLOCK__=null;}
+    document.getElementById('wincon10LoginOverlay')?.remove();
+    document.getElementById('lockScreen')?.remove();
+    document.getElementById('winconLockScreen')?.remove();
+    document.body.classList.add('w12-kiosk-mode');
+    return launchKioskForCurrentUser();
+   }
+   return prevContinue.apply(this,args);
+  };
+ }
+ // If this script is evaluated after login (e.g. restored session), apply kiosk mode once.
+ if(document.readyState==='complete')setTimeout(launchKioskForCurrentUser,0);
+ else window.addEventListener('load',()=>setTimeout(launchKioskForCurrentUser,0),{once:true});
+
+ // 3) OOBE: provide explicit launch buttons for Module Center and Wincon Migration.
+ // These windows are allowed above OOBE; all unrelated windows remain isolated.
+ const oldCreateWindow=window.createWindow;
+ if(typeof oldCreateWindow==='function'&&!window.__W12_OOBE_WINDOW_ROUTER__){
+  window.__W12_OOBE_WINDOW_ROUTER__=true;
+  window.createWindow=function(options={}){
+   const win=oldCreateWindow.call(this,options);
+   if(win&&document.body.classList.contains('wincon10-oobe-isolated')){
+    const title=String(options.title||'');
+    if(/Module Center|Wincon お引越し|お引越し/.test(title)){
+     win.classList.add('wincon10-oobe-window');
+     win.style.zIndex='2147483200';
+     win.style.pointerEvents='auto';
+     win.style.opacity='1';
+    }
+   }
+   return win;
+  };
+ }
+ // OOBE内に追加のクイック起動ボタンは作らない。Module Center/お引越しは既存のOOBE手順から起動する。
+ console.info('[Wincon Reliability] Media Player / Kiosk / OOBE launch fixes loaded');
+})();
+</script>
+
+<!-- Wincon 12 Horizon: isolated Recovery Environment (plain display + working terminal) -->
+<script>
+(()=>{
+ 'use strict';
+ const ID='w12RecoveryIsolated', CSS='w12RecoveryIsolatedStyle';
+ let active=false, z=20, seq=0;
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function styles(){
+  if(document.getElementById(CSS))return;
+  const st=document.createElement('style');st.id=CSS;
+  st.textContent=`
+   #${ID}{position:fixed;inset:0;z-index:2147483600;background:#8bd7ef;color:#102b38;font:14px "Segoe UI",sans-serif;overflow:hidden;isolation:isolate}
+   #${ID},#${ID} *{box-sizing:border-box}
+   #${ID} .re-shell{position:absolute;inset:0;overflow:auto;padding:30px 34px 48px;background:#8bd7ef}
+   #${ID} h1{font-size:30px;margin:8px 0;font-weight:650}#${ID} p{line-height:1.5}
+   #${ID} .re-top{max-width:1000px;margin:auto;display:flex;justify-content:space-between;gap:20px}
+   #${ID} .re-actions{max-width:1000px;margin:28px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+   #${ID} button{font:inherit;color:#123b4b;border:1px solid #5aaac4;background:#ffffff48;padding:10px 14px;cursor:pointer;text-align:left}
+   #${ID} button:hover{background:#fff9}
+   #${ID} .re-status{max-width:1000px;margin:16px auto;padding:14px;border:1px solid #65b5ce;background:#ffffff35}
+   #${ID} .re-windows{position:absolute;inset:0;pointer-events:none;z-index:10}
+   #${ID} .re-window{position:absolute;left:calc(50% - 270px);top:calc(50% - 190px);width:min(540px,calc(100vw - 28px));height:min(380px,calc(100vh - 48px));min-width:270px;min-height:190px;max-width:calc(100vw - 12px);max-height:calc(100vh - 12px);background:#e7f7fb;border:1px solid #285c70;box-shadow:5px 5px 0 #0e435733;display:flex;flex-direction:column;pointer-events:auto;resize:both;overflow:hidden}
+   #${ID} .re-titlebar{height:34px;flex:0 0 34px;background:#b6e4f0;border-bottom:1px solid #6caabd;display:flex;align-items:center;justify-content:space-between;padding-left:10px;cursor:move;user-select:none;font-weight:650}
+   #${ID} .re-controls{display:flex;height:100%}#${ID} .re-controls button{height:33px;border:0;border-left:1px solid #6caabd;background:transparent;padding:0 12px;text-align:center}
+   #${ID} .re-content{padding:12px;overflow:auto;flex:1;min-height:0}
+   #${ID} .re-taskstrip{position:absolute;bottom:0;left:0;right:0;height:34px;background:#d6f1f7;border-top:1px solid #65b5ce;display:flex;gap:6px;align-items:center;padding:4px 8px;z-index:20}
+   #${ID} .re-taskstrip button{padding:4px 10px;font-size:12px}
+   #${ID} .re-terminal{height:100%;display:flex;flex-direction:column;background:#102b38;color:#d9f5ff;padding:10px;font:13px Consolas,"Courier New",monospace;gap:8px}
+   #${ID} .re-terminal-output{flex:1;min-height:80px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+   #${ID} .re-terminal-form{display:flex;align-items:center;gap:7px}
+   #${ID} .re-terminal-form label{color:#8bd7ef}
+   #${ID} .re-terminal-form input{min-width:0;flex:1;background:#173c4c;color:#fff;border:1px solid #5aaac4;padding:7px;font:inherit;outline:none}
+   #${ID} .re-terminal-form button{background:#b6e4f0;color:#102b38;border:1px solid #5aaac4;padding:6px 12px;font:inherit}
+   #${ID} .re-terminal-hint{font-size:11px;color:#9bc6d5}
+   @media(max-width:600px){#${ID} .re-shell{padding:20px 14px 48px}#${ID} .re-top{display:block}}
+  `;
+  document.head.appendChild(st);
+ }
+ const root=()=>document.getElementById(ID);
+ function focus(w){w.style.zIndex=String(++z)}
+ function createWindow(title,content){
+  const r=root();if(!r)return null;
+  const layer=r.querySelector('.re-windows');const id='re-win-'+(++seq);
+  const w=document.createElement('section');w.className='re-window';w.dataset.reWindow=id;
+  w.innerHTML=`<div class="re-titlebar"><span>${esc(title)}</span><div class="re-controls"><button type="button" data-min title="最小化">－</button><button type="button" data-max title="最大化">□</button><button type="button" data-close title="閉じる">×</button></div></div><div class="re-content">${content}</div>`;
+  layer.appendChild(w);focus(w);w.addEventListener('pointerdown',()=>focus(w));
+  const bar=w.querySelector('.re-titlebar');let drag=null;
+  bar.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;const b=w.getBoundingClientRect();drag={x:e.clientX-b.left,y:e.clientY-b.top};bar.setPointerCapture(e.pointerId)});
+  bar.addEventListener('pointermove',e=>{if(!drag)return;w.style.left=Math.max(0,Math.min(innerWidth-w.offsetWidth,e.clientX-drag.x))+'px';w.style.top=Math.max(0,Math.min(innerHeight-w.offsetHeight-34,e.clientY-drag.y))+'px'});
+  const stop=()=>drag=null;bar.addEventListener('pointerup',stop);bar.addEventListener('pointercancel',stop);
+  w.querySelector('[data-close]').onclick=()=>{r.querySelector(`[data-task="${id}"]`)?.remove();w.remove()};
+  w.querySelector('[data-min]').onclick=()=>{w.style.display='none';if(!r.querySelector(`[data-task="${id}"]`)){const b=document.createElement('button');b.type='button';b.dataset.task=id;b.textContent=title;b.onclick=()=>{w.style.display='flex';focus(w);b.remove()};r.querySelector('.re-taskstrip').appendChild(b)}};
+  w.querySelector('[data-max]').onclick=()=>{if(w.dataset.max==='1'){w.style.left=w.dataset.left;w.style.top=w.dataset.top;w.style.width=w.dataset.width;w.style.height=w.dataset.height;w.dataset.max='0'}else{const b=w.getBoundingClientRect();Object.assign(w.dataset,{left:w.style.left||b.left+'px',top:w.style.top||b.top+'px',width:w.style.width||b.width+'px',height:w.style.height||b.height+'px'});w.style.left='0';w.style.top='0';w.style.width='100%';w.style.height='calc(100% - 34px)';w.dataset.max='1'}};
+  return w;
+ }
+ function terminalCommand(cmd,write){
+  const parts=cmd.trim().split(/\s+/),name=(parts.shift()||'').toLowerCase(),arg=parts.join(' ');
+  switch(name){
+   case '':return;
+   case 'help':write('利用可能なコマンド:\n help       コマンド一覧\n clear      画面を消去\n ver        REのバージョン\n status     回復環境の状態\n date       現在日時\n echo TEXT  文字列を表示\n safe       セーフブートを設定して再起動\n rebuild    保存された起動設定を解除して再起動\n exit       回復環境を終了');break;
+   case 'clear':return 'CLEAR';
+   case 'ver':write('Wincon 12 Horizon Recovery Environment\nIndependent RE session');break;
+   case 'status':write('Recovery Environment: ACTIVE\nDisplay effects: NONE\nWindow manager: RE isolated\nSafe boot flag: '+(sessionStorage.getItem('wincon12_safe_boot_once_v1')?'SET':'NOT SET')+'\nBoot source override: '+(localStorage.getItem('wincon12_recovery_boot_source_v1')?'SET':'NOT SET'));break;
+   case 'date':write(new Date().toString());break;
+   case 'echo':write(arg);break;
+   case 'safe':try{sessionStorage.setItem('wincon12_safe_boot_once_v1','1');write('セーフブートを設定しました。再起動します。');setTimeout(()=>location.reload(),500)}catch(e){write('ERROR: '+e.message)}break;
+   case 'rebuild':if(confirm('保存された起動HTMLとセーフブート設定を解除して再起動しますか？')){localStorage.removeItem('wincon12_recovery_boot_source_v1');localStorage.removeItem('wincon12_recovery_boot_mode_v1');sessionStorage.removeItem('wincon12_safe_boot_once_v1');write('起動設定を解除しました。再起動します。');setTimeout(()=>location.reload(),500)}else write('キャンセルしました。');break;
+   case 'exit':closeRecovery();break;
+   default:write(`'${name}' は認識されていません。help と入力するとコマンド一覧を表示します。`);
+  }
+ }
+ function openTerminal(){
+  const w=createWindow('RE Terminal',`<div class="re-terminal"><div class="re-terminal-output" data-output>Wincon 12 Horizon Recovery Environment [Version 12.2]\nこのターミナルはRE専用です。\nhelp と入力するとコマンド一覧を表示します。\n</div><form class="re-terminal-form" data-form><label>RE&gt;</label><input data-input type="text" autocomplete="off" spellcheck="false" aria-label="コマンド入力"><button type="submit">実行</button></form><div class="re-terminal-hint">Enterキーで実行 · help / clear / status / safe / rebuild / exit</div></div>`);
+  if(!w)return;
+  const output=w.querySelector('[data-output]'),input=w.querySelector('[data-input]'),form=w.querySelector('[data-form]');
+  const write=text=>{output.textContent+=String(text)+'\n';output.scrollTop=output.scrollHeight};
+  form.addEventListener('submit',e=>{e.preventDefault();const cmd=input.value;input.value='';write('RE> '+cmd);const result=terminalCommand(cmd,write);if(result==='CLEAR')output.textContent='';input.focus()});
+  input.focus();
+ }
+ function closeRecovery(){active=false;root()?.remove();}
+ function openRecovery(){
+  if(active)return;active=true;styles();root()?.remove();
+  const r=document.createElement('main');r.id=ID;
+  r.innerHTML=`<div class="re-shell"><div class="re-top"><div><div style="font-size:12px;letter-spacing:.16em;font-weight:700">WINCON 12 · HORIZON</div><h1>回復環境</h1><p>メインのWinconとは独立した回復セッションです。<br>ウィンドウとタスク管理はRE専用です。</p></div><div style="text-align:right;font-size:12px">RECOVERY ENVIRONMENT<br>ISOLATED SESSION</div></div><div class="re-actions"><button type="button" data-action="terminal">⌨　RE Terminal<br><small>独立した診断コンソール</small></button><button type="button" data-action="safe">▣　セーフブート<br><small>最小構成で今回の起動を開始</small></button><button type="button" data-action="rebuild">⚙　ブート設定を再構築<br><small>保存された起動設定を解除</small></button><button type="button" data-action="exit">↩　通常起動へ戻る<br><small>回復環境を終了</small></button></div><section class="re-status"><b>回復ステータス</b><p>表示方式: 通常表示（画像・文字・画面効果の加工なし）</p><p>Winconのタスクバー・メニュー・ロック画面・通常ウィンドウ管理は使用しません。</p></section></div><div class="re-windows"></div><div class="re-taskstrip"></div>`;
+  document.body.appendChild(r);
+  r.addEventListener('click',e=>{const b=e.target.closest('button[data-action]');if(!b)return;switch(b.dataset.action){case'terminal':openTerminal();break;case'safe':try{sessionStorage.setItem('wincon12_safe_boot_once_v1','1');location.reload()}catch(err){alert(err.message)}break;case'rebuild':if(confirm('保存された起動HTMLとセーフブート設定を解除し、Web / Service Workerから起動しますか？')){try{localStorage.removeItem('wincon12_recovery_boot_source_v1');localStorage.removeItem('wincon12_recovery_boot_mode_v1');sessionStorage.removeItem('wincon12_safe_boot_once_v1');location.reload()}catch(err){alert(err.message)}}break;case'exit':closeRecovery();location.reload();break;}});
+ }
+ window.openRecovery=openRecovery;
+ window.WinconRecoveryEnvironment={open:openRecovery,close:closeRecovery,createWindow};
+ window.addEventListener('keydown',e=>{if(e.ctrlKey&&e.altKey&&e.shiftKey&&e.key==='F10'){e.preventDefault();e.stopImmediatePropagation();openRecovery()}},true);
+ console.info('[Wincon RE] Plain isolated Recovery Environment and interactive terminal ready');
+})();
+</script>
+
+<script>
+/* Wincon Horizon: Kiosk + Module Center Next / App Clip UI */
+(()=>{
+ 'use strict';
+ if(window.__W12_STORE_NEXT_V1__)return;window.__W12_STORE_NEXT_V1__=true;
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const api=()=>window.MODULE_API||'https://tjyyqwihwgxdjpzgccyc.supabase.co/functions/v1/quick-worker';
+ const getApps=()=>Array.isArray(window.storeApps)?window.storeApps:[];
+ const versionParts=v=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
+ const compareVersion=(a,b)=>{const x=versionParts(a),y=versionParts(b);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d;}return 0;};
+ const getWinconVersion=()=>String(window.WINCON_VERSION||document.documentElement.dataset.winconVersion||'12.2');
+ const appIcon=(a,size=48)=>a.iconImage?`<img src="${esc(a.iconImage)}" style="width:${size}px;height:${size}px;object-fit:contain;border-radius:10px">`:`<span style="font-size:${Math.round(size*.72)}px">${esc(a.icon||'📦')}</span>`;
+ const isGame=a=>a.isGame===true||a.isGame==='true';
+ const isClip=a=>a.appClipEnabled===true||a.appClipEnabled==='true';
+ const getDevName=()=>localStorage.getItem('winconDeveloperName')||'';
+ function ensureDevName(){let name=getDevName();if(name)return name;name=prompt('開発者名を入力してください。この名前はこの端末で変更できません。');if(!name||!name.trim())return '';name=name.trim().slice(0,40);try{localStorage.setItem('winconDeveloperName',name);localStorage.setItem('winconDeveloperNameLocked','1');}catch(e){}return name;}
+ function cleanupExpiredClips(){try{const items=typeof menuItems!=='undefined'&&Array.isArray(menuItems)?menuItems:[];let changed=false;for(let i=items.length-1;i>=0;i--){const x=items[i];if(x&&x.appClip===true&&x.expiresAt&&Date.now()>=Number(x.expiresAt)){items.splice(i,1);changed=true;}}if(changed){localStorage.setItem('winconMenuItems',JSON.stringify(items));if(typeof renderMenu==='function')renderMenu();}}catch(e){console.warn('[App Clip] cleanup',e);}}
+ cleanupExpiredClips();setInterval(cleanupExpiredClips,60000);
+ // Kiosk: use the authenticated session user, not the selected profile left over from setup.
+ function currentUser(){try{const session=typeof getHorizonSession==='function'?getHorizonSession():null;if(!session?.userId)return null;const users=typeof getHorizonUsers==='function'?getHorizonUsers():[];return users.find(u=>String(u.id)===String(session.userId))||null;}catch(_){return null;}}
+ function kioskAppFor(user){const items=typeof menuItems!=='undefined'&&Array.isArray(menuItems)?menuItems:[];const key=String(user?.kioskAppId||'');return items.find(a=>a&&(String(a.appId||a.id||a.type||a.title)===key||String(a.type||'')===key||String(a.title||'')===key));}
+ function applyKiosk(user){if(!user?.kioskMode||window.__W12_KIOSK_ACTIVE__)return false;const app=kioskAppFor(user);if(!app){console.error('[Kiosk] configured app not found',user?.kioskAppId);return false;}
+  window.__W12_KIOSK_ACTIVE__=true;window.__W12_KIOSK_APP__=app;window.__W12_KIOSK_LAUNCHING__=true;
+  let st=document.getElementById('w12KioskModeStyleV2');if(!st){st=document.createElement('style');st.id='w12KioskModeStyleV2';st.textContent=`body.w12-kiosk-mode{overflow:hidden!important}body.w12-kiosk-mode #taskbar,body.w12-kiosk-mode #menu,body.w12-kiosk-mode #controlCenter,body.w12-kiosk-mode #startMenu,body.w12-kiosk-mode .taskbar,body.w12-kiosk-mode .start-menu{display:none!important}body.w12-kiosk-mode .window .titlebar,body.w12-kiosk-mode .window .window-titlebar,body.w12-kiosk-mode .window .window-header,body.w12-kiosk-mode .window .title-bar,body.w12-kiosk-mode .window .titlebar-container{display:none!important}body.w12-kiosk-mode .window{border:0!important;box-shadow:none!important}body.w12-kiosk-mode .window .content,body.w12-kiosk-mode .window .window-content{height:100%!important;top:0!important}`;document.head.appendChild(st);}
+  document.body.classList.add('w12-kiosk-mode');['taskbar','menu','controlCenter','startMenu'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.setProperty('display','none','important');});
+  document.getElementById('wincon10LoginOverlay')?.remove();document.getElementById('lockScreen')?.remove();document.getElementById('winconLockScreen')?.remove();
+  setTimeout(()=>{try{const launcher=window.launchWinconItem||window.launchItem;if(typeof launcher!=='function')throw new Error('アプリ起動ルーターが見つかりません');launcher.call(window,app);}catch(e){console.error('[Kiosk] app launch failed',e);window.showWinconNotification?.('キオスク起動エラー',e.message,7000); }finally{window.__W12_KIOSK_LAUNCHING__=false;}},400);return true;
+ }
+ window.__W12_ENTER_KIOSK_MODE__=applyKiosk;
+ // Wrap the final window factory. Security options are deliberately allowed; ordinary extra windows are blocked.
+ if(typeof window.createWindow==='function'&&!window.__W12_KIOSK_FACTORY_V2__){window.__W12_KIOSK_FACTORY_V2__=true;const old=window.createWindow;window.createWindow=function(options={}){if(window.__W12_KIOSK_ACTIVE__&&!window.__W12_KIOSK_LAUNCHING__&&!/セキュリティオプション/.test(String(options.title||'')))return null;const w=old.call(this,options);if(w&&window.__W12_KIOSK_ACTIVE__){w.classList?.add('w12-kiosk-app-window');const bars=w.querySelectorAll?.('.titlebar,.window-titlebar,.window-header,.title-bar,.titlebar-container');bars?.forEach(x=>x.style.setProperty('display','none','important'));}return w;};}
+ // Catch login transitions even if another extension replaced continueHorizonAfterLogin earlier.
+ let kioskPolls=0;const kioskPoll=setInterval(()=>{kioskPolls++;const u=currentUser();if(u?.kioskMode&&!window.__W12_KIOSK_ACTIVE__)applyKiosk(u);if(window.__W12_KIOSK_ACTIVE__||kioskPolls>240)clearInterval(kioskPoll);},500);
+
+ const css=`.w12mc{display:grid;grid-template-columns:190px minmax(0,1fr);height:100%;min-height:520px;gap:14px;color:inherit}.w12mc-side{border-right:1px solid #8885;padding:8px;display:flex;flex-direction:column;gap:6px}.w12mc-side button,.w12mc-card button,.w12mc-detail button{padding:9px;border:1px solid #8888;border-radius:8px;background:transparent;color:inherit;cursor:pointer;text-align:left}.w12mc-side button.active{background:#3878bd;color:white}.w12mc-main{min-width:0;overflow:auto;padding:8px}.w12mc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.w12mc-card{border:1px solid #8886;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}.w12mc-card-head{display:flex;align-items:center;gap:10px}.w12mc-card-head>div:last-child{min-width:0}.w12mc-card h3{margin:0;overflow-wrap:anywhere}.w12mc-meta{font-size:12px;opacity:.72}.w12mc-detail{display:grid;grid-template-columns:170px minmax(0,1fr);gap:18px}.w12mc-detail-icon{width:150px;height:150px;border:1px solid #8886;border-radius:18px;display:grid;place-items:center}.w12mc-clip{outline:2px dashed currentColor;outline-offset:3px}.w12mc-pill{display:inline-block;padding:3px 7px;border-radius:20px;background:#7773;font-size:11px;margin-right:4px}@media(max-width:650px){.w12mc{grid-template-columns:1fr}.w12mc-side{border-right:0;border-bottom:1px solid #8885;display:flex;flex-direction:row;overflow:auto}.w12mc-side button{white-space:nowrap}.w12mc-detail{grid-template-columns:1fr}}`;
+ function addCss(){if(document.getElementById('w12mcNextCss'))return;const st=document.createElement('style');st.id='w12mcNextCss';st.textContent=css;document.head.appendChild(st);}addCss();
+ function openStore(gameOnly=false){window.__WINCON_GAME_CENTER_VIEW__=!!gameOnly;const win=createWindow({title:gameOnly?'Module Center Game':'Module Center',icon:gameOnly?'🎮':'📦',width:980,height:700,systemLayer:document.body.classList.contains('wincon10-oobe-isolated'),noTaskbar:document.body.classList.contains('wincon10-oobe-isolated'),content:`<div class="w12mc"><nav class="w12mc-side" id="w12mcNav"><button data-view="home" class="active">⌂ ホーム</button><button data-view="search">⌕ 検索</button><button data-view="all">▦ すべてのアプリ</button><button data-view="awards">🏆 今年のアワード</button><button data-view="ranking">📈 ランキング</button>${gameOnly?'<button data-view="game">🎮 ゲームランキング</button>':''}</nav><main class="w12mc-main" id="w12mcMain">読み込み中...</main></div>`});if(!win)return;let apps=[];const main=win.querySelector('#w12mcMain');const nav=win.querySelector('#w12mcNav');let view='home';
+  const render=()=>{let arr=apps.filter(a=>!a.unpublished&&!a.hidden);if(gameOnly)arr=arr.filter(isGame);if(view==='ranking'||view==='game')arr.sort((a,b)=>(Number(b.installCount)||0)-(Number(a.installCount)||0));if(view==='awards')arr=arr.filter(a=>Array.isArray(a.awards)&&a.awards.some(x=>String(x.year||x.period_start||x.awarded_at||'').slice(0,4)===String(new Date().getFullYear())));let search='';if(view==='search')search=`<input id="w12mcSearch" placeholder="アプリ名・説明・作者を検索" style="width:100%;padding:10px;margin-bottom:12px">`;
+   main.innerHTML=`<h2 style="margin:0 0 12px">${({home:'おすすめ',search:'検索',all:'すべてのアプリ',awards:'今年のアワード受賞アプリ',ranking:'インストールランキング',game:'ゲームランキング'})[view]||'Module Center'}</h2>${search}<div class="w12mc-grid" id="w12mcGrid"></div>`;const grid=main.querySelector('#w12mcGrid');
+   const draw=keyword=>{grid.innerHTML='';let list=arr.filter(a=>[a.title,a.description,a.author].join(' ').toLowerCase().includes(String(keyword||'').toLowerCase()));if(view==='home')list=list.slice(0,12);if(!list.length){grid.textContent='アプリがありません。';return;}list.forEach((a,i)=>{const card=document.createElement('article');card.className='w12mc-card';card.innerHTML=`<div class="w12mc-card-head"><div class="${isClip(a)?'w12mc-clip':''}">${appIcon(a,50)}</div><div><h3>${esc(a.title||'名称未設定')}</h3><div class="w12mc-meta">${esc(a.author||'作者未設定')} · v${esc(a.version||'1.0.0')}</div></div></div><div>${isGame(a)?'<span class="w12mc-pill">🎮 GAME</span>':''}${isClip(a)?'<span class="w12mc-pill">APP CLIP</span>':''}</div><div class="w12mc-meta">⬇ ${Number(a.installCount||0).toLocaleString()} 回インストール</div><p style="margin:0;min-height:38px">${esc(a.description||'説明なし')}</p><button data-detail="${esc(a.id)}">詳細を見る</button><div style="display:flex;gap:6px;flex-wrap:wrap">${isClip(a)?`<button data-install="${esc(a.id)}" data-clip="1">App Clipを試す</button>`:''}<button data-install="${esc(a.id)}">通常インストール</button></div>`;grid.appendChild(card);});};draw('');main.addEventListener('input',e=>{if(e.target.id==='w12mcSearch')draw(e.target.value);});main.addEventListener('click',e=>{const d=e.target.closest('[data-detail]');if(d){const a=apps.find(x=>String(x.id)===d.dataset.detail);if(a)detail(a);return;}const b=e.target.closest('[data-install]');if(b){installEnhanced(b.dataset.install,b.dataset.clip==='1');}});
+  };
+  const detail=a=>{main.innerHTML=`<div class="w12mc-detail"><div><div class="w12mc-detail-icon ${isClip(a)?'w12mc-clip':''}">${appIcon(a,130)}</div><button id="w12mcBack" style="margin-top:12px">← 一覧へ戻る</button></div><section><h2>${esc(a.title)}</h2><p>${esc(a.description||'説明なし')}</p><p>作者：<button id="w12mcAuthor">${esc(a.author||'未設定')}</button></p><p>公開日：${esc(a.publishedAt||a.createdAt||'不明')}</p><p>サイズ：${esc(a.size||'不明')}</p><p>動作環境：Wincon ${esc(a.minWinconVersion||'12.0.0')} 以上</p><p>インストール回数：${Number(a.installCount||0).toLocaleString()}</p><p>バージョン：${esc(a.version||'1.0.0')}</p><p>作成者：${esc(a.author||'未設定')}</p><p>アワード：${(a.awards||[]).map(x=>esc(x.title||x.name||x.year)).join('、')||'受賞歴なし'}</p><p>${isGame(a)?'🎮 ゲーム':''} ${isClip(a)?'· App Clip対応':''}</p><button id="w12mcInstall">インストール</button></section></div>`;main.querySelector('#w12mcBack').onclick=render;main.querySelector('#w12mcInstall').onclick=()=>installEnhanced(a.id,false);main.querySelector('#w12mcAuthor').onclick=()=>{view='search';nav.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x.dataset.view==='search'));render();const q=main.querySelector('#w12mcSearch');if(q){q.value=a.author||'';q.dispatchEvent(new Event('input'));}};};
+  nav.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(!b)return;view=b.dataset.view;nav.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));render();});
+  fetch(api()+'?catalog=1',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();}).then(j=>{apps=Array.isArray(j.data)?j.data.map(a=>({...a,iconImage:a.iconImage??a.icon_image,installCount:a.installCount??a.install_count??a.total_installs??0,isGame:a.isGame??a.is_game,appClipEnabled:a.appClipEnabled??a.app_clip_enabled,appClipSource:a.appClipSource??a.app_clip_source,source:a.source??a.web_source,minWinconVersion:a.minWinconVersion??a.min_wincon_version,createdAt:a.createdAt??a.created_at,publishedAt:a.publishedAt??a.published_at,rank:a.rank??a.rank_all??null,gameRank:a.gameRank??a.rank_game??null,awards:Array.isArray(a.awards)?a.awards:[],monthlyStats:a.monthlyStats??a.monthly_stats??[],yearlyStats:a.yearlyStats??a.yearly_stats??[]})):[];window.storeApps=apps;render();}).catch(err=>{main.textContent='アプリの読み込みに失敗しました: '+err.message;});
+ }
+ async function installEnhanced(id,clip){const app=getApps().find(a=>String(a.id)===String(id));if(!app){alert('アプリが見つかりません');return;}const min=app.minWinconVersion||'0';if(compareVersion(getWinconVersion(),min)<0){alert(`このアプリにはWincon ${min} 以上が必要です。現在の環境: ${getWinconVersion()}`);return;}if(clip&&!isClip(app)){alert('このアプリはApp Clipとして公開されていません。');return;}if(typeof requestWinconUAC==='function'){const ok=await requestWinconUAC({title:app.title,icon:app.icon||'📦',description:clip?'App Clip（7日間の試用版）を追加します。':'アプリをWinconにインストールします。'});if(!ok)return;}
+  if(typeof menuItems==='undefined'||!Array.isArray(menuItems)){alert('アプリ一覧を読み込めません。');return;}const exists=menuItems.some(x=>x&&(x.appId===app.id||x.id===app.id));if(exists){alert('既にインストールされています');return;}const source=clip?(app.appClipSource||app.source):app.source;if(!source){alert('配布先HTMLがありません');return;}const rec={appId:app.id,title:app.title,icon:app.icon||'📦',iconImage:app.iconImage||null,type:'externalHTML',source,popup:app.popup===true,isGame:isGame(app),version:app.version||'1.0.0',appClip:!!clip,expiresAt:clip?Date.now()+7*24*60*60*1000:null};menuItems.push(rec);localStorage.setItem('winconMenuItems',JSON.stringify(menuItems));if(typeof renderMenu==='function')renderMenu();try{let installKey=localStorage.getItem('winconModuleInstallKey');if(!installKey){installKey=crypto.randomUUID();localStorage.setItem('winconModuleInstallKey',installKey);}const track=await fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'record_install',app_id:app.id,installation_id:installKey})});const trackJson=await track.json();if(!track.ok||trackJson.error)console.warn('[Module Center] install count was not recorded:',trackJson.error||track.status);}catch(trackError){console.warn('[Module Center] install count request failed:',trackError);}alert(clip?'App Clipを追加しました。7日後に自動削除されます。':'インストールしました。');}
+ window.openAppCenter=()=>openStore(false);window.openGameCenter=()=>openStore(true);window.installApp=installEnhanced;
+ // App Clip dotted icon treatment in the app menu, with expiry handled above.
+ const clipObserver=new MutationObserver(()=>{try{document.querySelectorAll('#menu [data-app-id],#menu .menu-item').forEach(el=>{const label=el.textContent||'';const rec=(typeof menuItems!=='undefined'&&Array.isArray(menuItems)?menuItems:[]).find(x=>x?.appClip&&label.includes(x.title));if(rec)el.classList.add('w12mc-clip');});}catch(_){}});if(document.body)clipObserver.observe(document.body,{childList:true,subtree:true});
+
+ // Developer Center: immutable local developer name, sidebar, App Clip upload, version and minimum Wincon version.
+ window.openAppCenterDeveloper=function(){const author=ensureDevName();if(!author){alert('開発者名が必要です。');return;}const win=createWindow({title:'Module Center Dev',icon:'🛠️',width:850,height:720,content:`<div class="w12mc"><nav class="w12mc-side" id="w12devNav"><button data-v="list" class="active">公開中のアプリ一覧</button><button data-v="new">新しくアプリを作成</button><button data-v="update">アップデートを配信</button><button data-v="stop">公開停止</button></nav><main class="w12mc-main" id="w12devMain"><h2>公開中のアプリ一覧</h2><div id="w12devList">読み込み中...</div></main></div>`});if(!win)return;const main=win.querySelector('#w12devMain');let own=[];let selected=null;let currentFormMode='new';let currentFormApp={};
+  const form=(mode,app={})=>{currentFormMode=mode;currentFormApp=app;main.dataset.uploadedIconImage=app.iconImage||app.icon_image||'';main.innerHTML=`<h2>${mode==='new'?'新しくアプリを作成':mode==='update'?'アップデートを配信':'アプリ情報'}</h2><label>アプリ名</label><input id="dTitle" style="width:100%" value="${esc(app.title||'')}"><label>アイコン（絵文字）</label><input id="dIcon" style="width:100%" value="${esc(app.icon||'📦')}"><label>アイコン画像をアップロード（任意）</label><input id="dIconImageFile" type="file" accept="image/*" style="width:100%"><img id="dIconPreview" src="${esc(app.iconImage||'')}" alt="アイコンプレビュー" style="display:${app.iconImage?'block':'none'};width:88px;height:88px;object-fit:contain;border:1px solid #8886;border-radius:12px;margin:8px 0"><label>配布URL（Web版）</label><input id="dSource" style="width:100%" value="${esc(app.source||'')}"><label>説明</label><textarea id="dDesc" style="width:100%;height:70px">${esc(app.description||'')}</textarea><label>バージョン</label><input id="dVersion" style="width:100%" value="${esc(mode==='update'?'':app.version||'1.0.0')}"><label>必要なWinconバージョン（例 12.2）</label><input id="dMin" style="width:100%" value="${esc(app.minWinconVersion||'12.0.0')}"><label>動作モード</label><select id="dMode"><option value="window">Window</option><option value="popup" ${app.popup?'selected':''}>Popup</option></select><label><input id="dGame" type="checkbox" ${isGame(app)?'checked':''}> ゲームとして公開</label><hr><label><input id="dClip" type="checkbox" ${isClip(app)?'checked':''}> App Clip専用として配布（お試し版）</label><div id="dClipWrap" style="display:${isClip(app)?'block':'none'};padding:10px;border:1px dashed #888;margin:8px 0"><p>App Clip専用HTML（有効化時のみ表示）</p><input id="dClipFile" type="file" accept="text/html,.html"><small id="dClipName">${app.appClipSource?'既存のApp Clip HTMLがあります':'HTMLファイル未選択'}</small><p>App Clipを利用しない場合はチェックを外してください。App Clipを試用後、通常版としてもインストールできます。</p></div><button class="action" id="dPublish">公開</button><p id="dStatus"></p>`};
+  const load=async()=>{try{const r=await fetch(api()+'?catalog=1',{cache:'no-store'});const j=await r.json();own=(Array.isArray(j.data)?j.data:[]).map(a=>({...a,iconImage:a.iconImage??a.icon_image,installCount:a.installCount??a.install_count??a.total_installs??0,isGame:a.isGame??a.is_game,appClipEnabled:a.appClipEnabled??a.app_clip_enabled,appClipSource:a.appClipSource??a.app_clip_source,source:a.source??a.web_source,minWinconVersion:a.minWinconVersion??a.min_wincon_version,monthlyStats:a.monthlyStats??a.monthly_stats??[],yearlyStats:a.yearlyStats??a.yearly_stats??[],rank:a.rank??a.rank_all??null,gameRank:a.gameRank??a.rank_game??null,awards:Array.isArray(a.awards)?a.awards:[]})).filter(a=>a.author===author);listView();}catch(e){main.textContent='読み込み失敗: '+e.message;}};
+  const listView=()=>{main.innerHTML='<h2>公開中のアプリ一覧</h2><div id="w12devList"></div>';const box=main.querySelector('#w12devList');if(!own.length){box.textContent='公開中のアプリはありません。';return;}own.forEach(a=>{const b=document.createElement('button');b.style.cssText='display:block;width:100%;text-align:left;padding:12px;margin:6px 0';b.innerHTML=`${esc(a.icon||'📦')} ${esc(a.title)} · ${esc(a.version||'1.0.0')} · ⬇ ${Number(a.installCount||0).toLocaleString()}`;b.onclick=()=>{selected=a;const chart=(rows,key,label)=>{const data=(Array.isArray(rows)?rows:[]).slice(-12);if(!data.length)return '<p style="opacity:.65">まだ集計データがありません。</p>';const max=Math.max(1,...data.map(x=>Number(x.installs)||0));return `<div style="display:grid;gap:7px;margin:10px 0 18px">${data.map(x=>{const value=Number(x.installs)||0;const raw=x[key]||'';const name=String(raw).slice(0,10);return `<div style="display:grid;grid-template-columns:90px minmax(0,1fr) 55px;gap:8px;align-items:center;font-size:12px"><span>${esc(name)}</span><span style="height:13px;background:#7773;border-radius:8px;overflow:hidden"><i style="display:block;height:100%;width:${Math.max(value?2:0,value/max*100)}%;background:linear-gradient(90deg,#2678c8,#42c6a5);border-radius:8px"></i></span><b style="text-align:right">${value.toLocaleString()}</b></div>`}).join('')}</div>`};const awardText=(a.awards||[]).map(x=>`${x.title||x.name||x.award_code||'Award'} (${x.period_start||x.year||''})`).join('、')||'受賞歴はまだありません。';main.innerHTML=`<h2>${esc(a.title)}</h2><div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0"><div class="setting-group">累計インストール<br><b>${Number(a.installCount||0).toLocaleString()}</b></div><div class="setting-group">総合ランキング<br><b>${a.rank?`#${a.rank}`:'未集計'}</b></div>${isGame(a)?`<div class="setting-group">ゲームランキング<br><b>${a.gameRank?`#${a.gameRank}`:'未集計'}</b></div>`:''}</div><h3>月別インストール</h3>${chart(a.monthlyStats,'month','月')}<h3>年別インストール</h3>${chart(a.yearlyStats,'year','年')}<h3>アワード</h3><p>${esc(awardText)}</p><p style="font-size:12px;opacity:.65">集計はWinconから記録された初回インストールを基準にしています。</p><button id="devBack">戻る</button>`;main.querySelector('#devBack').onclick=listView;};box.appendChild(b);});};
+  win.querySelector('#w12devNav').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(!b)return;win.querySelectorAll('#w12devNav button').forEach(x=>x.classList.toggle('active',x===b));if(b.dataset.v==='list')listView();else if(b.dataset.v==='new')form('new');else if(b.dataset.v==='update'){main.innerHTML='<h2>アップデート対象を選択</h2>';own.forEach(a=>{const x=document.createElement('button');x.className='action';x.textContent=a.title;x.onclick=()=>form('update',a);main.appendChild(x);});}else if(b.dataset.v==='stop'){main.innerHTML='<h2>公開停止</h2>';own.forEach(a=>{const x=document.createElement('button');x.className='action';x.textContent=a.title;x.onclick=async()=>{if(!confirm(`${a.title} の公開を停止しますか？`))return;try{const r=await fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'unpublish',id:a.id,author})});if(!r.ok)throw Error('HTTP '+r.status);alert('公開停止リクエストを送信しました');load();}catch(err){alert('公開停止に失敗: '+err.message);}};main.appendChild(x);});}});
+  // mainは画面切替でinnerHTMLが差し替わるため、changeは親要素で委譲する。
+  main.addEventListener('change',async e=>{
+   if(e.target.id==='dClip'){const wrap=main.querySelector('#dClipWrap');if(wrap)wrap.style.display=e.target.checked?'block':'none';}
+   if(e.target.id==='dIconImageFile'){
+    const input=e.target,file=input.files?.[0];if(!file)return;
+    if(!file.type.startsWith('image/')){alert('画像ファイルを選択してください');input.value='';return;}
+    if(file.size>8*1024*1024){alert('アイコン画像は8MB以下にしてください');input.value='';return;}
+    try{
+     let imageData;
+     if(typeof readHorizonImage==='function')imageData=await readHorizonImage(file,512,512);
+     else imageData=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(r.error);r.readAsDataURL(file);});
+     main.dataset.uploadedIconImage=String(imageData);
+     const preview=main.querySelector('#dIconPreview');if(preview){preview.src=String(imageData);preview.style.display='block';}
+    }catch(err){console.error('[Module Center Dev] icon upload:',err);alert('アイコン画像を読み込めませんでした: '+(err.message||err));}
+   }
+  });
+  main.addEventListener('click',async e=>{if(e.target.id!=='dPublish')return;const v=id=>main.querySelector('#'+id)?.value?.trim()||'';const clip=main.querySelector('#dClip').checked;const file=main.querySelector('#dClipFile')?.files?.[0];let clipHtml='';if(clip&&file){if(file.size>1024*1024){alert('App Clip HTMLは1MB以下にしてください');return;}clipHtml=await file.text();}else if(clip&&currentFormApp.appClipSource){clipHtml='__EXISTING_APP_CLIP__';}if(!v('dTitle')||!v('dSource')||!v('dVersion')){alert('アプリ名・配布URL・バージョンは必須です');return;}try{new URL(v('dSource'));}catch(_){alert('配布URLを確認してください');return;}if(clip&&!clipHtml){alert('App Clip専用HTMLをアップロードしてください');return;}const payload={id:currentFormMode==='update'?currentFormApp.id:crypto.randomUUID(),title:v('dTitle'),icon:v('dIcon')||'📦',iconImage:main.dataset.uploadedIconImage||null,source:v('dSource'),description:v('dDesc'),version:v('dVersion'),minWinconVersion:v('dMin')||'12.0.0',popup:v('dMode')==='popup',isGame:main.querySelector('#dGame').checked,author,appClipEnabled:clip,appClipHtml:null,appClipSource:clip?(clipHtml==='__EXISTING_APP_CLIP__'?currentFormApp.appClipSource:'data:text/html;charset=utf-8,'+encodeURIComponent(clipHtml)):null,created:currentFormApp.created||Date.now(),updated:Date.now()};const status=main.querySelector('#dStatus');status.textContent='Supabaseに送信中...';try{const r=await fetch(api(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw Error('HTTP '+r.status);const j=await r.json();if(j.error||j.success===false)throw Error(j.message||JSON.stringify(j.error));status.textContent=j.catalog_error?'旧アプリ一覧には保存されましたが、Module Centerカタログ保存に失敗しました: '+j.catalog_error:'公開しました。';alert(j.catalog_error?'公開データの一部保存に失敗しました: '+j.catalog_error:'公開しました。Module Centerカタログにも保存されました。');load();}catch(err){status.textContent='失敗: '+err.message;}});
+  load();};
+})();
+</script>
+
+<script>
+/* Wincon 12 Horizon - final Start Search / Kiosk repair */
+(()=>{
+ 'use strict';
+ const log=(...a)=>console.info('[Wincon Final Repair]',...a);
+
+ // OOBE is an internal first-run flow, not a normal Start-menu app.
+ try{if(typeof menuItems!=='undefined'&&Array.isArray(menuItems)){let changed=false;for(const item of menuItems){if(item&&(item.type==='oobe'||item.title==='OOBE')&&item.hidden!==true){item.hidden=true;changed=true;}}if(changed)localStorage.setItem('winconMenuItems',JSON.stringify(menuItems));}}catch(e){console.warn('[OOBE] hide standalone launcher:',e);}
+
+ // Start search: do not assume that #menu is the direct parent. The native
+ // renderer may rebuild the menu, so this delegated listener survives rebuilds.
+ document.addEventListener('input',ev=>{
+  const input=ev.target;
+  if(!(input instanceof HTMLInputElement) || !input.classList.contains('w12-start-search')) return;
+  const menu=input.closest('#menu')||document;
+  const q=String(input.value||'').trim().toLocaleLowerCase();
+  const rows=[...menu.querySelectorAll('.w12-start-app')];
+  let count=0;
+  for(const row of rows){
+   const name=String(row.querySelector('.w12-start-app-name')?.textContent||row.textContent||'').toLocaleLowerCase();
+   const match=!q||name.includes(q);
+   row.hidden=!match;
+   row.style.setProperty('display',match?'flex':'none');
+   if(match)count++;
+  }
+  const noMatch=menu.querySelector('.w12-start-no-match');
+  if(noMatch){noMatch.hidden=count!==0;noMatch.style.display=count?'none':'';}
+ },true);
+
+ // One kiosk implementation at the end of the load chain. A profile merely
+ // selected on the lock screen is NOT a logged-in user; require wincon10_session.
+ function sessionUser(){
+  try{
+   const session=typeof getHorizonSession==='function'?getHorizonSession():null;
+   let userId=session?.userId||'';
+   // The storage-isolation layer also records the active profile in sessionStorage.
+   // This fallback is important when a profile is switched after the global session write.
+   if(!userId){try{userId=sessionStorage.getItem('wincon12_storage_scope')||'';}catch(_){}}
+   if(!userId)return null;
+   const users=typeof getHorizonUsers==='function'?getHorizonUsers():[];
+   const found=users.find(u=>String(u.id)===String(userId));
+   if(found)return found;
+   const current=typeof getHorizonUser==='function'?getHorizonUser():null;
+   return current&&String(current.id)===String(userId)?current:null;
+  }catch(e){console.warn('[Kiosk] session read failed',e);return null;}
+ }
+ function registry(){
+  try{if(typeof menuItems!=='undefined'&&Array.isArray(menuItems))return menuItems;}catch(_){}
+  return Array.isArray(window.menuItems)?window.menuItems:[];
+ }
+ function selectedApp(user){
+  const key=String(user?.kioskAppId??'').trim();
+  if(!key)return null;
+  return registry().find(a=>{
+   if(!a)return false;
+   const values=[a.appId,a.id,a.title,a.name];
+   return values.some(v=>v!=null&&String(v).trim()===key);
+  })||null;
+ }
+ function hideShell(){
+  document.body.classList.add('w12-kiosk-mode');
+  let style=document.getElementById('w12KioskFinalStyle');
+  if(!style){style=document.createElement('style');style.id='w12KioskFinalStyle';style.textContent=`
+   body.w12-kiosk-mode{overflow:hidden!important}
+   body.w12-kiosk-mode #taskbar,body.w12-kiosk-mode #menu,body.w12-kiosk-mode #controlCenter,body.w12-kiosk-mode #startMenu,body.w12-kiosk-mode .taskbar,body.w12-kiosk-mode .start-menu{display:none!important;visibility:hidden!important}
+   body.w12-kiosk-mode .w12-kiosk-final-window{position:fixed!important;inset:0!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;z-index:2147483000!important}
+   body.w12-kiosk-mode .w12-kiosk-final-window .titlebar,body.w12-kiosk-mode .w12-kiosk-final-window .window-titlebar,body.w12-kiosk-mode .w12-kiosk-final-window .window-header,body.w12-kiosk-mode .w12-kiosk-final-window .title-bar,body.w12-kiosk-mode .w12-kiosk-final-window .titlebar-container{display:none!important}
+   body.w12-kiosk-mode .w12-kiosk-final-window .content,body.w12-kiosk-mode .w12-kiosk-final-window .window-content{height:100%!important;max-height:100%!important;top:0!important;overflow:auto!important}
+   body.w12-kiosk-mode .w12-kiosk-final-window iframe{display:block!important;width:100%!important;height:100%!important;min-height:100%!important;border:0!important}
+  `;document.head.appendChild(style);}
+  ['taskbar','menu','controlCenter','startMenu'].forEach(id=>document.getElementById(id)?.style.setProperty('display','none','important'));
+  ['wincon10LoginOverlay','lockScreen','winconLockScreen'].forEach(id=>document.getElementById(id)?.remove());
+ }
+ function markAppWindow(app){
+  const wins=[...document.querySelectorAll('.window')];
+  const win=wins.find(w=>String(w.dataset.title||'')===String(app.title||'') || String(w.querySelector('.title-left,.window-title,.titlebar')?.textContent||'').includes(String(app.title||'').trim()));
+  if(!win)return false;
+  win.classList.add('w12-kiosk-final-window');
+  win.style.setProperty('position','fixed','important');win.style.setProperty('inset','0','important');
+  win.style.setProperty('left','0','important');win.style.setProperty('top','0','important');
+  win.style.setProperty('width','100vw','important');win.style.setProperty('height','100vh','important');
+  win.style.setProperty('z-index','2147483000','important');
+  return true;
+ }
+ function enterKiosk(user){
+  const session=sessionUser();
+  const target=user||session;
+  if(!target?.kioskMode)return false;
+  if(session&&String(session.id)!==String(target.id))return false;
+  if(window.__W12_KIOSK_ACTIVE__)return true;
+  const app=selectedApp(target);
+  if(!app){
+   console.error('[Kiosk] selected app not found',target.kioskAppId,registry().map(x=>({id:x.id,appId:x.appId,title:x.title,type:x.type})));
+   window.showWinconNotification?.('キオスク設定エラー','起動アプリが見つかりません。ユーザーコンフィグで起動アプリを選び直してください。',7000);
+   return false;
+  }
+  window.__W12_KIOSK_ACTIVE__=true;
+  window.__W12_KIOSK_APP__=app;
+  window.__W12_KIOSK_LAUNCHING__=true;
+  try{if(typeof startHorizonDesktop==='function')startHorizonDesktop();}catch(e){console.warn('[Kiosk] desktop startup:',e);}
+  const styleId='w12KioskDeterministicStyle';
+  if(!document.getElementById(styleId)){
+   const st=document.createElement('style');st.id=styleId;
+   st.textContent=`
+    body.w12-kiosk-mode{overflow:hidden!important}
+    body.w12-kiosk-mode #taskbar,body.w12-kiosk-mode #menu,body.w12-kiosk-mode #controlCenter,body.w12-kiosk-mode #startMenu,body.w12-kiosk-mode .taskbar,body.w12-kiosk-mode .start-menu{display:none!important;visibility:hidden!important;pointer-events:none!important}
+    body.w12-kiosk-mode #desktop{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;overflow:hidden!important}
+    body.w12-kiosk-mode .w12-kiosk-final-window{position:fixed!important;inset:0!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;z-index:2147483000!important}
+    body.w12-kiosk-mode .w12-kiosk-final-window>.titlebar,body.w12-kiosk-mode .w12-kiosk-final-window>.window-titlebar,body.w12-kiosk-mode .w12-kiosk-final-window>.window-header,body.w12-kiosk-mode .w12-kiosk-final-window>.title-bar{display:none!important}
+    body.w12-kiosk-mode .w12-kiosk-final-window>.content{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;overflow:auto!important}
+    body.w12-kiosk-mode .w12-kiosk-final-window iframe{display:block!important;width:100%!important;height:100%!important;min-height:100%!important;border:0!important}
+   `;
+   document.head.appendChild(st);
+  }
+  document.body.classList.add('w12-kiosk-mode');
+  ['taskbar','menu','controlCenter','startMenu','wincon10LoginOverlay','lockScreen','winconLockScreen'].forEach(id=>{
+   const el=document.getElementById(id);
+   if(!el)return;
+   if(id.includes('Overlay')||id.includes('Screen'))el.remove();
+   else el.style.setProperty('display','none','important');
+  });
+  const before=new Set(document.querySelectorAll('.window'));
+  const launch=()=>{
+   try{
+    let result=null;
+    if(app.type==='externalHTML'&&typeof window.openExternalHTML==='function'){
+     result=window.openExternalHTML(app);
+    }else{
+     const fn=window.launchWinconItem||window.launchItem;
+     if(typeof fn!=='function')throw new Error('アプリ起動ルーターが見つかりません');
+     result=fn.call(window,app);
+    }
+    let win=result instanceof HTMLElement?result:null;
+    if(!win){
+     const created=[...document.querySelectorAll('.window')].filter(x=>!before.has(x));
+     win=created.find(x=>String(x.dataset.title||'')===String(app.title||''))||created[created.length-1]||null;
+    }
+    if(!win)throw new Error('アプリのウィンドウが作成されませんでした。アプリの種類と起動先を確認してください。');
+    win.classList.add('w12-kiosk-final-window');
+    win.style.setProperty('position','fixed','important');
+    win.style.setProperty('inset','0','important');
+    win.style.setProperty('left','0','important');
+    win.style.setProperty('top','0','important');
+    win.style.setProperty('width','100vw','important');
+    win.style.setProperty('height','100vh','important');
+    win.style.setProperty('z-index','2147483000','important');
+    win.querySelectorAll('.titlebar,.window-titlebar,.window-header,.title-bar,.titlebar-container').forEach(x=>x.style.setProperty('display','none','important'));
+    const content=win.querySelector(':scope > .content');
+    if(content){content.style.setProperty('position','absolute','important');content.style.setProperty('inset','0','important');content.style.setProperty('height','100%','important');}
+    window.__W12_KIOSK_WINDOW__=win;
+    console.info('[Kiosk] entered successfully:',app.title,app.type);
+   }catch(error){
+    console.error('[Kiosk] launch failed:',error);
+    window.__W12_KIOSK_ACTIVE__=false;
+    window.__W12_KIOSK_APP__=null;
+    document.body.classList.remove('w12-kiosk-mode');
+    window.showWinconNotification?.('キオスク起動エラー',error.message||String(error),8000);
+   }finally{
+    window.__W12_KIOSK_LAUNCHING__=false;
+   }
+  };
+  setTimeout(launch,550);
+  return true;
+ }
+ window.__W12_ENTER_KIOSK_MODE__=enterKiosk;
+
+ // Wrap the final login continuation. Normal profiles use the original flow.
+ const originalContinue=window.continueHorizonAfterLogin;
+ if(typeof originalContinue==='function'&&!window.__W12_FINAL_KIOSK_LOGIN_HOOK__){
+  window.__W12_FINAL_KIOSK_LOGIN_HOOK__=true;
+  window.continueHorizonAfterLogin=function(...args){
+   const user=sessionUser();
+   if(user?.kioskMode)return enterKiosk(user);
+   return originalContinue.apply(this,args);
+  };
+ }
+ // Also handle an already-authenticated session after refresh, but never the
+ // merely selected account on the login screen.
+ let polls=0;
+ const poll=setInterval(()=>{
+  polls++;
+  const user=sessionUser();
+  if(user?.kioskMode&&!window.__W12_KIOSK_ACTIVE__)enterKiosk(user);
+  if(window.__W12_KIOSK_ACTIVE__||polls>=240)clearInterval(poll);
+ },250);
+
+ // App Clip visual marker: a dashed outline belongs to the icon itself and is
+ // applied consistently in Start, pinned/running taskbar icons and title bars.
+ const clipStyle=document.createElement('style');clipStyle.id='w12mcClipIconStyle';clipStyle.textContent=`
+  .w12mc-clip-icon{outline:2px dashed #8fc7ff!important;outline-offset:3px!important;border-radius:7px!important}
+  .w12mc-clip-icon img{border-radius:4px}
+ `;document.head.appendChild(clipStyle);
+ function appForTitle(title){return registry().find(a=>a&&String(a.title||'')===String(title||''))||null;}
+ function applyClipIconMarkers(){
+  try{
+   document.querySelectorAll('#menu .w12-start-app,#menu .w12-start-tile').forEach(row=>{
+    const app=row.__winconItem;const icon=row.querySelector('.w12-start-icon');
+    if(icon)icon.classList.toggle('w12mc-clip-icon',app?.appClip===true);
+   });
+   document.querySelectorAll('#winconPinnedApps .wincon-pinned-app').forEach(button=>{
+    const app=appForTitle(button.title);button.classList.toggle('w12mc-clip-icon',app?.appClip===true);
+   });
+   document.querySelectorAll('#taskIcons .task-icon').forEach(task=>{
+    const app=appForTitle(task.title);task.classList.toggle('w12mc-clip-icon',app?.appClip===true);
+   });
+   document.querySelectorAll('#desktop .window').forEach(win=>{
+    const app=appForTitle(win.dataset.title);const icon=win.querySelector('.titlebar .title-left>div:first-child');
+    if(icon)icon.classList.toggle('w12mc-clip-icon',app?.appClip===true);
+   });
+  }catch(e){console.warn('[App Clip] icon decoration:',e);}
+ }
+ const clipMarkerObserver=new MutationObserver(applyClipIconMarkers);
+ if(document.body)clipMarkerObserver.observe(document.body,{childList:true,subtree:true});
+ applyClipIconMarkers();
+
+ log('final search and session-bound kiosk handlers installed');
+})();
+</script>
+<script>
+/* Wincon 12 Horizon - Hint Center / Start search / keymap visibility */
+(()=>{
+ 'use strict';
+ const log=(...a)=>console.info('[Wincon Hint Center]',...a);
+ const items=()=>Array.isArray(window.menuItems)?window.menuItems:[];
+ // The key-map editor remains available internally for TV configuration/API use,
+ // but its standalone Start-menu launcher is hidden as requested.
+ function hideKeyMap(){
+  let changed=false;
+  for(const item of items()){
+   if(item&&item.type==='gamecenter'&&item.title!=='Module Center Game'){item.title='Module Center Game';changed=true;}
+   if(item&&((String(item.type||'').toLowerCase()==='keymap')||String(item.title||'').trim()==='キーマップ')){
+    if(!item.hidden){item.hidden=true;changed=true;}
+   }
+  }
+  if(changed){try{localStorage.setItem('winconMenuItems',JSON.stringify(items()));}catch(_){}}
+  return changed;
+ }
+ hideKeyMap();
+ let hidePass=0;
+ const hideTimer=setInterval(()=>{hidePass++;hideKeyMap();if(hidePass>=24)clearInterval(hideTimer);},500);
+
+ // Capture-based search works even when the Start menu is re-rendered or its
+ // own event handler was replaced by another extension.
+ document.addEventListener('input',event=>{
+  const input=event.target;
+  if(!(input instanceof HTMLInputElement))return;
+  if(!input.matches('#menu .w12-start-search,#menu .wincon-menu-search'))return;
+  const menu=document.getElementById('menu')||document;
+  const q=String(input.value||'').trim().toLocaleLowerCase();
+  const rows=[...menu.querySelectorAll('.w12-start-app,.w12-start-tile,.menu-item')];
+  const unique=[...new Set(rows)];
+  let shown=0;
+  for(const row of unique){
+   const item=row.__winconItem||null;
+   const text=[item?.title,item?.name,item?.icon,row.textContent].filter(Boolean).join(' ').toLocaleLowerCase();
+   const match=!q||text.includes(q);
+   row.hidden=!match;
+   row.style.display=match?'':'none';
+   if(match)shown++;
+  }
+  const empty=menu.querySelector('.w12-start-no-match,.wincon-menu-empty');
+  if(empty){empty.hidden=shown!==0;empty.style.display=shown?'none':'';}
+ },true);
+
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ window.openWinconHints=function(){
+  const content=`
+  <div id="w12Hints" style="height:100%;display:flex;flex-direction:column;min-height:0;background:#f4f6f9;color:#172334;font:14px 'Segoe UI',sans-serif">
+   <div style="padding:16px 18px;background:#173b61;color:white"><div style="font-size:12px;opacity:.8">WINCON 12 HORIZON · HELP</div><h2 style="margin:4px 0">Wincon ヒント</h2><div style="opacity:.85">モジュールの導入から設定・トラブル対応まで、操作を順番に学べます。</div></div>
+   <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:0;flex:1;min-height:0">
+    <nav data-hnav style="padding:10px;background:#e6ebf1;overflow:auto;display:flex;flex-direction:column;gap:5px">
+     <button data-tab="start">はじめに</button><button data-tab="install">モジュールの導入</button><button data-tab="clip">App Clip</button><button data-tab="game">Game Mode</button><button data-tab="oobe">OOBE</button><button data-tab="dev">開発者・公開</button><button data-tab="browser">ブラウザ</button><button data-tab="kiosk">キオスク</button><button data-tab="demo">安全なデモ</button><button data-tab="trouble">困ったとき</button>
+    </nav>
+    <main data-hmain style="padding:18px;overflow:auto;min-width:0"></main>
+   </div>
+  </div>`;
+  const win=window.createWindow({title:'Wincon ヒント',icon:'💡',width:980,height:700,content});
+  if(!win)return;
+  const root=win.querySelector('#w12Hints'),main=root.querySelector('[data-hmain]'),nav=root.querySelector('[data-hnav]');
+  const pages={
+   start:`<h2>Winconを使い始める</h2><p>Winconのアプリは「モジュール」と呼ばれます。標準アプリに加えて、Module Centerから追加できます。</p><ol><li>スタートメニューを開きます。</li><li>検索欄にアプリ名を入力すると一覧を絞り込めます。</li><li>💡 ヒントを開けば、いつでもこの説明に戻れます。</li></ol><div style="padding:12px;background:#e8f1fb;border-radius:8px">データを変更する操作は、確認画面が表示されるものがあります。分からない場合は先にこのヒントで流れを確認してください。</div>`,
+   install:`<h2>Module Centerからモジュールを導入する</h2><ol><li>スタートメニューから <b>Module Center</b> を開きます。</li><li>「検索」または「すべてのアプリ」で目的のモジュールを探します。</li><li>カードの「詳細を見る」で作者・説明・バージョン・必要なWinconバージョンを確認します。</li><li>「通常インストール」を押し、UAC確認が表示されたら内容を確認して許可します。</li><li>導入後、スタートメニューに追加されたアプリを開きます。</li></ol><p>Webモジュールは配布元のURLを開きます。インストール操作はアプリ情報をWinconのメニューに登録し、初回導入の集計を送信します。</p><button data-action="open-store">Module Centerを開く</button>`,
+   clip:`<h2>App Clipとは</h2><p>App Clipは通常版を入れる前に短期間試せる簡易版です。</p><ol><li>Module Centerで「App Clip対応」と表示されたアプリを探します。</li><li>「App Clipを試す」を押します。</li><li>試用版は7日後にWinconのアプリ一覧から自動的に削除されます。</li><li>継続して使う場合は、詳細画面から「通常インストール」を選びます。</li></ol><p>App Clipの点線枠は試用版アイコンの目印です。通常版を導入しても、試用版の登録とは別扱いです。</p>`,
+   game:`<h2>Game Mode</h2><p>ゲームアプリは、公開時に開発者が「ゲームとして公開」を有効にしたものです。</p><ol><li>Module Center Gameでゲームを探します。</li><li>通常インストールで追加します。</li><li>スタートメニューの「Game Mode」を起動します。</li><li>ランチャーからゲームを選びます。</li></ol><p>ゲーム判定はモジュールの <code>isGame</code> 情報に基づきます。</p><button data-action="open-game-center">Module Center Gameを開く</button>`,
+   oobe:`<h2>OOBE（初回セットアップ）</h2><p>OOBEはWinconの初回起動時に表示されるセットアップです。</p><ul><li>言語：現在は日本語を選択します。</li><li>お引越し：以前のWinconから設定・データを移す場合に使用します。</li><li>ユーザー：ユーザー名とアイコンを設定します。</li><li>アプリ：Module Centerから最初に使うモジュールを選択できます。</li><li>パスワード：必要に応じて設定します。</li></ul><p>OOBEのアプリ選択画面にある「Module Centerを開く」からカタログ全体を確認できます。</p>`,
+   dev:`<h2>開発者としてモジュールを公開する</h2><ol><li>Module Center Devを開き、開発者名を設定します。</li><li>「新しくアプリを作成」を選択します。</li><li>アプリ名、アイコン、配布URL、説明、バージョンを入力します。</li><li>ゲームなら「ゲームとして公開」を有効にします。</li><li>App Clipを配布する場合は専用HTMLを指定します。</li><li>公開を押すとSupabase経由でカタログに登録されます。</li></ol><p>配布URLはHTTPSの公開ページを推奨します。URL先がiframe表示を拒否している場合、Sail Browserでは別タブで開く必要があります。</p><button data-action="open-dev">Module Center Devを開く</button>`,
+   browser:`<h2>Sail Browserでページが表示されない</h2><p>Webサイト側が <code>X-Frame-Options</code> や <code>Content-Security-Policy: frame-ancestors</code> で埋め込みを禁止していると、Wincon内のブラウザ画面には表示できません。これはWinconの検索機能やアプリ設定とは別の、サイト側の制限です。</p><ol><li>URL欄にアドレスまたは検索語を入力します。</li><li>表示できない場合は「↗ 別タブ」を押します。</li><li>通常のブラウザタブで開けば、埋め込み制限の影響を受けずに閲覧できる場合があります。</li></ol><p>サイトの制限を無理に解除することはできません。ログイン・決済・動画などは外部タブでの利用を推奨します。</p><button data-action="open-browser">Sail Browserを開く</button>`,
+   kiosk:`<h2>キオスクユーザー</h2><p>キオスクは、指定した1つのアプリを全画面で起動する専用ユーザーです。</p><ol><li>ユーザーコンフィグを開きます。</li><li>対象ユーザーを選択し「キオスクユーザーにする」を有効にします。</li><li>起動するアプリを選択して保存します。</li><li>そのユーザーでログインします。</li><li>ログイン後、選択したアプリが全画面で起動します。</li></ol><p>キオスク設定を変更するときは、通常ユーザーでログインしてユーザーコンフィグから設定を直してください。</p>`,
+   trouble:`<h2>よくあるトラブル</h2><h3>Module Centerにアプリが出ない</h3><p>Workerの <code>?catalog=1</code> 応答、公開状態、配布URLを確認してください。</p><h3>インストール数が増えない</h3><p>Workerの <code>record_install</code> とSQL RPC <code>mc_record_install</code> が正しくデプロイされているか確認します。</p><h3>スタート検索が効かない</h3><p>スタートメニューを一度閉じて開き直し、検索欄にアプリ名の一部を入力してください。検索対象は表示中のアプリ名・アイコン名です。</p><h3>キオスクが起動しない</h3><p>キオスク設定ユーザーでログインしているか、選択したアプリがまだメニューに存在するか、ユーザーコンフィグで選び直してください。</p>`
+  };
+  function show(key){
+   nav.querySelectorAll('[data-tab]').forEach(b=>{b.style.background=b.dataset.tab===key?'#c9d8e8':'';b.style.fontWeight=b.dataset.tab===key?'700':'';});
+   main.innerHTML=pages[key]||pages.start;
+  }
+  nav.addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)show(b.dataset.tab);});
+  main.addEventListener('click',e=>{
+   const b=e.target.closest('[data-action]');if(!b)return;
+   const action=b.dataset.action;
+   if(action==='open-store')window.openAppCenter?.();
+   if(action==='open-game-center')window.openGameCenter?.();
+   if(action==='open-dev')window.openAppCenterDeveloper?.();
+   if(action==='open-browser')window.openBrowser?.();
+  });
+  show('start');
+  // Interactive simulation: changes only this window's DOM; no localStorage,
+  // menuItems, Supabase, or real install operation is touched.
+  const demoPage=`
+   <h2>安全なデモ：モジュール導入を体験</h2>
+   <p>これは架空のアプリを使う操作練習です。Winconの保存データ・Module Center・Supabaseには一切書き込みません。</p>
+   <div style="border:1px solid #aab7c7;border-radius:12px;padding:14px;display:flex;gap:12px;align-items:center">
+    <div style="font-size:42px">🧩</div><div style="flex:1"><b>Demo Notes</b><div style="font-size:12px;color:#536273">サンプルモジュール · v1.0.0</div><p style="margin:6px 0">デモ専用の架空アプリです。</p></div><button data-demo="detail">詳細を見る</button>
+   </div>
+   <div data-demo-stage style="margin-top:14px;padding:14px;background:#e8eef5;border-radius:10px;min-height:120px"><b>ステップ1：詳細を確認</b><p>「詳細を見る」を押して、アプリの情報を確認します。</p></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button data-demo="detail">1. 詳細</button><button data-demo="install">2. インストール体験</button><button data-demo="reset">最初から</button></div>
+   <p style="font-size:12px;color:#596779;margin-top:12px">デモ中の「インストール」は画面内の表示だけを変更します。実際のモジュールは追加されません。</p>`;
+  pages.demo=demoPage;
+  const originalShow=show;
+  nav.addEventListener('click',e=>{const b=e.target.closest('[data-tab="demo"]');if(b){setTimeout(()=>{main.innerHTML=demoPage;},0);}});
+  main.addEventListener('click',e=>{
+   const b=e.target.closest('[data-demo]');if(!b)return;
+   const stage=main.querySelector('[data-demo-stage]');if(!stage)return;
+   if(b.dataset.demo==='detail')stage.innerHTML='<b>ステップ2：詳細画面（デモ）</b><p>作者・説明・バージョン・必要なWinconバージョンを確認します。実際のアプリでは、この内容を見てから導入を判断します。</p><button data-demo="install">デモでインストールを試す</button>';
+   else if(b.dataset.demo==='install')stage.innerHTML='<b style="color:#176b42">✓ デモ上でインストール済み</b><p>実際の保存先やSupabaseには触れていません。画面内だけで完結した練習です。</p><button data-demo="reset">デモをリセット</button>';
+   else stage.innerHTML='<b>ステップ1：詳細を確認</b><p>「詳細を見る」を押して、アプリの情報を確認します。</p>';
+  });
+  return win;
+ };
+ function registerHints(){
+  const arr=items();if(!arr.length)return false;
+  let item=arr.find(x=>x&&x.type==='wincon-hints');
+  if(!item){item={id:'wincon-hints',title:'ヒント',icon:'💡',type:'wincon-hints',system:true};arr.push(item);}
+  else{item.title='ヒント';item.icon='💡';item.hidden=false;}
+  try{localStorage.setItem('winconMenuItems',JSON.stringify(arr));}catch(_){}
+  if(typeof window.renderMenu==='function')window.renderMenu();
+  return true;
+ }
+ const route=window.launchWinconItem;
+ window.launchWinconItem=function(item){
+  if(item?.type==='wincon-hints'){window.openWinconHints();return true;}
+  return typeof route==='function'?route.call(this,item):false;
+ };
+ registerHints();
+ let retries=0;const timer=setInterval(()=>{retries++;if(registerHints()||retries>=20)clearInterval(timer);},500);
+ log('Hint app, robust Start search and hidden key-map applied');
+})();
+</script>
 </body>
 </html>
